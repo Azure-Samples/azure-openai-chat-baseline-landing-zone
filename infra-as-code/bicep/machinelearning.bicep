@@ -1,3 +1,5 @@
+targetScope = 'resourceGroup'
+
 /*
   Deploy machine learning workspace, private endpoints and compute resources
 */
@@ -10,6 +12,11 @@ param location string = resourceGroup().location
 
 // existing resource name params 
 param vnetName string
+
+@description('The name of the resource group containing the spoke virtual network.')
+@minLength(1)
+param virtualNetworkResourceGrouName string
+
 param privateEndpointsSubnetName string
 param applicationInsightsName string
 param containerRegistryName string
@@ -17,14 +24,14 @@ param keyVaultName string
 param mlStorageAccountName string
 param logWorkspaceName string
 param openAiResourceName string
-param existingApiAzureMlDnsZone string= ''
-param existingNotebookDnsZone string= ''
+
 // ---- Variables ----
 var workspaceName = 'mlw-${baseName}'
 
 // ---- Existing resources ----
 resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
   name: vnetName
+  scope: resourceGroup(virtualNetworkResourceGrouName)
 
   resource privateEndpointsSubnet 'subnets' existing = {
     name: privateEndpointsSubnetName
@@ -457,59 +464,6 @@ resource machineLearningPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023
       id: vnet::privateEndpointsSubnet.id
     }
   }
-
-  resource privateEndpointDns 'privateDnsZoneGroups' = {
-    name: 'amlworkspace-PrivateDnsZoneGroup'
-    properties: {
-      privateDnsZoneConfigs: [
-        {
-          name: 'privatelink.api.azureml.ms'
-          properties: {
-            privateDnsZoneId:  empty(existingApiAzureMlDnsZone) ? amlPrivateDnsZone.id: existingApiAzureMlDnsZone
-          }
-        }
-        {
-          name: 'privatelink.notebooks.azure.net'
-          properties: {
-            privateDnsZoneId: empty(existingNotebookDnsZone) ? notebookPrivateDnsZone.id: existingNotebookDnsZone 
-          }
-        }
-      ]
-    } 
-  }
 } 
-
-resource amlPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = if(existingApiAzureMlDnsZone=='') {
-  name: 'privatelink.api.azureml.ms'
-  location: 'global'
-
-  resource amlPrivateDnsZoneVnetLink 'virtualNetworkLinks' = {
-    name: '${amlPrivateDnsZone.name}-link'
-    location: 'global'
-    properties: {
-      registrationEnabled: false
-      virtualNetwork: {
-        id: vnet.id
-      }
-    }
-  }
-}
-
-// Notebook
-resource notebookPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = if(existingNotebookDnsZone=='') {
-  name: 'privatelink.notebooks.azure.net'
-  location: 'global'
-
-  resource notebookPrivateDnsZoneVnetLink 'virtualNetworkLinks' = {
-    name: '${notebookPrivateDnsZone.name}-link'
-    location: 'global'
-    properties: {
-      registrationEnabled: false
-      virtualNetwork: {
-        id: vnet.id
-      }
-    }
-  }
-}
 
 output machineLearningId string = machineLearning.id

@@ -1,5 +1,7 @@
+targetScope = 'resourceGroup'
+
 /*
-  Deploy storage account with private endpoint and private DNS zone
+  Deploy storage account with private endpoint
 */
 
 @description('This is the base name for each Azure resource name (6-8 chars)')
@@ -9,17 +11,13 @@ param baseName string
 @description('The resource group location')
 param location string = resourceGroup().location
 
-@description('The storage account SKU, suggest ZRS but can be changed for regions without AZs')
-param paramStorageSKU string = 'Standard_ZRS'
-
-
-
-@description('Determines whether or not a private endpoint, DNS Zone, Zone Link and Zone Group is created for this resource.')
-param createPrivateEndpoints bool = false
-param existingPrivateDnsZoneBlob string = ''
-param existingPrivateDnsZoneFiles string = ''
-// existing resource name params 
+// existing resource name params
 param vnetName string
+
+@description('The name of the resource group containing the spoke virtual network.')
+@minLength(1)
+param virtualNetworkResourceGrouName string
+
 param privateEndpointsSubnetName string
 param logWorkspaceName string
 
@@ -34,6 +32,7 @@ var mlFileStoragePrivateEndpointName = 'pep-file-${mlStorageName}'
 // ---- Existing resources ----
 resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   name: vnetName
+  scope: resourceGroup(virtualNetworkResourceGrouName)
 
   resource privateEndpointsSubnet 'subnets' existing = {
     name: privateEndpointsSubnetName
@@ -49,7 +48,7 @@ resource appDeployStorage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: appDeployStorageName
   location: location
   sku: {
-    name: paramStorageSKU
+    name: 'Standard_ZRS'
   }
   kind: 'StorageV2'
   properties: {
@@ -136,7 +135,7 @@ resource mlStorage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: mlStorageName
   location: location
   sku: {
-    name: paramStorageSKU
+    name: 'Standard_ZRS'
   }
   kind: 'StorageV2'
   properties: {
@@ -233,20 +232,6 @@ resource mlBlobStoragePrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-1
       }
     ]
   }
-
-  resource dnsZoneGroup 'privateDnsZoneGroups' = {
-    name: 'default'
-    properties: {
-      privateDnsZoneConfigs: [
-        {
-          name: blobStorageDnsZone.name
-          properties: {
-            privateDnsZoneId: empty(existingPrivateDnsZoneBlob) ? blobStorageDnsZone.id: existingPrivateDnsZoneBlob
-          }
-        }
-      ]
-    }
-  }
 }
 
 @description('Azure Machine Learning File Storage Private Endpoint')
@@ -269,77 +254,7 @@ resource mlFileStoragePrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-1
       }
     ]
   }
-
-  resource dnsZoneGroup 'privateDnsZoneGroups' = {
-    name: 'default'
-    properties: {
-      privateDnsZoneConfigs: [
-        {
-          name: fileStorageDnsZone.name
-          properties: {
-            privateDnsZoneId:   empty(existingPrivateDnsZoneFiles) ? fileStorageDnsZone.id: existingPrivateDnsZoneFiles
-          }
-        }
-      ]
-    }
-  }
 }
-
-@description('Azure Storage - Blob private DNS zone.')
-resource blobStorageDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = if(existingPrivateDnsZoneBlob==''){
-  name: 'privatelink.blob.${environment().suffixes.storage}'
-  location: 'global'
-  properties: {}
-
-  @description('Link private DNS zone to our workload virtual network')
-  resource vnetLink 'virtualNetworkLinks' = {
-    name: '${blobStorageDnsZone.name}-to-${vnet.name}'
-    location: 'global'
-    properties: {
-      registrationEnabled: false
-      virtualNetwork: {
-        id: vnet.id
-      }
-    }
-  }
-}
-
-@description('Azure Storage - File private DNS zone.')
-resource fileStorageDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = if(existingPrivateDnsZoneFiles==''){
-  name: 'privatelink.file.${environment().suffixes.storage}'
-  location: 'global'
-  properties: {}
-
-  @description('Link private DNS zone to our workload virtual network')
-  resource vnetLink 'virtualNetworkLinks' = {
-    name: '${fileStorageDnsZone.name}-to-${vnet.name}'
-    location: 'global'
-    properties: {
-      registrationEnabled: false
-      virtualNetwork: {
-        id: vnet.id
-      }
-    }
-  }
-}
-
-
-resource appDeployBlobDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2022-11-01' = if (createPrivateEndpoints) {
-  name: 'default'
-  parent: appDeployStoragePrivateEndpoint
-  properties: {
-    privateDnsZoneConfigs: [
-      {
-        name: 'BlobPrivateDNSZoneConfig'
-        properties: {
-          privateDnsZoneId: empty(existingPrivateDnsZoneBlob) ? blobStorageDnsZone.id: existingPrivateDnsZoneBlob
-        }
-      }
-    ]
-  }
-}
-
-
 
 @description('The name of the appDeploy storage account.')
 output appDeployStorageName string = appDeployStorage.name

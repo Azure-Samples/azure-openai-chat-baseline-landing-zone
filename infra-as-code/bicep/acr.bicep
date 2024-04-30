@@ -1,5 +1,7 @@
+targetScope = 'resourceGroup'
+
 /*
-  Deploy container registry with private endpoint and private DNS zone
+  Deploy container registry with private endpoint
 */
 
 @description('This is the base name for each Azure resource name (6-8 chars)')
@@ -9,31 +11,27 @@ param baseName string
 @description('The resource group location')
 param location string = resourceGroup().location
 
-@description('Provide a tier of your Azure Container Registry.')
-param paramAcrSku string = 'Premium'
-
-@description('Determines whether or not a private endpoint, DNS Zone, Zone Link and Zone Group is created for this resource.')
-param createPrivateEndpoints bool = false
-
-@description('The ID of an existing Private DNS Zone.')
-param existingDnsZoneId string = ''
 @description('The zone redundancy of the ACR.')
 param zoneRedundancy string = 'Enabled'
 
 // existing resource name params 
 param vnetName string
+
+@description('The name of the resource group containing the spoke virtual network.')
+@minLength(1)
+param virtualNetworkResourceGrouName string
+
 param privateEndpointsSubnetName string
 param logWorkspaceName string
 
 //variables
 var acrName = 'cr${baseName}'
 var acrPrivateEndpointName = 'pep-${acrName}'
-var acrDnsGroupName = '${acrPrivateEndpointName}/default'
-var acrDnsZoneName = 'privatelink${environment().suffixes.acrLoginServer}'
 
 // ---- Existing resources ----
 resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing =  {
   name: vnetName
+  scope: resourceGroup(virtualNetworkResourceGrouName)
 
   resource privateEndpointsSubnet 'subnets' existing = {
     name: privateEndpointsSubnetName
@@ -48,7 +46,7 @@ resource acrResource 'Microsoft.ContainerRegistry/registries@2023-01-01-preview'
   name: acrName
   location: location
   sku: {
-    name: paramAcrSku
+    name: 'Premium'
   }
   properties: {
     adminUserEnabled: false
@@ -80,7 +78,7 @@ resource acrResourceDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-
   }
 }
 
-resource acrPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' = if (createPrivateEndpoints) {
+resource acrPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' = {
   name: acrPrivateEndpointName
   location: location
   properties: {
@@ -99,60 +97,6 @@ resource acrPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' = if
       }
     ]
   }
-}
-
-resource acrDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = if (createPrivateEndpoints && existingDnsZoneId == '') {
-  name: acrDnsZoneName
-  location: 'global'
-  properties: {}
-}
-
-resource acrDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = if (createPrivateEndpoints && existingDnsZoneId == '') {
-  parent: acrDnsZone
-  location: 'global'
-  name: '${acrDnsZoneName}-link'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: {
-      id: vnet.id
-    }
-  }
-}
-
-
-resource acrDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2022-11-01' = if (createPrivateEndpoints && existingDnsZoneId == '') {
-  name: acrDnsGroupName
-  properties: {
-    privateDnsZoneConfigs: [
-      {
-        name: acrDnsZoneName
-        properties: {
-          privateDnsZoneId: acrDnsZone.id
-        }
-      }
-    ]
-  }
-  dependsOn: [
-    acrPrivateEndpoint
-  ]
-}
-
-
-resource acrDnsZoneGroupExisting 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2022-11-01' = if (createPrivateEndpoints && existingDnsZoneId != '') {
-  name: acrDnsGroupName
-  properties: {
-    privateDnsZoneConfigs: [
-      {
-        name: acrDnsZoneName
-        properties: {
-          privateDnsZoneId: existingDnsZoneId
-        }
-      }
-    ]
-  }
-  dependsOn: [
-    acrPrivateEndpoint
-  ]
 }
 
 @description('Output the login server property for later use')

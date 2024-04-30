@@ -1,13 +1,13 @@
-@description('The location in which all resources should be deployed.')
-param location string = resourceGroup().location
+targetScope = 'subscription'
+
+@description('Name of the resource group that all resources will be deployed into.')
+@minLength(5)
+param workloadResourceGroupName string
 
 @description('This is the base name for each Azure resource name (6-8 chars)')
 @minLength(6)
 @maxLength(8)
 param baseName string
-
-@description('Optional. When true will deploy a cost-optimised environment for development purposes. Note that when this param is true, the deployment is not suitable or recommended for Production environments. Default = false.')
-param developmentEnvironment bool = false
 
 @description('Domain name to use for App Gateway')
 param customDomainName string = 'contoso.com'
@@ -19,146 +19,131 @@ param appGatewayListenerCertificate string
 @description('The name of the web deploy file. The file should reside in a deploy container in the storage account. Defaults to chatui.zip')
 param publishFileName string = 'chatui.zip'
 
-@description('Specifies the password of the administrator account on the Windows jump box.\n\nComplexity requirements: 3 out of 4 conditions below need to be fulfilled:\n- Has lower characters\n- Has upper characters\n- Has a digit\n- Has a special character\n\nDisallowed values: "abc@123", "P@$$w0rd", "P@ssw0rd", "P@ssword123", "Pa$$word", "pass@word1", "Password!", "Password1", "Password22", "iloveyou!"')
-@secure()
-@minLength(8)
-@maxLength(123)
-param jumpBoxAdminPassword string
+// ---- Platform and application landing zone specific parameters ----
 
-// ---- Existing Private DNS Zones Configuration ----
-@description('The ID of the existing DNS zone for the Azure Container Registry. If not provided, a new private DNS zone will be created.')
-param acrExistingDnsZoneId string = ''
-param kvExistingDnsZoneId string = ''
-param openAiExistingDnsZoneId string =''
-param existingPrivateDnsZoneBlob string = ''
-param existingPrivateDnsZoneFile string = ''
-param paramDnsServers array = []
-param existingApiAzureMlDnsZone string = ''
-param existingNotebookDnsZone string= ''
-param paramFirewallNVAIpAddress string =''
-param existingPrivateZoneAppService string =''
-param deployJumpbox bool =false
+@description('The resource ID of the subscription vending provided spoke in this subscription.')
+@minLength(50)
+param existingResourceIdForSpokeVirtualNetwork string
+
+@description('The resource ID of the subscription vending provided Internet UDR in this subscription. Leave blank if platform team performs Internet routing another way.')
+param existingResourceIdForUdrForInternetTraffic string = ''
+
+@description('The IP range of the hub-provided Azure Bastion subnet range. Needed for workload to limit access in NSGs.')
+@minLength(10)
+param bastionSubnetAddresses string
+
 // ---- Parameters required to set to make it non availability zone compliant ----
-param paramStorageSKU string = 'Standard_ZRS'
-param paramAcrSku string = 'Premium'
-param availabilityZones array = [ '1', '2', '3' ]
-param paramZoneRedundancy string = 'Disabled'
 
-// ---- Log Analytics workspace ----
-resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
-  name: 'log-${baseName}'
-  location: location
-  properties: {
-    sku: {
-      name: 'PerGB2018'
-    }
-    retentionInDays: 30
-    publicNetworkAccessForIngestion: 'Enabled'
-    publicNetworkAccessForQuery: 'Enabled'
+var existingResourceGroupNameForSpokeVirtualNetwork = split(existingResourceIdForSpokeVirtualNetwork, '/')[4]
+var existingSpokeVirtualNetworkName = split(existingResourceIdForSpokeVirtualNetwork, '/')[8]
+var existingUdrForInternetTrafficName = split(existingResourceIdForUdrForInternetTraffic, '/')[8]
+
+// ---- Target Resource Groups ----
+
+resource rgWorkload 'Microsoft.Resources/resourceGroups@2023-07-01' existing = {
+  name: workloadResourceGroupName
+}
+
+resource rgSpoke 'Microsoft.Resources/resourceGroups@2023-07-01' existing = {
+  name: existingResourceGroupNameForSpokeVirtualNetwork
+}
+
+// Deploy Log Analytics workspace
+module monitoringModule 'monitoring.bicep' = {
+  name: 'workloadMonitoring'
+  scope: rgWorkload
+  params: {
+    location: rgWorkload.location
+    baseName: baseName
   }
 }
 
-// Deploy vnet with subnets and NSGs
+// Deploy subnets and NSGs
 module networkModule 'network.bicep' = {
   name: 'networkDeploy'
+  scope: rgSpoke
   params: {
-    location: location
-    baseName: baseName
-    developmentEnvironment: developmentEnvironment
-    dnsServers: paramDnsServers
-    paramFirewallNVAIpAddress: paramFirewallNVAIpAddress
+    location: rgSpoke.location
+    existingSpokeVirtualNetworkName: existingSpokeVirtualNetworkName
+    existingUdrForInternetTrafficName: existingUdrForInternetTrafficName
+    bastionSubnetAddresses: bastionSubnetAddresses
   }
 }
 
-@description('Deploys Azure Bastion and the jump box, which is used for private access to the Azure ML and Azure OpenAI portals.')
-module jumpBoxModule 'jumpbox.bicep' = {
-  name: 'jumpBoxDeploy'
-  params: {
-    location: location
-    baseName: baseName
-    virtualNetworkName: networkModule.outputs.vnetNName
-    logWorkspaceName: logWorkspace.name
-    jumpBoxAdminName: 'vmadmin'
-    jumpBoxAdminPassword: jumpBoxAdminPassword
-    deployJumpbox: deployJumpbox
-  }
-}
-
-// Deploy storage account with private endpoint and private DNS zone
+// Deploy storage account with private endpoint
 module storageModule 'storage.bicep' = {
   name: 'storageDeploy'
+  scope: rgWorkload
   params: {
-    location: location
+    location: rgWorkload.location
     baseName: baseName
-    vnetName: networkModule.outputs.vnetNName
+    vnetName: networkModule.outputs.vnetName
+    virtualNetworkResourceGrouName: rgSpoke.name
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
-    logWorkspaceName: logWorkspace.name
-    paramStorageSKU: paramStorageSKU
-    existingPrivateDnsZoneBlob:existingPrivateDnsZoneBlob
-    existingPrivateDnsZoneFiles:existingPrivateDnsZoneFile
+    logWorkspaceName: monitoringModule.outputs.logWorkspaceName
   }
 }
 
-// Deploy key vault with private endpoint and private DNS zone
+// Deploy key vault with private endpoint
 module keyVaultModule 'keyvault.bicep' = {
   name: 'keyVaultDeploy'
+  scope: rgWorkload
   params: {
-    location: location
+    location: rgWorkload.location
     baseName: baseName
-    vnetName: networkModule.outputs.vnetNName
+    vnetName: networkModule.outputs.vnetName
+    virtualNetworkResourceGrouName: rgSpoke.name
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
-    createPrivateEndpoints: true
     appGatewayListenerCertificate: appGatewayListenerCertificate
     apiKey: 'key'
-    logWorkspaceName: logWorkspace.name
-    existingPrivateDNSZONE: kvExistingDnsZoneId
+    logWorkspaceName: monitoringModule.outputs.logWorkspaceName
   }
 }
 
-// Deploy container registry with private endpoint and private DNS zone
+// Deploy container registry with private endpoint
 module acrModule 'acr.bicep' = {
   name: 'acrDeploy'
+  scope: rgWorkload
   params: {
-    location: location
+    location: rgWorkload.location
     baseName: baseName
-    vnetName: networkModule.outputs.vnetNName
+    vnetName: networkModule.outputs.vnetName
+    virtualNetworkResourceGrouName: rgSpoke.name
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
-    createPrivateEndpoints: true
-    logWorkspaceName: logWorkspace.name
-    existingDnsZoneId: acrExistingDnsZoneId
-    paramAcrSku: paramAcrSku
-    zoneRedundancy: paramZoneRedundancy
+    logWorkspaceName: monitoringModule.outputs.logWorkspaceName
   }
 }
 
-// Deploy application insights and log analytics workspace
+// Deploy application insights
 module appInsightsModule 'applicationinsignts.bicep' = {
   name: 'appInsightsDeploy'
+  scope: rgWorkload
   params: {
-    location: location
+    location: rgWorkload.location
     baseName: baseName
-    logWorkspaceName: logWorkspace.name
+    logWorkspaceName: monitoringModule.outputs.logWorkspaceName
   }
 }
 
-// Deploy Azure OpenAI service with private endpoint and private DNS zone
+// Deploy Azure OpenAI service with private endpoint
 module openaiModule 'openai.bicep' = {
   name: 'openaiDeploy'
+  scope: rgWorkload
   params: {
-    location: location
+    location: rgWorkload.location
     baseName: baseName
-    vnetName: networkModule.outputs.vnetNName
+    vnetName: networkModule.outputs.vnetName
+    virtualNetworkResourceGrouName: rgSpoke.name
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
-    logWorkspaceName: logWorkspace.name
+    logWorkspaceName: monitoringModule.outputs.logWorkspaceName
     keyVaultName: keyVaultModule.outputs.keyVaultName
-    createPrivateEndpoints:true
-    existingPrivateDnsZone:openAiExistingDnsZoneId
   }
 }
 
 // Deploy the gpt 3.5 model within the Azure OpenAI service deployed above.
 module openaiModels 'openai-models.bicep' = {
   name: 'openaiModelsDeploy'
+  scope: rgWorkload
   params: {
     openaiName: openaiModule.outputs.openAiResourceName
   }
@@ -167,56 +152,55 @@ module openaiModels 'openai-models.bicep' = {
 // Deploy machine learning workspace with private endpoint and private DNS zone
 module mlwModule 'machinelearning.bicep' = {
   name: 'mlwDeploy'
+  scope: rgWorkload
   params: {
-    location: location
+    location: rgWorkload.location
     baseName: baseName
-    vnetName: networkModule.outputs.vnetNName
+    vnetName: networkModule.outputs.vnetName
+    virtualNetworkResourceGrouName: rgSpoke.name
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
     applicationInsightsName: appInsightsModule.outputs.applicationInsightsName
     keyVaultName: keyVaultModule.outputs.keyVaultName
     mlStorageAccountName: storageModule.outputs.mlDeployStorageName
     containerRegistryName: 'cr${baseName}'
-    logWorkspaceName: logWorkspace.name
+    logWorkspaceName: monitoringModule.outputs.logWorkspaceName
     openAiResourceName: openaiModule.outputs.openAiResourceName
-    existingApiAzureMlDnsZone:existingApiAzureMlDnsZone
-    existingNotebookDnsZone:existingNotebookDnsZone
   }
 }
 
 //Deploy an Azure Application Gateway with WAF v2 and a custom domain name.
 module gatewayModule 'gateway.bicep' = {
   name: 'gatewayDeploy'
+  scope: rgWorkload
   params: {
-    location: location
+    location: rgWorkload.location
     baseName: baseName
-    developmentEnvironment: developmentEnvironment
-    availabilityZones: availabilityZones
     customDomainName: customDomainName
     appName: webappModule.outputs.appName
-    vnetName: networkModule.outputs.vnetNName
+    vnetName: networkModule.outputs.vnetName
+    virtualNetworkResourceGrouName: rgSpoke.name
     appGatewaySubnetName: networkModule.outputs.appGatewaySubnetName
     keyVaultName: keyVaultModule.outputs.keyVaultName
     gatewayCertSecretUri: keyVaultModule.outputs.gatewayCertSecretUri
-    logWorkspaceName: logWorkspace.name
+    logWorkspaceName: monitoringModule.outputs.logWorkspaceName
   }
 }
 
 // Deploy the web apps for the front end demo ui and the containerised promptflow endpoint
 module webappModule 'webapp.bicep' = {
   name: 'webappDeploy'
+  scope: rgWorkload
   params: {
-    location: location
+    location: rgWorkload.location
     baseName: baseName
-    developmentEnvironment: developmentEnvironment
     publishFileName: publishFileName
     keyVaultName: keyVaultModule.outputs.keyVaultName
     storageName: storageModule.outputs.appDeployStorageName
-    vnetName: networkModule.outputs.vnetNName
+    vnetName: networkModule.outputs.vnetName
+    virtualNetworkResourceGrouName: rgSpoke.name
     appServicesSubnetName: networkModule.outputs.appServicesSubnetName
-    existingPrivateZoneAppService: existingPrivateZoneAppService
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
-    logWorkspaceName: logWorkspace.name
-  
+    logWorkspaceName: monitoringModule.outputs.logWorkspaceName
   }
   dependsOn: [
     openaiModule

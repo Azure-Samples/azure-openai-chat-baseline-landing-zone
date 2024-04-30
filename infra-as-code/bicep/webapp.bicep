@@ -1,3 +1,5 @@
+targetScope = 'resourceGroup'
+
 /*
   Deploy a web app with a managed identity, diagnostic, and a private endpoint
 */
@@ -9,17 +11,20 @@ param baseName string
 @description('The resource group location')
 param location string = resourceGroup().location
 
-param developmentEnvironment bool
 param publishFileName string
 
 // existing resource name params 
 param vnetName string
+
+@description('The name of the resource group containing the spoke virtual network.')
+@minLength(1)
+param virtualNetworkResourceGrouName string
+
 param appServicesSubnetName string
 param privateEndpointsSubnetName string
 param storageName string
 param keyVaultName string
 param logWorkspaceName string
-param existingPrivateZoneAppService string =''
 
 // variables
 var appName = 'app-${baseName}'
@@ -39,26 +44,10 @@ var chatOutputName = 'answer'
 
 var openAIApiKey = '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/openai-key)'
 
-var appServicePlanPremiumSku = 'Premium'
-var appServicePlanStandardSku = 'Standard'
-var appServicePlanSettings = {
-  Standard: {
-    name: 'S1'
-    capacity: 1
-  }
-  Premium: {
-    name: 'P2v2'
-    capacity: 3
-  }
-}
-
-var appServicesDnsZoneName = 'privatelink.azurewebsites.net'
-var appServicesDnsGroupName = '${appServicePrivateEndpointName}/default'
-var appServicesPfDnsGroupName = '${appServicePfPrivateEndpointName}/default'
-
 // ---- Existing resources ----
 resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   name: vnetName
+  scope: resourceGroup(virtualNetworkResourceGrouName)
 
   resource appServicesSubnet 'subnets' existing = {
     name: appServicesSubnetName
@@ -121,9 +110,12 @@ resource blobDataReaderRoleAssignment 'Microsoft.Authorization/roleAssignments@2
 resource appServicePlan 'Microsoft.Web/serverfarms@2022-09-01' = {
   name: appServicePlanName
   location: location
-  sku: developmentEnvironment ? appServicePlanSettings[appServicePlanStandardSku] : appServicePlanSettings[appServicePlanPremiumSku]
+  sku: {
+    name: 'P2v2'
+    capacity: 3
+  }
   properties: {
-    zoneRedundant: !developmentEnvironment
+    zoneRedundant: true
     reserved: true
   }
   kind: 'linux'
@@ -235,41 +227,6 @@ resource appServicePrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-0
       }
     ]
   }
-}
-
-resource appServiceDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01'  = if(existingPrivateZoneAppService==''){
-  name: appServicesDnsZoneName
-  location: 'global'
-  properties: {}
-}
-
-resource appServiceDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = if(existingPrivateZoneAppService=='')  {
-  parent: appServiceDnsZone
-  name: '${appServicesDnsZoneName}-link'
-  location: 'global'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: {
-      id: vnet.id
-    }
-  }
-}
-
-resource appServiceDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2022-11-01' = {
-  name: appServicesDnsGroupName
-  properties: {
-    privateDnsZoneConfigs: [
-      {
-        name: 'privatelink.azurewebsites.net'
-        properties: {
-          privateDnsZoneId: empty(existingPrivateZoneAppService) ? appServiceDnsZone.id: existingPrivateZoneAppService 
-        }
-      }
-    ]
-  }
-  dependsOn: [
-    appServicePrivateEndpoint
-  ]
 }
 
 // App service plan auto scale settings
@@ -441,23 +398,6 @@ resource appServicePrivateEndpointPf 'Microsoft.Network/privateEndpoints@2022-11
       }
     ]
   }
-}
-
-resource appServicePfDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2022-11-01' = {
-  name: appServicesPfDnsGroupName
-  properties: {
-    privateDnsZoneConfigs: [
-      {
-        name: 'privatelink.azurewebsites.net'
-        properties: {
-          privateDnsZoneId: empty(existingPrivateZoneAppService) ? appServiceDnsZone.id: existingPrivateZoneAppService 
-        }
-      }
-    ]
-  }
-  dependsOn: [
-    appServicePrivateEndpointPf
-  ]
 }
 
 resource containerRegistry 'Microsoft.ContainerRegistry/registries@2019-05-01' existing = {
