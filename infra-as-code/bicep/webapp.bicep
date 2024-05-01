@@ -111,7 +111,7 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2022-09-01' = {
   location: location
   sku: {
     name: 'P2v2'
-    capacity: 3
+    capacity: 2
   }
   properties: {
     zoneRedundant: true
