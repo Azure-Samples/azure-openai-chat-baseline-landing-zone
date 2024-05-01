@@ -33,13 +33,13 @@ var keyVaultDnsGroupName = '${keyVaultPrivateEndpointName}/default'
 var keyVaultDnsZoneName = 'privatelink.vaultcore.azure.net' //Cannot use 'privatelink${environment().suffixes.keyvaultDns}', per https://github.com/Azure/bicep/issues/9708
 
 // ---- Existing resources ----
-resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing =  {
+resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   name: vnetName
   scope: resourceGroup(virtualNetworkResourceGrouName)
 
   resource privateEndpointsSubnet 'subnets' existing = {
     name: privateEndpointsSubnetName
-  }  
+  }
 }
 
 resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' existing = {
@@ -61,13 +61,13 @@ resource keyVault 'Microsoft.KeyVault/vaults@2019-09-01' = {
 
     tenantId: subscription().tenantId
 
-    enableRbacAuthorization: true       // Using RBAC
-    enabledForDeployment: true          // VMs can retrieve certificates
-    enabledForTemplateDeployment: true  // ARM can retrieve values
+    enableRbacAuthorization: true // Using RBAC
+    enabledForDeployment: true // VMs can retrieve certificates
+    enabledForTemplateDeployment: true // ARM can retrieve values
 
     enableSoftDelete: true
     softDeleteRetentionInDays: 7
-    createMode: 'default'               // Creating or updating the key vault (not recovering)
+    createMode: 'default' // Creating or updating the key vault (not recovering)
   }
   resource kvsGatewayPublicCert 'secrets' = {
     name: 'gateway-public-cert'
@@ -76,7 +76,6 @@ resource keyVault 'Microsoft.KeyVault/vaults@2019-09-01' = {
       contentType: 'application/x-pkcs12'
     }
   }
-
 }
 
 //Key Vault diagnostic settings
@@ -87,20 +86,20 @@ resource keyVaultDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-
   properties: {
     workspaceId: logWorkspace.id
     logs: [
-        {
-            categoryGroup: 'allLogs'
-            enabled: true
-            retentionPolicy: {
-                enabled: false
-                days: 0
-            }
+      {
+        categoryGroup: 'allLogs'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
         }
+      }
     ]
     logAnalyticsDestinationType: null
   }
 }
 
-resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' =  {
+resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' = {
   name: keyVaultPrivateEndpointName
   location: location
   properties: {

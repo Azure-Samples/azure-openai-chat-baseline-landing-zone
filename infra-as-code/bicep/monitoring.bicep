@@ -7,7 +7,7 @@ param location string = resourceGroup().location
 @maxLength(8)
 param baseName string
 
-resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: 'log-${baseName}'
   location: location
   properties: {
@@ -20,5 +20,16 @@ resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   }
 }
 
-output logWorkspaceId string = logWorkspace.id
-output logWorkspaceName string = logWorkspace.name
+resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: 'appi-${baseName}'
+  location: location
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    WorkspaceResourceId: logAnalyticsWorkspace.id
+    Flow_Type: 'Bluefield'
+  }
+}
+
+output logWorkspaceName string = logAnalyticsWorkspace.name
+output applicationInsightsName string = applicationInsights.name

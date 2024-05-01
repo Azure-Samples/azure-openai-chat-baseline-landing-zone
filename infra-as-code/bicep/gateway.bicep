@@ -32,13 +32,13 @@ var appGatewayName = 'agw-${baseName}'
 var appGatewayManagedIdentityName = 'id-${appGatewayName}'
 var appGatewayPublicIpName = 'pip-${baseName}'
 var appGatewayFqdn = 'fe-${baseName}'
-var wafPolicyName= 'waf-${baseName}'
+var wafPolicyName = 'waf-${baseName}'
 
 // ---- Existing resources ----
-resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing =  {
+resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   name: vnetName
   scope: resourceGroup(virtualNetworkResourceGrouName)
-  
+
   resource appGatewaySubnet 'subnets' existing = {
     name: appGatewaySubnetName
   }
@@ -80,7 +80,7 @@ module appGatewaySecretsUserRoleAssignmentModule './modules/keyvaultRoleAssignme
 resource appGatewayPublicIp 'Microsoft.Network/publicIPAddresses@2022-11-01' = {
   name: appGatewayPublicIpName
   location: location
-  zones: [ '1', '2', '3' ]
+  zones: ['1', '2', '3']
   sku: {
     name: 'Standard'
   }
@@ -125,7 +125,7 @@ resource wafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewallPo
 resource appGateway 'Microsoft.Network/applicationGateways@2022-11-01' = {
   name: appGatewayName
   location: location
-  zones: [ '1', '2', '3' ]
+  zones: ['1', '2', '3']
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: {
@@ -240,14 +240,22 @@ resource appGateway 'Microsoft.Network/applicationGateways@2022-11-01' = {
         name: 'WebAppListener'
         properties: {
           frontendIPConfiguration: {
-            id: resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appGatewayName, 'appGwPublicFrontendIp')
+            id: resourceId(
+              'Microsoft.Network/applicationGateways/frontendIPConfigurations',
+              appGatewayName,
+              'appGwPublicFrontendIp'
+            )
           }
           frontendPort: {
             id: resourceId('Microsoft.Network/applicationGateways/frontendPorts', appGatewayName, 'port-443')
           }
           protocol: 'Https'
           sslCertificate: {
-            id: resourceId('Microsoft.Network/applicationGateways/sslCertificates', appGatewayName, '${appGatewayName}-ssl-certificate')
+            id: resourceId(
+              'Microsoft.Network/applicationGateways/sslCertificates',
+              appGatewayName,
+              '${appGatewayName}-ssl-certificate'
+            )
           }
           hostName: 'www.${customDomainName}'
           hostNames: []
@@ -265,10 +273,18 @@ resource appGateway 'Microsoft.Network/applicationGateways@2022-11-01' = {
             id: resourceId('Microsoft.Network/applicationGateways/httpListeners', appGatewayName, 'WebAppListener')
           }
           backendAddressPool: {
-            id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools', appGatewayName, 'pool-${appName}')
+            id: resourceId(
+              'Microsoft.Network/applicationGateways/backendAddressPools',
+              appGatewayName,
+              'pool-${appName}'
+            )
           }
           backendHttpSettings: {
-            id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', appGatewayName, 'WebAppBackendHttpSettings')
+            id: resourceId(
+              'Microsoft.Network/applicationGateways/backendHttpSettingsCollection',
+              appGatewayName,
+              'WebAppBackendHttpSettings'
+            )
           }
         }
       }
@@ -290,18 +306,15 @@ resource appGatewayDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-0
   properties: {
     workspaceId: logWorkspace.id
     logs: [
-        {
-            categoryGroup: 'allLogs'
-            enabled: true
-            retentionPolicy: {
-                enabled: false
-                days: 0
-            }
+      {
+        categoryGroup: 'allLogs'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
         }
+      }
     ]
     logAnalyticsDestinationType: null
   }
 }
-
-@description('The name of the app gateway resource.')
-output appGatewayName string = appGateway.name

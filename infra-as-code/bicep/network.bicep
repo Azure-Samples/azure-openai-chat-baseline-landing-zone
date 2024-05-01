@@ -4,9 +4,6 @@ targetScope = 'resourceGroup'
   Deploy subnets and NSGs
 */
 
-// @description('This is the base name for each Azure resource name (6-8 chars)')
-// param baseName string
-
 @description('The resource group location')
 param location string = resourceGroup().location
 
@@ -17,22 +14,29 @@ param existingSpokeVirtualNetworkName string
 @description('Name of the existing Internet UDR in this resource group. This should be blank for VWAN deployments.')
 param existingUdrForInternetTrafficName string = ''
 
-@description('The IP address space for the Azure Bastion instances in the hub. This is use for jump box (if deployed) and build agents.')
-@minLength(10)
+@description('The IP range of the hub-provided Azure Bastion subnet range. Needed for workload to limit access in NSGs. For example, 10.0.1.0/26')
+@minLength(9)
 param bastionSubnetAddresses string
 
-// variables
-// var vnetName = 'vnet-${baseName}'
-// var ddosPlanName = 'ddos-${baseName}'
+@description('Address space within the existing spoke\'s available address space to be used for Azure App Services.')
+@minLength(9)
+param appServicesSubnetAddressPrefix string
 
-// WARNING: You'll need to set these based off of what address space your platform team provided you.
-var appServicesSubnetPrefix = '11.0.0.0/24'
-var appGatewaySubnetPrefix = '11.0.1.0/24'
-var privateEndpointsSubnetPrefix = '11.0.2.0/27'
-var agentsSubnetPrefix = '11.0.2.32/27'
-var jumpboxSubnetPrefix = '11.0.2.128/28'
-var trainingSubnetPrefix = '11.0.3.0/24'
-var scoringSubnetPrefix = '11.0.4.0/24'
+@description('Address space within the existing spoke\'s available address space to be used for Azure Azure Application Gateway.')
+@minLength(9)
+param appGatewaySubnetAddressPrefix string
+
+@description('Address space within the existing spoke\'s available address space to be used for the workload\'s private endpoints.')
+@minLength(9)
+param privateEndpointsSubnetAddressPrefix string
+
+@description('Address space within the existing spoke\'s available address space to be used for build agents.')
+@minLength(9)
+param agentsSubnetAddressPrefix string
+
+@description('Address space within the existing spoke\'s available address space to be used for jump boxes.')
+@minLength(9)
+param jumpBoxSubnetAddressPrefix string
 
 //--- Routing ----
 
@@ -73,153 +77,102 @@ resource hubFirewallUdr 'Microsoft.Network/routeTables@2022-11-01' existing = if
   }*/
 
 // Virtual network and subnets
-resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' = {
+resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   name: existingSpokeVirtualNetworkName
-  location: location
+  scope: resourceGroup()
 
-  properties: {
-    subnets: [
-      {
-        //App services plan subnet
-        name: 'snet-appServicePlan'
-        properties: {
-          addressPrefix: appServicesSubnetPrefix
-          networkSecurityGroup: {
-            id: appServiceSubnetNsg.id
-          }
-          delegations: [
-            {
-              name: 'delegation'
-              properties: {
-                serviceName: 'Microsoft.Web/serverFarms'
-              }
-            }
-          ]
-          routeTable: hubFirewallUdr != null
-            ? {
-                id: hubFirewallUdr.id
-              }
-            : null
-        }
+  resource appServiceSubnet 'subnets' = {
+    name: 'snet-appServicePlan'
+    properties: {
+      addressPrefix: appServicesSubnetAddressPrefix
+      networkSecurityGroup: {
+        id: appServiceSubnetNsg.id
       }
-      {
-        // App Gateway subnet
-        name: 'snet-appGateway'
-        properties: {
-          addressPrefix: appGatewaySubnetPrefix
-          networkSecurityGroup: {
-            id: appGatewaySubnetNsg.id
+      delegations: [
+        {
+          name: 'delegation'
+          properties: {
+            serviceName: 'Microsoft.Web/serverFarms'
           }
+        }
+      ]
+      routeTable: hubFirewallUdr != null
+        ? {
+            id: hubFirewallUdr.id
+          }
+        : null
+    }
+  }
 
-          //routeTable: TODO
-        }
+  resource appGatewaySubnet 'subnets' = {
+    name: 'snet-appGateway'
+    properties: {
+      addressPrefix: appGatewaySubnetAddressPrefix
+      networkSecurityGroup: {
+        id: appGatewaySubnetNsg.id
       }
-      {
-        // Private endpoints subnet
-        name: 'snet-privateEndpoints'
-        properties: {
-          addressPrefix: privateEndpointsSubnetPrefix
-          networkSecurityGroup: {
-            id: privateEndpointsSubnetNsg.id
-          }
-          privateEndpointNetworkPolicies: 'Enabled'
-          privateLinkServiceNetworkPolicies: 'Enabled'
-          routeTable: hubFirewallUdr != null
-            ? {
-                id: hubFirewallUdr.id
-              }
-            : null
-        }
-      }
-      {
-        // Build agents subnet
-        name: 'snet-agents'
-        properties: {
-          addressPrefix: agentsSubnetPrefix
-          networkSecurityGroup: {
-            id: agentsSubnetNsg.id
-          }
-          routeTable: hubFirewallUdr != null
-            ? {
-                id: hubFirewallUdr.id
-              }
-            : null
-        }
-      }
-      {
-        // Jump box VMs subnet
-        name: 'snet-jumpbox'
-        properties: {
-          addressPrefix: jumpboxSubnetPrefix
-          networkSecurityGroup: {
-            id: jumpboxSubnetNsg.id
-          }
-          routeTable: hubFirewallUdr != null
-            ? {
-                id: hubFirewallUdr.id
-              }
-            : null
-        }
-      }
-      {
-        // Training subnet
-        name: 'snet-training'
-        properties: {
-          addressPrefix: trainingSubnetPrefix
-          networkSecurityGroup: {
-            id: trainingSubnetNsg.id
-          }
-          routeTable: hubFirewallUdr != null
-            ? {
-                id: hubFirewallUdr.id
-              }
-            : null
-        }
-      }
-      {
-        // Scoring subnet
-        name: 'snet-scoring'
-        properties: {
-          addressPrefix: scoringSubnetPrefix
-          networkSecurityGroup: {
-            id: scoringSubnetNsg.id
-          }
-          routeTable: hubFirewallUdr != null
-            ? {
-                id: hubFirewallUdr.id
-              }
-            : null
-        }
-      }
+
+      //routeTable: TODO for FW ingress
+    }
+    dependsOn: [
+      appServiceSubnet  // Single thread these
     ]
   }
 
-  resource appGatewaySubnet 'subnets' existing = {
-    name: 'snet-appGateway'
-  }
-
-  resource appServiceSubnet 'subnets' existing = {
-    name: 'snet-appServicePlan'
-  }
-
-  resource privateEnpointsSubnet 'subnets' existing = {
+  resource privateEnpointsSubnet 'subnets' = {
     name: 'snet-privateEndpoints'
+    properties: {
+      addressPrefix: privateEndpointsSubnetAddressPrefix
+      networkSecurityGroup: {
+        id: privateEndpointsSubnetNsg.id
+      }
+      privateEndpointNetworkPolicies: 'Enabled'
+      privateLinkServiceNetworkPolicies: 'Enabled'
+      routeTable: hubFirewallUdr != null
+        ? {
+            id: hubFirewallUdr.id
+          }
+        : null
+    }
+    dependsOn: [
+      appGatewaySubnet  // Single thread these
+    ]
   }
 
-  resource agentsSubnet 'subnets' existing = {
+  resource agentsSubnet 'subnets' = {
     name: 'snet-agents'
+    properties: {
+      addressPrefix: agentsSubnetAddressPrefix
+      networkSecurityGroup: {
+        id: agentsSubnetNsg.id
+      }
+      routeTable: hubFirewallUdr != null
+        ? {
+            id: hubFirewallUdr.id
+          }
+        : null
+    }
+    dependsOn: [
+      privateEnpointsSubnet  // Single thread these
+    ]
   }
 
-  resource jumpBoxSubnet 'subnets' existing = {
+  resource jumpBoxSubnet 'subnets' = {
     name: 'snet-jumpbox'
-  }
-
-  resource trainingSubnet 'subnets' existing = {
-    name: 'snet-training'
-  }
-
-  resource scoringSubnet 'subnets' existing = {
-    name: 'snet-scoring'
+    properties: {
+      addressPrefix: jumpBoxSubnetAddressPrefix
+      networkSecurityGroup: {
+        id: jumpboxSubnetNsg.id
+      }
+      routeTable: hubFirewallUdr != null
+        ? {
+            id: hubFirewallUdr.id
+          }
+        : null
+    }
+    dependsOn: [
+      agentsSubnet  // Single thread these
+    ]
   }
 }
 
@@ -251,7 +204,7 @@ resource appGatewaySubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01
           sourcePortRange: '*'
           destinationPortRange: '443'
           sourceAddressPrefix: 'Internet'
-          destinationAddressPrefix: appGatewaySubnetPrefix
+          destinationAddressPrefix: appGatewaySubnetAddressPrefix
           access: 'Allow'
           priority: 110
           direction: 'Inbound'
@@ -291,8 +244,8 @@ resource appGatewaySubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01
           protocol: '*'
           sourcePortRange: '*'
           destinationPortRange: '*'
-          sourceAddressPrefix: appGatewaySubnetPrefix
-          destinationAddressPrefix: privateEndpointsSubnetPrefix
+          sourceAddressPrefix: appGatewaySubnetAddressPrefix
+          destinationAddressPrefix: privateEndpointsSubnetAddressPrefix
           access: 'Allow'
           priority: 100
           direction: 'Outbound'
@@ -305,7 +258,7 @@ resource appGatewaySubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01
           protocol: '*'
           sourcePortRange: '*'
           destinationPortRange: '*'
-          sourceAddressPrefix: appGatewaySubnetPrefix
+          sourceAddressPrefix: appGatewaySubnetAddressPrefix
           destinationAddressPrefix: 'AzureMonitor'
           access: 'Allow'
           priority: 110
@@ -329,8 +282,8 @@ resource appServiceSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01
           protocol: 'Tcp'
           sourcePortRange: '*'
           destinationPortRange: '443'
-          sourceAddressPrefix: appServicesSubnetPrefix
-          destinationAddressPrefix: privateEndpointsSubnetPrefix
+          sourceAddressPrefix: appServicesSubnetAddressPrefix
+          destinationAddressPrefix: privateEndpointsSubnetAddressPrefix
           access: 'Allow'
           priority: 100
           direction: 'Outbound'
@@ -343,7 +296,7 @@ resource appServiceSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01
           protocol: '*'
           sourcePortRange: '*'
           destinationPortRange: '*'
-          sourceAddressPrefix: appServicesSubnetPrefix
+          sourceAddressPrefix: appServicesSubnetAddressPrefix
           destinationAddressPrefix: 'AzureMonitor'
           access: 'Allow'
           priority: 110
@@ -367,7 +320,7 @@ resource privateEndpointsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022
           protocol: '*'
           sourcePortRange: '*'
           destinationPortRange: '*'
-          sourceAddressPrefix: privateEndpointsSubnetPrefix
+          sourceAddressPrefix: privateEndpointsSubnetAddressPrefix
           destinationAddressPrefix: '*'
           access: 'Deny'
           priority: 1000
@@ -391,55 +344,7 @@ resource agentsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = 
           protocol: '*'
           sourcePortRange: '*'
           destinationPortRange: '*'
-          sourceAddressPrefix: appGatewaySubnetPrefix
-          destinationAddressPrefix: '*'
-          access: 'Deny'
-          priority: 1000
-          direction: 'Outbound'
-        }
-      }
-    ]
-  }
-}
-
-// Training subnet NSG
-resource trainingSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
-  name: 'nsg-trainingSubnet'
-  location: location
-  properties: {
-    securityRules: [
-      {
-        name: 'DenyAllOutBound'
-        properties: {
-          description: 'Deny outbound traffic from the training subnet. Note: adjust rules as needed after adding resources to the subnet'
-          protocol: '*'
-          sourcePortRange: '*'
-          destinationPortRange: '*'
-          sourceAddressPrefix: trainingSubnetPrefix
-          destinationAddressPrefix: '*'
-          access: 'Deny'
-          priority: 1000
-          direction: 'Outbound'
-        }
-      }
-    ]
-  }
-}
-
-// Scoring subnet NSG
-resource scoringSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
-  name: 'nsg-scoringSubnet'
-  location: location
-  properties: {
-    securityRules: [
-      {
-        name: 'DenyAllOutBound'
-        properties: {
-          description: 'Deny outbound traffic from the scoring subnet. Note: adjust rules as needed after adding resources to the subnet'
-          protocol: '*'
-          sourcePortRange: '*'
-          destinationPortRange: '*'
-          sourceAddressPrefix: scoringSubnetPrefix
+          sourceAddressPrefix: appGatewaySubnetAddressPrefix
           destinationAddressPrefix: '*'
           access: 'Deny'
           priority: 1000
@@ -467,7 +372,7 @@ resource jumpboxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' =
             '22'
             '3389'
           ]
-          destinationAddressPrefix: jumpboxSubnetPrefix
+          destinationAddressPrefix: jumpBoxSubnetAddressPrefix
           access: 'Allow'
           priority: 100
           direction: 'Inbound'
@@ -480,8 +385,8 @@ resource jumpboxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' =
           protocol: '*'
           sourcePortRange: '*'
           destinationPortRange: '*'
-          sourceAddressPrefix: jumpboxSubnetPrefix
-          destinationAddressPrefix: privateEndpointsSubnetPrefix
+          sourceAddressPrefix: jumpBoxSubnetAddressPrefix
+          destinationAddressPrefix: privateEndpointsSubnetAddressPrefix
           access: 'Allow'
           priority: 100
           direction: 'Outbound'
@@ -494,7 +399,7 @@ resource jumpboxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' =
           protocol: '*'
           sourcePortRange: '*'
           destinationPortRange: '*'
-          sourceAddressPrefix: jumpboxSubnetPrefix
+          sourceAddressPrefix: jumpBoxSubnetAddressPrefix
           destinationAddressPrefix: 'Internet'
           access: 'Allow'
           priority: 130
@@ -507,7 +412,7 @@ resource jumpboxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' =
           protocol: '*'
           sourcePortRange: '*'
           destinationPortRange: '*'
-          sourceAddressPrefix: jumpboxSubnetPrefix
+          sourceAddressPrefix: jumpBoxSubnetAddressPrefix
           destinationAddressPrefix: '*'
           access: 'Deny'
           priority: 1000
@@ -529,15 +434,6 @@ output appGatewaySubnetName string = vnet::appGatewaySubnet.name
 
 @description('The name of the private endpoints subnet.')
 output privateEndpointsSubnetName string = vnet::privateEnpointsSubnet.name
-
-@description('The name of the private endpoints subnet.')
-output jumpboxSubnetName string = vnet::jumpBoxSubnet.name
-
-@description('The name of the private endpoints subnet.')
-output scoringSubnetName string = vnet::trainingSubnet.name
-
-@description('The name of the private endpoints subnet.')
-output trainingSubnetName string = vnet::scoringSubnet.name
 
 @description('The DNS servers that were configured on the virtual network.')
 output vnetDNSServers array = vnet.properties.dhcpOptions.dnsServers

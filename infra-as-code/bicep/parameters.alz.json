@@ -3,10 +3,28 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "existingResourceIdForSpokeVirtualNetwork": {
-      "value": ""
+      "value": "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg-app000-networking/providers/Microsoft.Network/virtualNetworks/vnet-app000-spoke-00"
     },
     "existingResourceIdForUdrForInternetTraffic": {
-      "value": ""
+      "value": "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg-app000-networking/providers/Microsoft.Network/routeTables/udr-to-hub"
+    },
+    "bastionSubnetAddresses": {
+      "value": "10.0.1.0/26"
+    },
+    "appServicesSubnetAddressPrefix": {
+      "value": "10.1.0.0/24"
+    },
+    "appGatewaySubnetAddressPrefix": {
+      "value": "10.1.1.0/24"
+    },
+    "privateEndpointsSubnetAddressPrefix": {
+      "value": "10.1.2.0/27"
+    },
+    "agentsSubnetAddressPrefix": {
+      "value": "10.1.2.32/27"
+    },
+    "jumpBoxSubnetAddressPrefix": {
+      "value": "10.1.2.128/28"
     }
   }
 }

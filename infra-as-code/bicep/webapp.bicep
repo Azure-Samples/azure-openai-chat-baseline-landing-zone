@@ -34,7 +34,6 @@ var packageLocation = 'https://${storageName}.blob.${environment().suffixes.stor
 var appServicePrivateEndpointName = 'pep-${appName}'
 var appServicePfPrivateEndpointName = 'pep-${appName}-pf'
 
-
 var appInsightsName = 'appinsights-${appName}'
 
 var chatApiKey = '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/chatApiKey)'
@@ -310,7 +309,6 @@ resource webAppPf 'Microsoft.Web/sites@2022-09-01' = {
     hostNamesDisabled: false
     vnetImagePullEnabled: true
     siteConfig: {
-
       linuxFxVersion: 'DOCKER|mcr.microsoft.com/appsvc/staticsite:latest'
       vnetRouteAllEnabled: true
       http20Enabled: true
@@ -333,14 +331,13 @@ resource appsettingsPf 'Microsoft.Web/sites/config@2022-09-01' = {
   properties: {
     APPINSIGHTS_INSTRUMENTATIONKEY: appInsights.properties.InstrumentationKey
     APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
-    ApplicationInsightsAgent_EXTENSION_VERSION: '~2'    
+    ApplicationInsightsAgent_EXTENSION_VERSION: '~2'
     WEBSITES_CONTAINER_START_TIME_LIMIT: '1800'
     OPENAICONNECTION_API_BASE: 'https://oai${baseName}.openai.azure.com/'
     OPENAICONNECTION_API_KEY: openAIApiKey
     WEBSITES_PORT: '8080'
   }
 }
-
 
 //Web App diagnostic settings
 resource webAppPfDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
@@ -413,4 +410,3 @@ resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
     principalId: appServiceManagedIdentity.properties.principalId
   }
 }
-

@@ -62,15 +62,12 @@ resource openAiAccount 'Microsoft.CognitiveServices/accounts@2023-05-01' existin
   name: openAiResourceName
 }
 
-
-
 // ---- RBAC built-in role definitions and role assignments ----
 @description('Built-in Role: [Storage Blob Data Reader](https://learn.microsoft.com/azure/role-based-access-control/built-in-roles#storage-blob-data-reader)')
 resource storageBlobDataReaderRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
   name: '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1'
   scope: subscription()
 }
-
 
 @description('Built-in Role: [Storage Blob Data Contributor](https://learn.microsoft.com/azure/role-based-access-control/built-in-roles#storage-blob-data-contributor)')
 resource storageBlobDataContributorRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
@@ -155,7 +152,11 @@ resource workspaceContributorToResourceGroupRoleAssignment 'Microsoft.Authorizat
 @description('Assign AML Workspace Azure Machine Learning Workspace Connection Secrets Reader to the endpoint managed identity.')
 resource onlineEndpointSecretsReaderRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: machineLearning
-  name: guid(machineLearning.id, azureMachineLearningOnlineEndpointManagedIdentity.name, machineLearningConnetionSecretsReaderRole.id)
+  name: guid(
+    machineLearning.id,
+    azureMachineLearningOnlineEndpointManagedIdentity.name,
+    machineLearningConnetionSecretsReaderRole.id
+  )
 
   properties: {
     roleDefinitionId: machineLearningConnetionSecretsReaderRole.id
@@ -163,7 +164,6 @@ resource onlineEndpointSecretsReaderRoleAssignment 'Microsoft.Authorization/role
     principalId: azureMachineLearningOnlineEndpointManagedIdentity.properties.principalId
   }
 }
-
 
 // AMLW -> ML Storage data plane (blobs and files)
 
@@ -246,7 +246,11 @@ resource onlineEndpointBlobDataReaderRoleAssignment 'Microsoft.Authorization/rol
 @description('Assign AML Workspace\'s Managed Online Endpoint: AcrPull to workload\'s container registry.')
 resource computeInstanceContainerRegistryPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: containerRegistry
-  name: guid(containerRegistry.id, azureMachineLearningInstanceComputeManagedIdentity.name, containerRegistryPullRole.id)
+  name: guid(
+    containerRegistry.id,
+    azureMachineLearningInstanceComputeManagedIdentity.name,
+    containerRegistryPullRole.id
+  )
   properties: {
     roleDefinitionId: containerRegistryPullRole.id
     principalType: 'ServicePrincipal'
@@ -329,7 +333,7 @@ resource machineLearning 'Microsoft.MachineLearningServices/workspaces@2023-10-0
     keyVaultAdministratorRoleAssignment
     containerRegistryPushRoleAssignment
   ]
-  
+
   @description('Managed online endpoint for the /score API.')
   resource onlineEndpoint 'onlineEndpoints' = {
     name: 'ept-${baseName}'
@@ -350,7 +354,7 @@ resource machineLearning 'Microsoft.MachineLearningServices/workspaces@2023-10-0
       // Role requirements for the online endpoint: https://learn.microsoft.com/azure/machine-learning/how-to-access-resources-from-endpoints-managed-identities#give-access-permission-to-the-managed-identity
       onlineEndpointContainerRegistryPullRoleAssignment
       onlineEndpointBlobDataReaderRoleAssignment
-      onlineEndpointSecretsReaderRoleAssignment 
+      onlineEndpointSecretsReaderRoleAssignment
     ]
   }
 
@@ -464,6 +468,4 @@ resource machineLearningPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023
       id: vnet::privateEndpointsSubnet.id
     }
   }
-} 
-
-output machineLearningId string = machineLearning.id
+}

@@ -21,16 +21,36 @@ param publishFileName string = 'chatui.zip'
 
 // ---- Platform and application landing zone specific parameters ----
 
-@description('The resource ID of the subscription vending provided spoke in this subscription.')
-@minLength(50)
+@description('The resource ID of the subscription vending provided spoke in your application landging zone subscription. For example, /subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg-app-networking/providers/Microsoft.Network/virtualNetworks/vnet-app000-spoke0')
+@minLength(114)
 param existingResourceIdForSpokeVirtualNetwork string
 
-@description('The resource ID of the subscription vending provided Internet UDR in this subscription. Leave blank if platform team performs Internet routing another way.')
+@description('The resource ID of the subscription vending provided Internet UDR in your application landging zone subscription. Leave blank if platform team performs Internet routing another way. For example, /subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg-app-networking/providers/Microsoft.Network/routeTables/udr-to-hub')
 param existingResourceIdForUdrForInternetTraffic string = ''
 
-@description('The IP range of the hub-provided Azure Bastion subnet range. Needed for workload to limit access in NSGs.')
-@minLength(10)
+@description('The IP range of the hub-provided Azure Bastion subnet range. Needed for workload to limit access in NSGs. For example, 10.0.1.0/26')
+@minLength(9)
 param bastionSubnetAddresses string
+
+@description('Address space within the existing spoke\'s available address space to be used for Azure App Services.')
+@minLength(9)
+param appServicesSubnetAddressPrefix string
+
+@description('Address space within the existing spoke\'s available address space to be used for Azure Azure Application Gateway.')
+@minLength(9)
+param appGatewaySubnetAddressPrefix string
+
+@description('Address space within the existing spoke\'s available address space to be used for the workload\'s private endpoints.')
+@minLength(9)
+param privateEndpointsSubnetAddressPrefix string
+
+@description('Address space within the existing spoke\'s available address space to be used for build agents.')
+@minLength(9)
+param agentsSubnetAddressPrefix string
+
+@description('Address space within the existing spoke\'s available address space to be used for jump boxes.')
+@minLength(9)
+param jumpBoxSubnetAddressPrefix string
 
 // ---- Parameters required to set to make it non availability zone compliant ----
 
@@ -67,6 +87,11 @@ module networkModule 'network.bicep' = {
     existingSpokeVirtualNetworkName: existingSpokeVirtualNetworkName
     existingUdrForInternetTrafficName: existingUdrForInternetTrafficName
     bastionSubnetAddresses: bastionSubnetAddresses
+    appServicesSubnetAddressPrefix: appServicesSubnetAddressPrefix
+    appGatewaySubnetAddressPrefix: appGatewaySubnetAddressPrefix
+    privateEndpointsSubnetAddressPrefix: privateEndpointsSubnetAddressPrefix
+    agentsSubnetAddressPrefix: agentsSubnetAddressPrefix
+    jumpBoxSubnetAddressPrefix: jumpBoxSubnetAddressPrefix
   }
 }
 
@@ -114,17 +139,6 @@ module acrModule 'acr.bicep' = {
   }
 }
 
-// Deploy application insights
-module appInsightsModule 'applicationinsignts.bicep' = {
-  name: 'appInsightsDeploy'
-  scope: rgWorkload
-  params: {
-    location: rgWorkload.location
-    baseName: baseName
-    logWorkspaceName: monitoringModule.outputs.logWorkspaceName
-  }
-}
-
 // Deploy Azure OpenAI service with private endpoint
 module openaiModule 'openai.bicep' = {
   name: 'openaiDeploy'
@@ -140,15 +154,6 @@ module openaiModule 'openai.bicep' = {
   }
 }
 
-// Deploy the gpt 3.5 model within the Azure OpenAI service deployed above.
-module openaiModels 'openai-models.bicep' = {
-  name: 'openaiModelsDeploy'
-  scope: rgWorkload
-  params: {
-    openaiName: openaiModule.outputs.openAiResourceName
-  }
-}
-
 // Deploy machine learning workspace with private endpoint and private DNS zone
 module mlwModule 'machinelearning.bicep' = {
   name: 'mlwDeploy'
@@ -159,7 +164,7 @@ module mlwModule 'machinelearning.bicep' = {
     vnetName: networkModule.outputs.vnetName
     virtualNetworkResourceGrouName: rgSpoke.name
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
-    applicationInsightsName: appInsightsModule.outputs.applicationInsightsName
+    applicationInsightsName: monitoringModule.outputs.applicationInsightsName
     keyVaultName: keyVaultModule.outputs.keyVaultName
     mlStorageAccountName: storageModule.outputs.mlDeployStorageName
     containerRegistryName: 'cr${baseName}'

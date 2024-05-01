@@ -29,13 +29,13 @@ var acrName = 'cr${baseName}'
 var acrPrivateEndpointName = 'pep-${acrName}'
 
 // ---- Existing resources ----
-resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing =  {
+resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   name: vnetName
   scope: resourceGroup(virtualNetworkResourceGrouName)
 
   resource privateEndpointsSubnet 'subnets' existing = {
     name: privateEndpointsSubnetName
-  }  
+  }
 }
 
 resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' existing = {
@@ -65,14 +65,14 @@ resource acrResourceDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-
   properties: {
     workspaceId: logWorkspace.id
     logs: [
-        {
-            categoryGroup: 'allLogs'
-            enabled: true
-            retentionPolicy: {
-                enabled: false
-                days: 0
-            }
+      {
+        categoryGroup: 'allLogs'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
         }
+      }
     ]
     logAnalyticsDestinationType: null
   }
@@ -98,6 +98,3 @@ resource acrPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' = {
     ]
   }
 }
-
-@description('Output the login server property for later use')
-output loginServer string = acrResource.properties.loginServer

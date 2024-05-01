@@ -69,9 +69,17 @@ The flow is still authored in a network-isolated Azure Machine Learning workspac
 ### Prerequisites
 
 - You have an application landing zone ready for this deployment that contains the following platform-provided resources:
-  - One virtual network, with DNS configuration set
-  - One UDR to force Internet-bound traffic through a platform-provided NVA
+
+  - One virtual network (spoke)
+    - DNS configuration set for hub-based resolution
+    - Peering fully established between the hub and the spoke as well as the spoke and the hub
+    - In the same region as your workload resources
+
+  - One unassociated route table to force Internet-bound traffic through a platform-provided NVA _(if not using Azure VWAN)_
+    - In the same region as your spoke virtual network
+
   - A mechanism to get private endpoint DNS registered with the DNS services set in the virtual network configuration
+
 - Quota for Azure OpenAI gpt-35-turbo consumption-based deployments
 - The deployment must be started by a user who has sufficient permissions to assign [roles](https://learn.microsoft.com/azure/role-based-access-control/built-in-roles), such as a User Access Administrator or Owner.
 - [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
@@ -79,7 +87,7 @@ The flow is still authored in a network-isolated Azure Machine Learning workspac
 
 ### :rocket: Deploy the infrastructure
 
-1. Clone this repository.
+1. Clone this repository
 
    ```bash
    git clone https://github.com/Azure-Samples/azure-openai-chat-baseline-landing-zone
@@ -115,7 +123,7 @@ The flow is still authored in a network-isolated Azure Machine Learning workspac
    :bulb: No matter if you used a certificate from your organization or generated one from above, you'll need the certificate (as `.pfx`) to be Base64 encoded for proper storage in Key Vault later.
 
    ```bash
-   export APP_GATEWAY_LISTENER_CERTIFICATE=$(cat appgw.pfx | base64 | tr -d '\n')
+   APP_GATEWAY_LISTENER_CERTIFICATE=$(cat appgw.pfx | base64 | tr -d '\n')
    echo APP_GATEWAY_LISTENER_CERTIFICATE: $APP_GATEWAY_LISTENER_CERTIFICATE
    ```
 
@@ -125,13 +133,13 @@ The flow is still authored in a network-isolated Azure Machine Learning workspac
 
    - `existingResourceIdForSpokeVirtualNetwork`: Set this to the resource ID of the spoke virtual network the platform team deployed into your application landing zone subscription.
    - `existingResourceIdForUdrForInternetTraffic`: Set this to the resource ID of the UDR the platform team deployed into your application landing zone subscription. Leave blank if your platform team is using VWAN-provided route tables instead.
+   - `bastionSubnetAddresses`: Set this to the `AzureBastionSubnet` range for the Azure Bastion hosts provided by your platform team for VM connectivity (used in jump boxes or build agents).
+   - The give five `...AddressPrefix` values for the subnets in this architecture. The values must be within the platform-allocated address space for spoke and must be large enough for their respective services. Tip: Update the example ranges, not the subnet mask.
 
 1. Run the following command to create a resource group and deploy your workload infrastructure. Make sure:
 
    - The region you choose must [support availability zones](https://learn.microsoft.com/azure/reliability/availability-zones-service-support)
    - The BASE_NAME contains only lowercase letters and is between 6 and 8 characters. Most resource names will include this text.
-
-   TODO: Convert to subscription deployment instructions.
 
    ```bash
    LOCATION=eastus
@@ -142,10 +150,10 @@ The flow is still authored in a network-isolated Azure Machine Learning workspac
    az group create -l $LOCATION -n $RESOURCE_GROUP
 
    # This takes about 30 minutes to run.
-   az deployment group create -f ./infra-as-code/bicep/main.bicep \
-     -g $RESOURCE_GROUP \
+   az deployment sub create -f ./infra-as-code/bicep/main.bicep \
+     -l $LOCATION \
      -p @./infra-as-code/bicep/parameters.alz.json \
-     -p baseName=$BASE_NAME appGatewayListenerCertificate=$APP_GATEWAY_LISTENER_CERTIFICATE
+     -p baseName=${BASE_NAME} workloadResourceGroupName=${RESOURCE_GROUP} appGatewayListenerCertificate=${APP_GATEWAY_LISTENER_CERTIFICATE}
    ```
 
 ### Create, test, and deploy an Azure Machine Learning prompt flow
