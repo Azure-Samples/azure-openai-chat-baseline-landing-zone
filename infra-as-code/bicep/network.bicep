@@ -1,57 +1,53 @@
-/*
-  Deploy vnet with subnets and NSGs
-*/
+targetScope = 'resourceGroup'
 
-@description('This is the base name for each Azure resource name (6-8 chars)')
-param baseName string
+/*
+  Deploy subnets and NSGs
+*/
 
 @description('The resource group location')
 param location string = resourceGroup().location
 
-param developmentEnvironment bool
-@description('The DNS servers to use for the virtual network. If not provided, Azure-provided DNS servers will be used.')
-param dnsServers array = []
+@description('Name of the existing virtual network (spoke) in this resource group.')
+@minLength(1)
+param existingSpokeVirtualNetworkName string
 
-@description('The IP address of the firewall NVA')
-param paramFirewallNVAIpAddress string = ''
-// variables
-var vnetName = 'vnet-${baseName}'
-var ddosPlanName = 'ddos-${baseName}'
+@description('Name of the existing Internet UDR in this resource group. This should be blank for VWAN deployments.')
+param existingUdrForInternetTrafficName string = ''
 
-var vnetAddressPrefix = '11.0.0.0/16'
-var appGatewaySubnetPrefix = '11.0.1.0/24'
-var appServicesSubnetPrefix = '11.0.0.0/24'
-var privateEndpointsSubnetPrefix = '11.0.2.0/27'
-var agentsSubnetPrefix = '11.0.2.32/27'
-var bastionSubnetPrefix = '11.0.2.64/26'
-var jumpboxSubnetPrefix = '11.0.2.128/28'
-var trainingSubnetPrefix = '11.0.3.0/24'
-var scoringSubnetPrefix = '11.0.4.0/24'
+@description('The IP range of the hub-provided Azure Bastion subnet range. Needed for workload to limit access in NSGs. For example, 10.0.1.0/26')
+@minLength(9)
+param bastionSubnetAddresses string
 
-var enableDdosProtection = !developmentEnvironment
+@description('Address space within the existing spoke\'s available address space to be used for Azure App Services.')
+@minLength(9)
+param appServicesSubnetAddressPrefix string
+
+@description('Address space within the existing spoke\'s available address space to be used for Azure Azure Application Gateway.')
+@minLength(9)
+param appGatewaySubnetAddressPrefix string
+
+@description('Address space within the existing spoke\'s available address space to be used for the workload\'s private endpoints.')
+@minLength(9)
+param privateEndpointsSubnetAddressPrefix string
+
+@description('Address space within the existing spoke\'s available address space to be used for build agents.')
+@minLength(9)
+param agentsSubnetAddressPrefix string
+
+@description('Address space within the existing spoke\'s available address space to be used for jump boxes.')
+@minLength(9)
+param jumpBoxSubnetAddressPrefix string
 
 //--- Routing ----
 
 // Hub firewall UDR
-resource hubFirewallUdr 'Microsoft.Network/routeTables@2022-11-01' =
-  if (paramFirewallNVAIpAddress != '') {
-    name: 'udr-hubFirewall'
-    location: location
-    properties: {
-      routes: [
-        {
-          name: 'routeToVnet'
-          properties: {
-            addressPrefix: '0.0.0.0/0'
-            nextHopType: 'VirtualAppliance'
-            nextHopIpAddress: paramFirewallNVAIpAddress
-          }
-        }
-      ]
-    }
-  }
+resource hubFirewallUdr 'Microsoft.Network/routeTables@2022-11-01' existing = if(existingUdrForInternetTrafficName != '') {
+  name: existingUdrForInternetTrafficName
+  scope: resourceGroup()
+}
 
-resource AppGWHubUdr 'Microsoft.Network/routeTables@2022-11-01' =
+// TODO
+/*resource AppGWHubUdr 'Microsoft.Network/routeTables@2022-11-01' =
   if (paramFirewallNVAIpAddress != '') {
     name: 'udr-appgw-hub-firewall'
     location: location
@@ -67,194 +63,116 @@ resource AppGWHubUdr 'Microsoft.Network/routeTables@2022-11-01' =
         }
       ]
     }
-  }
+  }*/
+
 // ---- Networking resources ----
 
 // DDoS Protection Plan
-resource ddosProtectionPlan 'Microsoft.Network/ddosProtectionPlans@2022-11-01' =
+// TODO
+/*resource ddosProtectionPlan 'Microsoft.Network/ddosProtectionPlans@2022-11-01' =
   if (enableDdosProtection) {
     name: ddosPlanName
     location: location
     properties: {}
-  }
+  }*/
 
 // Virtual network and subnets
-resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' = {
-  name: vnetName
-  location: location
-  properties: {
-    enableDdosProtection: enableDdosProtection
-    ddosProtectionPlan: enableDdosProtection ? { id: ddosProtectionPlan.id } : null
-    addressSpace: {
-      addressPrefixes: [
-        vnetAddressPrefix
-      ]
-    }
-    subnets: [
-      {
-        //App services plan subnet
-        name: 'snet-appServicePlan'
-        properties: {
-          addressPrefix: appServicesSubnetPrefix
-          networkSecurityGroup: {
-            id: appServiceSubnetNsg.id
-          }
-          privateEndpointNetworkPolicies: 'Enabled'
-          delegations: [
-            {
-              name: 'delegation'
-              properties: {
-                serviceName: 'Microsoft.Web/serverFarms'
-              }
-            }
-          ]
+resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
+  name: existingSpokeVirtualNetworkName
+  scope: resourceGroup()
 
-          routeTable: paramFirewallNVAIpAddress != ''
-            ? {
-                id: hubFirewallUdr.id
-              }
-            : null
-        }
-      }
-      {
-        // App Gateway subnet
-        name: 'snet-appGateway'
-        properties: {
-          addressPrefix: appGatewaySubnetPrefix
-          networkSecurityGroup: {
-            id: appGatewaySubnetNsg.id
-          }
-          privateEndpointNetworkPolicies: 'Enabled'
-          privateLinkServiceNetworkPolicies: 'Enabled'
-
-          routeTable: paramFirewallNVAIpAddress != ''
-            ? {
-                id: AppGWHubUdr.id
-              }
-            : null
-        }
-      }
-      {
-        // Private endpoints subnet
-        name: 'snet-privateEndpoints'
-        properties: {
-          addressPrefix: privateEndpointsSubnetPrefix
-          networkSecurityGroup: {
-            id: privateEndpointsSubnetNsg.id
-          }
-          routeTable: paramFirewallNVAIpAddress != ''
-            ? {
-                id: hubFirewallUdr.id
-              }
-            : null
-        }
-      }
-      {
-        // Build agents subnet
-        name: 'snet-agents'
-        properties: {
-          addressPrefix: agentsSubnetPrefix
-          networkSecurityGroup: {
-            id: agentsSubnetNsg.id
-          }
-          routeTable: paramFirewallNVAIpAddress != ''
-            ? {
-                id: hubFirewallUdr.id
-              }
-            : null
-        }
-      }
-      {
-        // Azure Bastion subnet
-        name: 'AzureBastionSubnet'
-        properties: {
-          addressPrefix: bastionSubnetPrefix
-          networkSecurityGroup: {
-            id: bastionSubnetNsg.id
-          }
-        }
-      }
-      {
-        // Jump box VMs subnet
-        name: 'snet-jumpbox'
-        properties: {
-          addressPrefix: jumpboxSubnetPrefix
-          networkSecurityGroup: {
-            id: jumpboxSubnetNsg.id
-          }
-          routeTable: paramFirewallNVAIpAddress != ''
-            ? {
-                id: hubFirewallUdr.id
-              }
-            : null
-        }
-      }
-      {
-        // Training subnet
-        name: 'snet-training'
-        properties: {
-          addressPrefix: trainingSubnetPrefix
-          networkSecurityGroup: {
-            id: trainingSubnetNsg.id
-          }
-          routeTable: paramFirewallNVAIpAddress != ''
-            ? {
-                id: hubFirewallUdr.id
-              }
-            : null
-        }
-      }
-      {
-        // Scoring subnet
-        name: 'snet-scoring'
-        properties: {
-          addressPrefix: scoringSubnetPrefix
-          networkSecurityGroup: {
-            id: scoringSubnetNsg.id
-          }
-          routeTable: paramFirewallNVAIpAddress != ''
-            ? {
-                id: hubFirewallUdr.id
-              }
-            : null
-        }
-      }
-    ]
-    dhcpOptions: {
-      dnsServers: empty(dnsServers) ? ['168.63.129.16'] : dnsServers
-    }
-  }
-
-  resource appGatewaySubnet 'subnets' existing = {
-    name: 'snet-appGateway'
-  }
-
-  resource appServiceSubnet 'subnets' existing = {
+  resource appServiceSubnet 'subnets' = {
     name: 'snet-appServicePlan'
+    properties: {
+      addressPrefix: appServicesSubnetAddressPrefix
+      networkSecurityGroup: {
+        id: appServiceSubnetNsg.id
+      }
+      delegations: [
+        {
+          name: 'delegation'
+          properties: {
+            serviceName: 'Microsoft.Web/serverFarms'
+          }
+        }
+      ]
+      routeTable: hubFirewallUdr != null
+        ? {
+            id: hubFirewallUdr.id
+          }
+        : null
+    }
   }
 
-  resource privateEnpointsSubnet 'subnets' existing = {
+  resource appGatewaySubnet 'subnets' = {
+    name: 'snet-appGateway'
+    properties: {
+      addressPrefix: appGatewaySubnetAddressPrefix
+      networkSecurityGroup: {
+        id: appGatewaySubnetNsg.id
+      }
+
+      //routeTable: TODO for FW ingress
+    }
+    dependsOn: [
+      appServiceSubnet  // Single thread these
+    ]
+  }
+
+  resource privateEnpointsSubnet 'subnets' = {
     name: 'snet-privateEndpoints'
+    properties: {
+      addressPrefix: privateEndpointsSubnetAddressPrefix
+      networkSecurityGroup: {
+        id: privateEndpointsSubnetNsg.id
+      }
+      privateEndpointNetworkPolicies: 'Enabled'
+      privateLinkServiceNetworkPolicies: 'Enabled'
+      routeTable: hubFirewallUdr != null
+        ? {
+            id: hubFirewallUdr.id
+          }
+        : null
+    }
+    dependsOn: [
+      appGatewaySubnet  // Single thread these
+    ]
   }
 
-  resource agentsSubnet 'subnets' existing = {
+  resource agentsSubnet 'subnets' = {
     name: 'snet-agents'
+    properties: {
+      addressPrefix: agentsSubnetAddressPrefix
+      networkSecurityGroup: {
+        id: agentsSubnetNsg.id
+      }
+      routeTable: hubFirewallUdr != null
+        ? {
+            id: hubFirewallUdr.id
+          }
+        : null
+    }
+    dependsOn: [
+      privateEnpointsSubnet  // Single thread these
+    ]
   }
 
-  resource azureBastionSubnet 'subnets' existing = {
-    name: 'AzureBastionSubnet'
-  }
-
-  resource jumpBoxSubnet 'subnets' existing = {
+  resource jumpBoxSubnet 'subnets' = {
     name: 'snet-jumpbox'
-  }
-
-  resource trainingSubnet 'subnets' existing = {
-    name: 'snet-training'
-  }
-
-  resource scoringSubnet 'subnets' existing = {
-    name: 'snet-scoring'
+    properties: {
+      addressPrefix: jumpBoxSubnetAddressPrefix
+      networkSecurityGroup: {
+        id: jumpboxSubnetNsg.id
+      }
+      routeTable: hubFirewallUdr != null
+        ? {
+            id: hubFirewallUdr.id
+          }
+        : null
+    }
+    dependsOn: [
+      agentsSubnet  // Single thread these
+    ]
   }
 }
 
@@ -286,7 +204,7 @@ resource appGatewaySubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01
           sourcePortRange: '*'
           destinationPortRange: '443'
           sourceAddressPrefix: 'Internet'
-          destinationAddressPrefix: appGatewaySubnetPrefix
+          destinationAddressPrefix: appGatewaySubnetAddressPrefix
           access: 'Allow'
           priority: 110
           direction: 'Inbound'
@@ -326,8 +244,8 @@ resource appGatewaySubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01
           protocol: '*'
           sourcePortRange: '*'
           destinationPortRange: '*'
-          sourceAddressPrefix: appGatewaySubnetPrefix
-          destinationAddressPrefix: privateEndpointsSubnetPrefix
+          sourceAddressPrefix: appGatewaySubnetAddressPrefix
+          destinationAddressPrefix: privateEndpointsSubnetAddressPrefix
           access: 'Allow'
           priority: 100
           direction: 'Outbound'
@@ -340,7 +258,7 @@ resource appGatewaySubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01
           protocol: '*'
           sourcePortRange: '*'
           destinationPortRange: '*'
-          sourceAddressPrefix: appGatewaySubnetPrefix
+          sourceAddressPrefix: appGatewaySubnetAddressPrefix
           destinationAddressPrefix: 'AzureMonitor'
           access: 'Allow'
           priority: 110
@@ -364,8 +282,8 @@ resource appServiceSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01
           protocol: 'Tcp'
           sourcePortRange: '*'
           destinationPortRange: '443'
-          sourceAddressPrefix: appServicesSubnetPrefix
-          destinationAddressPrefix: privateEndpointsSubnetPrefix
+          sourceAddressPrefix: appServicesSubnetAddressPrefix
+          destinationAddressPrefix: privateEndpointsSubnetAddressPrefix
           access: 'Allow'
           priority: 100
           direction: 'Outbound'
@@ -378,7 +296,7 @@ resource appServiceSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01
           protocol: '*'
           sourcePortRange: '*'
           destinationPortRange: '*'
-          sourceAddressPrefix: appServicesSubnetPrefix
+          sourceAddressPrefix: appServicesSubnetAddressPrefix
           destinationAddressPrefix: 'AzureMonitor'
           access: 'Allow'
           priority: 110
@@ -402,7 +320,7 @@ resource privateEndpointsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022
           protocol: '*'
           sourcePortRange: '*'
           destinationPortRange: '*'
-          sourceAddressPrefix: privateEndpointsSubnetPrefix
+          sourceAddressPrefix: privateEndpointsSubnetAddressPrefix
           destinationAddressPrefix: '*'
           access: 'Deny'
           priority: 1000
@@ -426,229 +344,7 @@ resource agentsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = 
           protocol: '*'
           sourcePortRange: '*'
           destinationPortRange: '*'
-          sourceAddressPrefix: appGatewaySubnetPrefix
-          destinationAddressPrefix: '*'
-          access: 'Deny'
-          priority: 1000
-          direction: 'Outbound'
-        }
-      }
-    ]
-  }
-}
-
-// Training subnet NSG
-resource trainingSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
-  name: 'nsg-trainingSubnet'
-  location: location
-  properties: {
-    securityRules: [
-      {
-        name: 'DenyAllOutBound'
-        properties: {
-          description: 'Deny outbound traffic from the training subnet. Note: adjust rules as needed after adding resources to the subnet'
-          protocol: '*'
-          sourcePortRange: '*'
-          destinationPortRange: '*'
-          sourceAddressPrefix: trainingSubnetPrefix
-          destinationAddressPrefix: '*'
-          access: 'Deny'
-          priority: 1000
-          direction: 'Outbound'
-        }
-      }
-    ]
-  }
-}
-
-// Scoring subnet NSG
-resource scoringSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
-  name: 'nsg-scoringSubnet'
-  location: location
-  properties: {
-    securityRules: [
-      {
-        name: 'DenyAllOutBound'
-        properties: {
-          description: 'Deny outbound traffic from the scoring subnet. Note: adjust rules as needed after adding resources to the subnet'
-          protocol: '*'
-          sourcePortRange: '*'
-          destinationPortRange: '*'
-          sourceAddressPrefix: scoringSubnetPrefix
-          destinationAddressPrefix: '*'
-          access: 'Deny'
-          priority: 1000
-          direction: 'Outbound'
-        }
-      }
-    ]
-  }
-}
-
-// Bastion host subnet NSG
-// https://learn.microsoft.com/azure/bastion/bastion-nsg
-// https://github.com/Azure/azure-quickstart-templates/blob/master/quickstarts/microsoft.network/azure-bastion-nsg/main.bicep
-resource bastionSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
-  name: 'nsg-bastionSubnet'
-  location: location
-  properties: {
-    securityRules: [
-      {
-        name: 'Bastion.In.Allow.Https'
-        properties: {
-          description: 'Allow inbound Https traffic from the from the Internet to the Bastion Host'
-          protocol: 'Tcp'
-          sourcePortRange: '*'
-          sourceAddressPrefix: 'Internet'
-          destinationPortRange: '443'
-          destinationAddressPrefix: '*'
-          access: 'Allow'
-          priority: 100
-          direction: 'Inbound'
-        }
-      }
-      {
-        name: 'Bastion.In.Allow.GatewayManager'
-        properties: {
-          protocol: 'Tcp'
-          sourcePortRange: '*'
-          sourceAddressPrefix: 'GatewayManager'
-          destinationPortRanges: [
-            '443'
-            '4443'
-          ]
-          destinationAddressPrefix: '*'
-          access: 'Allow'
-          priority: 110
-          direction: 'Inbound'
-        }
-      }
-      {
-        name: 'Bastion.In.Allow.LoadBalancer'
-        properties: {
-          protocol: 'Tcp'
-          sourcePortRange: '*'
-          sourceAddressPrefix: 'AzureLoadBalancer'
-          destinationPortRange: '443'
-          destinationAddressPrefix: '*'
-          access: 'Allow'
-          priority: 120
-          direction: 'Inbound'
-        }
-      }
-      {
-        name: 'Bastion.In.Allow.BastionHostCommunication'
-        properties: {
-          protocol: '*'
-          sourcePortRange: '*'
-          sourceAddressPrefix: 'VirtualNetwork'
-          destinationPortRanges: [
-            '8080'
-            '5701'
-          ]
-          destinationAddressPrefix: 'VirtualNetwork'
-          access: 'Allow'
-          priority: 130
-          direction: 'Inbound'
-        }
-      }
-      {
-        name: 'DenyAllInBound'
-        properties: {
-          protocol: '*'
-          sourcePortRange: '*'
-          sourceAddressPrefix: '*'
-          destinationPortRange: '*'
-          destinationAddressPrefix: '*'
-          access: 'Deny'
-          priority: 1000
-          direction: 'Inbound'
-        }
-      }
-
-      {
-        name: 'Bastion.Out.Allow.SshRdp'
-        properties: {
-          description: 'Allow outbound RDP and SSH from the Bastion Host subnet to elsewhere in the vnet'
-          protocol: 'Tcp'
-          sourcePortRange: '*'
-          sourceAddressPrefix: '*'
-          destinationPortRanges: [
-            '22'
-            '3389'
-          ]
-          destinationAddressPrefix: 'VirtualNetwork'
-          access: 'Allow'
-          priority: 100
-          direction: 'Outbound'
-        }
-      }
-      {
-        name: 'Bastion.Out.Allow.AzureMonitor'
-        properties: {
-          description: 'Allow outbound traffic from the Bastion Host subnet to Azure Monitor'
-          protocol: '*'
-          sourcePortRange: '*'
-          destinationPortRange: '*'
-          sourceAddressPrefix: bastionSubnetPrefix
-          destinationAddressPrefix: 'AzureMonitor'
-          access: 'Allow'
-          priority: 110
-          direction: 'Outbound'
-        }
-      }
-      {
-        name: 'Bastion.Out.Allow.AzureCloudCommunication'
-        properties: {
-          protocol: 'Tcp'
-          sourcePortRange: '*'
-          sourceAddressPrefix: '*'
-          destinationPortRange: '443'
-          destinationAddressPrefix: 'AzureCloud'
-          access: 'Allow'
-          priority: 120
-          direction: 'Outbound'
-        }
-      }
-      {
-        name: 'Bastion.Out.Allow.BastionHostCommunication'
-        properties: {
-          protocol: '*'
-          sourcePortRange: '*'
-          sourceAddressPrefix: 'VirtualNetwork'
-          destinationPortRanges: [
-            '8080'
-            '5701'
-          ]
-          destinationAddressPrefix: 'VirtualNetwork'
-          access: 'Allow'
-          priority: 130
-          direction: 'Outbound'
-        }
-      }
-      {
-        name: 'Bastion.Out.Allow.GetSessionInformation'
-        properties: {
-          protocol: '*'
-          sourcePortRange: '*'
-          sourceAddressPrefix: '*'
-          destinationAddressPrefix: 'Internet'
-          destinationPortRanges: [
-            '80'
-            '443'
-          ]
-          access: 'Allow'
-          priority: 140
-          direction: 'Outbound'
-        }
-      }
-      {
-        name: 'DenyAllOutBound'
-        properties: {
-          protocol: '*'
-          sourcePortRange: '*'
-          destinationPortRange: '*'
-          sourceAddressPrefix: '*'
+          sourceAddressPrefix: appGatewaySubnetAddressPrefix
           destinationAddressPrefix: '*'
           access: 'Deny'
           priority: 1000
@@ -671,12 +367,12 @@ resource jumpboxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' =
           description: 'Allow inbound RDP and SSH from the Bastion Host subnet'
           protocol: 'Tcp'
           sourcePortRange: '*'
-          sourceAddressPrefix: bastionSubnetPrefix
+          sourceAddressPrefix: bastionSubnetAddresses
           destinationPortRanges: [
             '22'
             '3389'
           ]
-          destinationAddressPrefix: jumpboxSubnetPrefix
+          destinationAddressPrefix: jumpBoxSubnetAddressPrefix
           access: 'Allow'
           priority: 100
           direction: 'Inbound'
@@ -689,8 +385,8 @@ resource jumpboxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' =
           protocol: '*'
           sourcePortRange: '*'
           destinationPortRange: '*'
-          sourceAddressPrefix: jumpboxSubnetPrefix
-          destinationAddressPrefix: privateEndpointsSubnetPrefix
+          sourceAddressPrefix: jumpBoxSubnetAddressPrefix
+          destinationAddressPrefix: privateEndpointsSubnetAddressPrefix
           access: 'Allow'
           priority: 100
           direction: 'Outbound'
@@ -703,7 +399,7 @@ resource jumpboxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' =
           protocol: '*'
           sourcePortRange: '*'
           destinationPortRange: '*'
-          sourceAddressPrefix: jumpboxSubnetPrefix
+          sourceAddressPrefix: jumpBoxSubnetAddressPrefix
           destinationAddressPrefix: 'Internet'
           access: 'Allow'
           priority: 130
@@ -716,7 +412,7 @@ resource jumpboxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' =
           protocol: '*'
           sourcePortRange: '*'
           destinationPortRange: '*'
-          sourceAddressPrefix: jumpboxSubnetPrefix
+          sourceAddressPrefix: jumpBoxSubnetAddressPrefix
           destinationAddressPrefix: '*'
           access: 'Deny'
           priority: 1000
@@ -727,8 +423,8 @@ resource jumpboxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' =
   }
 }
 
-@description('The name of the vnet.')
-output vnetNName string = vnet.name
+@description('The name of the spoke vnet.')
+output vnetName string = vnet.name
 
 @description('The name of the app service plan subnet.')
 output appServicesSubnetName string = vnet::appServiceSubnet.name
@@ -739,14 +435,5 @@ output appGatewaySubnetName string = vnet::appGatewaySubnet.name
 @description('The name of the private endpoints subnet.')
 output privateEndpointsSubnetName string = vnet::privateEnpointsSubnet.name
 
-@description('The name of the private endpoints subnet.')
-output bastionSubnetName string = vnet::azureBastionSubnet.name
-
-@description('The name of the private endpoints subnet.')
-output jumpboxSubnetName string = vnet::jumpBoxSubnet.name
-
-@description('The name of the private endpoints subnet.')
-output scoringSubnetName string = vnet::trainingSubnet.name
-
-@description('The name of the private endpoints subnet.')
-output trainingSubnetName string = vnet::scoringSubnet.name
+@description('The DNS servers that were configured on the virtual network.')
+output vnetDNSServers array = vnet.properties.dhcpOptions.dnsServers

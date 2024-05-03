@@ -2,60 +2,29 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "baseName": {
-      "value": ""
+    "existingResourceIdForSpokeVirtualNetwork": {
+      "value": "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg-app000-networking/providers/Microsoft.Network/virtualNetworks/vnet-app000-spoke-00"
     },
-    "developmentEnvironment": {
-      "value": true
+    "existingResourceIdForUdrForInternetTraffic": {
+      "value": "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg-app000-networking/providers/Microsoft.Network/routeTables/udr-to-hub"
     },
-    "appGatewayListenerCertificate": {
-      "value": ""
+    "bastionSubnetAddresses": {
+      "value": "10.0.1.0/26"
     },
-    "paramStorageSKU": {
-      "value": "Standard_LRS"
+    "appServicesSubnetAddressPrefix": {
+      "value": "10.1.0.0/24"
     },
-    "availabilityZones": {
-      "value": [
-        "1"
-      ]
+    "appGatewaySubnetAddressPrefix": {
+      "value": "10.1.1.0/24"
     },
-    "paramZoneRedundancy": {
-      "value": "Disabled"
+    "privateEndpointsSubnetAddressPrefix": {
+      "value": "10.1.2.0/27"
     },
-    "deployJumpbox": {
-      "value": false
+    "agentsSubnetAddressPrefix": {
+      "value": "10.1.2.32/27"
     },
-    "acrExistingDnsZoneId": {
-      "value": "/subscriptions/<your_subscription>/resourceGroups/rg-alz-connectivity/providers/Microsoft.Network/privateDnsZones/privatelink.azurecr.io"
-    },
-    "existingPrivateZoneAppService": {
-      "value": "/subscriptions/<your_subscription>/resourceGroups/rg-alz-connectivity/providers/Microsoft.Network/privateDnsZones/privatelink.azurewebsites.net"
-    },
-    "kvExistingDnsZoneId": {
-      "value": "/subscriptions/<your_subscription>/resourceGroups/rg-alz-connectivity/providers/Microsoft.Network/privateDnsZones/privatelink.vaultcore.azure.net"
-    },
-    "openAiExistingDnsZoneId": {
-      "value": "/subscriptions/<your_subscription>/resourceGroups/rg-alz-connectivity/providers/Microsoft.Network/privateDnsZones/privatelink.openai.azure.com"
-    },
-    "existingPrivateDnsZoneBlob": {
-      "value": "/subscriptions/<your_subscription>/resourceGroups/rg-alz-connectivity/providers/Microsoft.Network/privateDnsZones/privatelink.blob.core.windows.net"
-    },
-    "existingPrivateDnsZoneFile": {
-      "value": "/subscriptions/<your_subscription>/resourceGroups/rg-alz-connectivity/providers/Microsoft.Network/privateDnsZones/privatelink.file.core.windows.net"
-    },
-    "existingApiAzureMlDnsZone": {
-      "value": "/subscriptions/<your_subscription>/resourceGroups/rg-alz-connectivity/providers/Microsoft.Network/privateDnsZones/privatelink.api.azureml.ms"
-    },
-    "existingNotebookDnsZone": {
-      "value": "/subscriptions/<your_subscription>/resourceGroups/rg-alz-connectivity/providers/Microsoft.Network/privateDnsZones/privatelink.notebooks.azure.net"
-    },
-    "paramFirewallNVAIpAddress": {
-      "value": "10.20.255.4"
-    },
-    "paramDnsServers": {
-      "value": [
-        "10.20.1.4"
-      ]
+    "jumpBoxSubnetAddressPrefix": {
+      "value": "10.1.2.128/28"
     }
   }
 }

@@ -1,5 +1,7 @@
+targetScope = 'resourceGroup'
+
 /*
-  Deploy key vault with private endpoint and private DNS zone
+  Deploy key vault with private endpoint
 */
 
 @description('This is the base name for each Azure resource name (6-8 chars)')
@@ -13,16 +15,16 @@ param location string = resourceGroup().location
 param appGatewayListenerCertificate string
 param apiKey string
 
-@description('Determines whether or not a private endpoint, DNS Zone, Zone Link and Zone Group is created for this resource.')
-param createPrivateEndpoints bool = false
-
 // existing resource name params 
 param vnetName string
+
+@description('The name of the resource group containing the spoke virtual network.')
+@minLength(1)
+param virtualNetworkResourceGroupName string
+
 param privateEndpointsSubnetName string
 
 param logWorkspaceName string
-
-param existingPrivateDNSZONE string = ''
 
 //variables
 var keyVaultName = 'kv-${baseName}'
@@ -31,12 +33,13 @@ var keyVaultDnsGroupName = '${keyVaultPrivateEndpointName}/default'
 var keyVaultDnsZoneName = 'privatelink.vaultcore.azure.net' //Cannot use 'privatelink${environment().suffixes.keyvaultDns}', per https://github.com/Azure/bicep/issues/9708
 
 // ---- Existing resources ----
-resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing =  {
+resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   name: vnetName
+  scope: resourceGroup(virtualNetworkResourceGroupName)
 
   resource privateEndpointsSubnet 'subnets' existing = {
     name: privateEndpointsSubnetName
-  }  
+  }
 }
 
 resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' existing = {
@@ -58,13 +61,13 @@ resource keyVault 'Microsoft.KeyVault/vaults@2019-09-01' = {
 
     tenantId: subscription().tenantId
 
-    enableRbacAuthorization: true       // Using RBAC
-    enabledForDeployment: true          // VMs can retrieve certificates
-    enabledForTemplateDeployment: true  // ARM can retrieve values
+    enableRbacAuthorization: true // Using RBAC
+    enabledForDeployment: true // VMs can retrieve certificates
+    enabledForTemplateDeployment: true // ARM can retrieve values
 
     enableSoftDelete: true
     softDeleteRetentionInDays: 7
-    createMode: 'default'               // Creating or updating the key vault (not recovering)
+    createMode: 'default' // Creating or updating the key vault (not recovering)
   }
   resource kvsGatewayPublicCert 'secrets' = {
     name: 'gateway-public-cert'
@@ -73,7 +76,6 @@ resource keyVault 'Microsoft.KeyVault/vaults@2019-09-01' = {
       contentType: 'application/x-pkcs12'
     }
   }
-
 }
 
 //Key Vault diagnostic settings
@@ -84,20 +86,20 @@ resource keyVaultDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-
   properties: {
     workspaceId: logWorkspace.id
     logs: [
-        {
-            categoryGroup: 'allLogs'
-            enabled: true
-            retentionPolicy: {
-                enabled: false
-                days: 0
-            }
+      {
+        categoryGroup: 'allLogs'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
         }
+      }
     ]
     logAnalyticsDestinationType: null
   }
 }
 
-resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' = if (createPrivateEndpoints) {
+resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' = {
   name: keyVaultPrivateEndpointName
   location: location
   properties: {
@@ -118,13 +120,14 @@ resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01'
   }
 }
 
-resource keyVaultDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = if (createPrivateEndpoints && existingPrivateDNSZONE=='') {
+// We need a local copy due to a limitation in Azure Application Gateway not using DNS from the hub for cert retrieval
+resource keyVaultDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: keyVaultDnsZoneName
   location: 'global'
   properties: {}
 }
 
-resource keyVaultDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = if (createPrivateEndpoints && existingPrivateDNSZONE=='') {
+resource keyVaultDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
   parent: keyVaultDnsZone
   name: '${keyVaultDnsZoneName}-link'
   location: 'global'
@@ -136,7 +139,7 @@ resource keyVaultDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLi
   }
 }
 
-resource keyVaultDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2022-11-01' = if (createPrivateEndpoints && existingPrivateDNSZONE=='') {
+resource keyVaultDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2022-11-01' = {
   name: keyVaultDnsGroupName
   properties: {
     privateDnsZoneConfigs: [
@@ -144,25 +147,6 @@ resource keyVaultDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZone
         name: keyVaultDnsZoneName
         properties: {
           privateDnsZoneId: keyVaultDnsZone.id
-        }
-      }
-    ]
-  }
-  dependsOn: [
-    keyVaultPrivateEndpoint
-  ]
-}
-
-
-
-resource keyVaultDnsZoneGroupExisting 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2022-11-01' = if (createPrivateEndpoints && existingPrivateDNSZONE != '') {
-  name: keyVaultDnsGroupName
-  properties: {
-    privateDnsZoneConfigs: [
-      {
-        name: keyVaultDnsZoneName
-        properties: {
-          privateDnsZoneId: existingPrivateDNSZONE
         }
       }
     ]

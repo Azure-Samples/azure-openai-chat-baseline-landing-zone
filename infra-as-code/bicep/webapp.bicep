@@ -1,3 +1,5 @@
+targetScope = 'resourceGroup'
+
 /*
   Deploy a web app with a managed identity, diagnostic, and a private endpoint
 */
@@ -9,17 +11,20 @@ param baseName string
 @description('The resource group location')
 param location string = resourceGroup().location
 
-param developmentEnvironment bool
 param publishFileName string
 
 // existing resource name params 
 param vnetName string
+
+@description('The name of the resource group containing the spoke virtual network.')
+@minLength(1)
+param virtualNetworkResourceGroupName string
+
 param appServicesSubnetName string
 param privateEndpointsSubnetName string
 param storageName string
 param keyVaultName string
 param logWorkspaceName string
-param existingPrivateZoneAppService string =''
 
 // variables
 var appName = 'app-${baseName}'
@@ -28,7 +33,6 @@ var appServiceManagedIdentityName = 'id-${appName}'
 var packageLocation = 'https://${storageName}.blob.${environment().suffixes.storage}/deploy/${publishFileName}'
 var appServicePrivateEndpointName = 'pep-${appName}'
 var appServicePfPrivateEndpointName = 'pep-${appName}-pf'
-
 
 var appInsightsName = 'appinsights-${appName}'
 
@@ -39,26 +43,10 @@ var chatOutputName = 'answer'
 
 var openAIApiKey = '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/openai-key)'
 
-var appServicePlanPremiumSku = 'Premium'
-var appServicePlanStandardSku = 'Standard'
-var appServicePlanSettings = {
-  Standard: {
-    name: 'S1'
-    capacity: 1
-  }
-  Premium: {
-    name: 'P2v2'
-    capacity: 3
-  }
-}
-
-var appServicesDnsZoneName = 'privatelink.azurewebsites.net'
-var appServicesDnsGroupName = '${appServicePrivateEndpointName}/default'
-var appServicesPfDnsGroupName = '${appServicePfPrivateEndpointName}/default'
-
 // ---- Existing resources ----
 resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   name: vnetName
+  scope: resourceGroup(virtualNetworkResourceGroupName)
 
   resource appServicesSubnet 'subnets' existing = {
     name: appServicesSubnetName
@@ -96,7 +84,7 @@ resource appServiceManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdenti
   location: location
 }
 
-// Grant the App Service managed identity key vault secrets role permissions
+// Grant the App Service managed identity Key Vault secrets role permissions
 module appServiceSecretsUserRoleAssignmentModule './modules/keyvaultRoleAssignment.bicep' = {
   name: 'appServiceSecretsUserRoleAssignmentDeploy'
   params: {
@@ -121,9 +109,12 @@ resource blobDataReaderRoleAssignment 'Microsoft.Authorization/roleAssignments@2
 resource appServicePlan 'Microsoft.Web/serverfarms@2022-09-01' = {
   name: appServicePlanName
   location: location
-  sku: developmentEnvironment ? appServicePlanSettings[appServicePlanStandardSku] : appServicePlanSettings[appServicePlanPremiumSku]
+  sku: {
+    name: 'P1V2' // 'B2'
+    capacity: 3
+  }
   properties: {
-    zoneRedundant: !developmentEnvironment
+    zoneRedundant: true // false
     reserved: true
   }
   kind: 'linux'
@@ -237,41 +228,6 @@ resource appServicePrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-0
   }
 }
 
-resource appServiceDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01'  = if(existingPrivateZoneAppService==''){
-  name: appServicesDnsZoneName
-  location: 'global'
-  properties: {}
-}
-
-resource appServiceDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = if(existingPrivateZoneAppService=='')  {
-  parent: appServiceDnsZone
-  name: '${appServicesDnsZoneName}-link'
-  location: 'global'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: {
-      id: vnet.id
-    }
-  }
-}
-
-resource appServiceDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2022-11-01' = {
-  name: appServicesDnsGroupName
-  properties: {
-    privateDnsZoneConfigs: [
-      {
-        name: 'privatelink.azurewebsites.net'
-        properties: {
-          privateDnsZoneId: empty(existingPrivateZoneAppService) ? appServiceDnsZone.id: existingPrivateZoneAppService 
-        }
-      }
-    ]
-  }
-  dependsOn: [
-    appServicePrivateEndpoint
-  ]
-}
-
 // App service plan auto scale settings
 resource appServicePlanAutoScaleSettings 'Microsoft.Insights/autoscalesettings@2022-10-01' = {
   name: '${appServicePlan.name}-autoscale'
@@ -353,7 +309,6 @@ resource webAppPf 'Microsoft.Web/sites@2022-09-01' = {
     hostNamesDisabled: false
     vnetImagePullEnabled: true
     siteConfig: {
-
       linuxFxVersion: 'DOCKER|mcr.microsoft.com/appsvc/staticsite:latest'
       vnetRouteAllEnabled: true
       http20Enabled: true
@@ -376,14 +331,13 @@ resource appsettingsPf 'Microsoft.Web/sites/config@2022-09-01' = {
   properties: {
     APPINSIGHTS_INSTRUMENTATIONKEY: appInsights.properties.InstrumentationKey
     APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
-    ApplicationInsightsAgent_EXTENSION_VERSION: '~2'    
+    ApplicationInsightsAgent_EXTENSION_VERSION: '~2'
     WEBSITES_CONTAINER_START_TIME_LIMIT: '1800'
     OPENAICONNECTION_API_BASE: 'https://oai${baseName}.openai.azure.com/'
     OPENAICONNECTION_API_KEY: openAIApiKey
     WEBSITES_PORT: '8080'
   }
 }
-
 
 //Web App diagnostic settings
 resource webAppPfDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
@@ -443,23 +397,6 @@ resource appServicePrivateEndpointPf 'Microsoft.Network/privateEndpoints@2022-11
   }
 }
 
-resource appServicePfDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2022-11-01' = {
-  name: appServicesPfDnsGroupName
-  properties: {
-    privateDnsZoneConfigs: [
-      {
-        name: 'privatelink.azurewebsites.net'
-        properties: {
-          privateDnsZoneId: empty(existingPrivateZoneAppService) ? appServiceDnsZone.id: existingPrivateZoneAppService 
-        }
-      }
-    ]
-  }
-  dependsOn: [
-    appServicePrivateEndpointPf
-  ]
-}
-
 resource containerRegistry 'Microsoft.ContainerRegistry/registries@2019-05-01' existing = {
   name: 'cr${baseName}'
 }
@@ -473,4 +410,3 @@ resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
     principalId: appServiceManagedIdentity.properties.principalId
   }
 }
-

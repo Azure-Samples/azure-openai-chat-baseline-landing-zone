@@ -1,3 +1,5 @@
+targetScope = 'resourceGroup'
+
 /*
   Deploy an Azure Application Gateway with WAF v2 and a custom domain name.
 */
@@ -8,33 +10,35 @@ param baseName string
 @description('The resource group location')
 param location string = resourceGroup().location
 
-@description('Optional. When true will deploy a cost-optimised environment for development purposes.')
-param developmentEnvironment bool
-
 @description('Domain name to use for App Gateway')
 param customDomainName string
 
-param availabilityZones array
 param gatewayCertSecretUri string
 
 // existing resource name params 
 param vnetName string
+
+@description('The name of the resource group containing the spoke virtual network.')
+@minLength(1)
+param virtualNetworkResourceGroupName string
+
 param appGatewaySubnetName string
 param appName string
 param keyVaultName string
 param logWorkspaceName string
 
 //variables
-var appGateWayName = 'agw-${baseName}'
-var appGatewayManagedIdentityName = 'id-${appGateWayName}'
+var appGatewayName = 'agw-${baseName}'
+var appGatewayManagedIdentityName = 'id-${appGatewayName}'
 var appGatewayPublicIpName = 'pip-${baseName}'
-var appGateWayFqdn = 'fe-${baseName}'
-var wafPolicyName= 'waf-${baseName}'
+var appGatewayFqdn = 'fe-${baseName}'
+var wafPolicyName = 'waf-${baseName}'
 
 // ---- Existing resources ----
-resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing =  {
+resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   name: vnetName
-  
+  scope: resourceGroup(virtualNetworkResourceGroupName)
+
   resource appGatewaySubnet 'subnets' existing = {
     name: appGatewaySubnetName
   }
@@ -56,13 +60,13 @@ resource keyVaultSecretsUserRole 'Microsoft.Authorization/roleDefinitions@2022-0
 
 // ---- App Gateway resources ----
 
-// Managed Identity for App Gateway. 
+// Managed Identity for Application Gateway. 
 resource appGatewayManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: appGatewayManagedIdentityName
   location: location
 }
 
-// Grant the Azure Application Gateway managed identity with key vault secrets role permissions; this allows pulling certificates.
+// Grant the Azure Application Gateway managed identity with Key Vault secrets role permissions; this allows pulling certificates.
 module appGatewaySecretsUserRoleAssignmentModule './modules/keyvaultRoleAssignment.bicep' = {
   name: 'appGatewaySecretsUserRoleAssignmentDeploy'
   params: {
@@ -76,7 +80,7 @@ module appGatewaySecretsUserRoleAssignmentModule './modules/keyvaultRoleAssignme
 resource appGatewayPublicIp 'Microsoft.Network/publicIPAddresses@2022-11-01' = {
   name: appGatewayPublicIpName
   location: location
-  zones: !developmentEnvironment ? availabilityZones : null
+  zones: ['1', '2', '3']
   sku: {
     name: 'Standard'
   }
@@ -85,7 +89,7 @@ resource appGatewayPublicIp 'Microsoft.Network/publicIPAddresses@2022-11-01' = {
     publicIPAllocationMethod: 'Static'
     idleTimeoutInMinutes: 4
     dnsSettings: {
-      domainNameLabel: appGateWayFqdn
+      domainNameLabel: appGatewayFqdn
     }
   }
 }
@@ -118,10 +122,10 @@ resource wafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewallPo
 }
 
 //App Gateway
-resource appGateWay 'Microsoft.Network/applicationGateways@2022-11-01' = {
-  name: appGateWayName
+resource appGateway 'Microsoft.Network/applicationGateways@2022-11-01' = {
+  name: appGatewayName
   location: location
-  zones: !developmentEnvironment ? availabilityZones : null
+  zones: ['1', '2', '3']
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: {
@@ -198,7 +202,7 @@ resource appGateWay 'Microsoft.Network/applicationGateways@2022-11-01' = {
     enableHttp2: false
     sslCertificates: [
       {
-        name: '${appGateWayName}-ssl-certificate'
+        name: '${appGatewayName}-ssl-certificate'
         properties: {
           keyVaultSecretId: gatewayCertSecretUri
         }
@@ -226,7 +230,7 @@ resource appGateWay 'Microsoft.Network/applicationGateways@2022-11-01' = {
           pickHostNameFromBackendAddress: true
           requestTimeout: 20
           probe: {
-            id: resourceId('Microsoft.Network/applicationGateways/probes', appGateWayName, 'probe-web${baseName}')
+            id: resourceId('Microsoft.Network/applicationGateways/probes', appGatewayName, 'probe-web${baseName}')
           }
         }
       }
@@ -236,14 +240,22 @@ resource appGateWay 'Microsoft.Network/applicationGateways@2022-11-01' = {
         name: 'WebAppListener'
         properties: {
           frontendIPConfiguration: {
-            id: resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appGateWayName, 'appGwPublicFrontendIp')
+            id: resourceId(
+              'Microsoft.Network/applicationGateways/frontendIPConfigurations',
+              appGatewayName,
+              'appGwPublicFrontendIp'
+            )
           }
           frontendPort: {
-            id: resourceId('Microsoft.Network/applicationGateways/frontendPorts', appGateWayName, 'port-443')
+            id: resourceId('Microsoft.Network/applicationGateways/frontendPorts', appGatewayName, 'port-443')
           }
           protocol: 'Https'
           sslCertificate: {
-            id: resourceId('Microsoft.Network/applicationGateways/sslCertificates', appGateWayName, '${appGateWayName}-ssl-certificate')
+            id: resourceId(
+              'Microsoft.Network/applicationGateways/sslCertificates',
+              appGatewayName,
+              '${appGatewayName}-ssl-certificate'
+            )
           }
           hostName: 'www.${customDomainName}'
           hostNames: []
@@ -258,20 +270,28 @@ resource appGateWay 'Microsoft.Network/applicationGateways@2022-11-01' = {
           ruleType: 'Basic'
           priority: 100
           httpListener: {
-            id: resourceId('Microsoft.Network/applicationGateways/httpListeners', appGateWayName, 'WebAppListener')
+            id: resourceId('Microsoft.Network/applicationGateways/httpListeners', appGatewayName, 'WebAppListener')
           }
           backendAddressPool: {
-            id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools', appGateWayName, 'pool-${appName}')
+            id: resourceId(
+              'Microsoft.Network/applicationGateways/backendAddressPools',
+              appGatewayName,
+              'pool-${appName}'
+            )
           }
           backendHttpSettings: {
-            id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', appGateWayName, 'WebAppBackendHttpSettings')
+            id: resourceId(
+              'Microsoft.Network/applicationGateways/backendHttpSettingsCollection',
+              appGatewayName,
+              'WebAppBackendHttpSettings'
+            )
           }
         }
       }
     ]
     autoscaleConfiguration: {
-      minCapacity: developmentEnvironment ? 2 : 3
-      maxCapacity: developmentEnvironment ? 3 : 5
+      minCapacity: 1
+      maxCapacity: 3
     }
   }
   dependsOn: [
@@ -280,24 +300,21 @@ resource appGateWay 'Microsoft.Network/applicationGateways@2022-11-01' = {
 }
 
 //Application Gateway diagnostic settings
-resource appGateWayDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: '${appGateWay.name}-diagnosticSettings'
-  scope: appGateWay
+resource appGatewayDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: '${appGateway.name}-diagnosticSettings'
+  scope: appGateway
   properties: {
     workspaceId: logWorkspace.id
     logs: [
-        {
-            categoryGroup: 'allLogs'
-            enabled: true
-            retentionPolicy: {
-                enabled: false
-                days: 0
-            }
+      {
+        categoryGroup: 'allLogs'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
         }
+      }
     ]
     logAnalyticsDestinationType: null
   }
 }
-
-@description('The name of the app gateway resource.')
-output appGateWayName string = appGateWay.name

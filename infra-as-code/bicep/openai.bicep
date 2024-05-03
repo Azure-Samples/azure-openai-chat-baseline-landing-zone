@@ -1,4 +1,5 @@
-param createPrivateEndpoints bool
+targetScope = 'resourceGroup'
+
 param baseName string
 
 @description('The resource group location')
@@ -6,6 +7,11 @@ param location string = resourceGroup().location
 
 // existing resource name params 
 param vnetName string
+
+@description('The name of the resource group containing the spoke virtual network.')
+@minLength(1)
+param virtualNetworkResourceGroupName string
+
 param privateEndpointsSubnetName string
 param logWorkspaceName string
 param keyVaultName string
@@ -13,14 +19,11 @@ param keyVaultName string
 //variables
 var openaiName = 'oai-${baseName}'
 var openaiPrivateEndpointName = 'pep-${openaiName}'
-var openaiDnsGroupName = '${openaiPrivateEndpointName}/default'
-var openaiDnsZoneName = 'privatelink.openai.azure.com'
-
-param existingPrivateDnsZone string = ''
 
 // ---- Existing resources ----
 resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   name: vnetName
+  scope: resourceGroup(virtualNetworkResourceGroupName)
 
   resource privateEndpointsSubnet 'subnets' existing = {
     name: privateEndpointsSubnetName
@@ -33,6 +36,7 @@ resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' exis
 
 resource keyVault 'Microsoft.KeyVault/vaults@2019-09-01' existing = {
   name: keyVaultName
+
   resource kvsGatewayPublicCert 'secrets' = {
     name: 'openai-key'
     properties: {
@@ -155,6 +159,24 @@ resource openAiAccount 'Microsoft.CognitiveServices/accounts@2023-10-01-preview'
       ]
     }
   }
+
+  @description('Add a gpt-3.5 turbo deployment.')
+  resource gpt35 'deployments' = {
+    name: 'gpt35'
+    sku: {
+      name: 'Standard'
+      capacity: 25
+    }
+    properties: {
+      model: {
+        format: 'OpenAI'
+        name: 'gpt-35-turbo'
+        version: '0613' // If your region or quota doesn't support this version, please change it to a supported value.
+      }
+      raiPolicyName: openAiAccount::blockingFilter.name
+      versionUpgradeOption: 'NoAutoUpgrade'
+    }
+  }
 }
 
 //OpenAI diagnostic settings
@@ -177,7 +199,7 @@ resource openAIDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-pr
   }
 }
 
-resource openaiPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' = if (createPrivateEndpoints) {
+resource openaiPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' = {
   name: openaiPrivateEndpointName
   location: location
   properties: {
@@ -198,58 +220,6 @@ resource openaiPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' =
   }
 }
 
-resource openaiDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = if (createPrivateEndpoints && existingPrivateDnsZone == '') {
-  name: openaiDnsZoneName
-  location: 'global'
-  properties: {}
-}
-
-resource openaiDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = if (createPrivateEndpoints && existingPrivateDnsZone == '') {
-  parent: openaiDnsZone
-  name: '${openaiDnsZoneName}-link'
-  location: 'global'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: {
-      id: vnet.id
-    }
-  }
-}
-
-resource openaiDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2022-11-01' = if (createPrivateEndpoints && existingPrivateDnsZone == ''){
-  name: openaiDnsGroupName
-  properties: {
-    privateDnsZoneConfigs: [
-      {
-        name: openaiDnsZoneName
-        properties: {
-          privateDnsZoneId: openaiDnsZone.id
-        }
-      }
-    ]
-  }
-  dependsOn: [
-    openaiPrivateEndpoint
-  ]
-}
-
-
-resource openaiDnsZoneGroupExisting 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2022-11-01'  = if (createPrivateEndpoints && existingPrivateDnsZone != '')  {
-  name: openaiDnsGroupName
-  properties: {
-    privateDnsZoneConfigs: [
-      {
-        name: openaiDnsZoneName
-        properties: {
-          privateDnsZoneId: existingPrivateDnsZone
-        }
-      }
-    ]
-  }
-  dependsOn: [
-    openaiPrivateEndpoint
-  ]
-}
 // ---- Outputs ----
 
 output openAiResourceName string = openAiAccount.name
