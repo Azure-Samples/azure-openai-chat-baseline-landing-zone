@@ -110,7 +110,7 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2022-09-01' = {
   name: appServicePlanName
   location: location
   sku: {
-    name: 'P1V2' // 'B2'
+    name: 'P0V3' // 'B2'
     capacity: 3
   }
   properties: {
