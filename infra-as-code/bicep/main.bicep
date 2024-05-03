@@ -103,7 +103,7 @@ module storageModule 'storage.bicep' = {
     location: rgWorkload.location
     baseName: baseName
     vnetName: networkModule.outputs.vnetName
-    virtualNetworkResourceGrouName: rgSpoke.name
+    virtualNetworkResourceGroupName: rgSpoke.name
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
     logWorkspaceName: monitoringModule.outputs.logWorkspaceName
   }
@@ -117,7 +117,7 @@ module keyVaultModule 'keyvault.bicep' = {
     location: rgWorkload.location
     baseName: baseName
     vnetName: networkModule.outputs.vnetName
-    virtualNetworkResourceGrouName: rgSpoke.name
+    virtualNetworkResourceGroupName: rgSpoke.name
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
     appGatewayListenerCertificate: appGatewayListenerCertificate
     apiKey: 'key'
@@ -133,7 +133,7 @@ module acrModule 'acr.bicep' = {
     location: rgWorkload.location
     baseName: baseName
     vnetName: networkModule.outputs.vnetName
-    virtualNetworkResourceGrouName: rgSpoke.name
+    virtualNetworkResourceGroupName: rgSpoke.name
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
     logWorkspaceName: monitoringModule.outputs.logWorkspaceName
   }
@@ -147,7 +147,7 @@ module openaiModule 'openai.bicep' = {
     location: rgWorkload.location
     baseName: baseName
     vnetName: networkModule.outputs.vnetName
-    virtualNetworkResourceGrouName: rgSpoke.name
+    virtualNetworkResourceGroupName: rgSpoke.name
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
     logWorkspaceName: monitoringModule.outputs.logWorkspaceName
     keyVaultName: keyVaultModule.outputs.keyVaultName
@@ -162,7 +162,7 @@ module mlwModule 'machinelearning.bicep' = {
     location: rgWorkload.location
     baseName: baseName
     vnetName: networkModule.outputs.vnetName
-    virtualNetworkResourceGrouName: rgSpoke.name
+    virtualNetworkResourceGroupName: rgSpoke.name
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
     applicationInsightsName: monitoringModule.outputs.applicationInsightsName
     keyVaultName: keyVaultModule.outputs.keyVaultName
@@ -183,7 +183,7 @@ module gatewayModule 'gateway.bicep' = {
     customDomainName: customDomainName
     appName: webappModule.outputs.appName
     vnetName: networkModule.outputs.vnetName
-    virtualNetworkResourceGrouName: rgSpoke.name
+    virtualNetworkResourceGroupName: rgSpoke.name
     appGatewaySubnetName: networkModule.outputs.appGatewaySubnetName
     keyVaultName: keyVaultModule.outputs.keyVaultName
     gatewayCertSecretUri: keyVaultModule.outputs.gatewayCertSecretUri
@@ -202,7 +202,7 @@ module webappModule 'webapp.bicep' = {
     keyVaultName: keyVaultModule.outputs.keyVaultName
     storageName: storageModule.outputs.appDeployStorageName
     vnetName: networkModule.outputs.vnetName
-    virtualNetworkResourceGrouName: rgSpoke.name
+    virtualNetworkResourceGroupName: rgSpoke.name
     appServicesSubnetName: networkModule.outputs.appServicesSubnetName
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
     logWorkspaceName: monitoringModule.outputs.logWorkspaceName

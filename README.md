@@ -71,6 +71,7 @@ The flow is still authored in a network-isolated Azure Machine Learning workspac
 - You have an application landing zone ready for this deployment that contains the following platform-provided resources:
 
   - One virtual network (spoke)
+    - Must be at least a `/22`
     - DNS configuration set for hub-based resolution
     - Peering fully established between the hub and the spoke as well as the spoke and the hub
     - In the same region as your workload resources
@@ -80,10 +81,9 @@ The flow is still authored in a network-isolated Azure Machine Learning workspac
 
   - A mechanism to get private endpoint DNS registered with the DNS services set in the virtual network configuration
 
-- Quota for Azure OpenAI gpt-35-turbo consumption-based deployments
+- Quota for one Azure OpenAI `gpt-35-turbo 0613` **25K** consumption-based model deployment
 - The deployment must be started by a user who has sufficient permissions to assign [roles](https://learn.microsoft.com/azure/role-based-access-control/built-in-roles), such as a User Access Administrator or Owner.
 - [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
-- [az Bicep tools](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install)
 
 ### :rocket: Deploy the infrastructure
 
@@ -134,7 +134,7 @@ The flow is still authored in a network-isolated Azure Machine Learning workspac
    - `existingResourceIdForSpokeVirtualNetwork`: Set this to the resource ID of the spoke virtual network the platform team deployed into your application landing zone subscription.
    - `existingResourceIdForUdrForInternetTraffic`: Set this to the resource ID of the UDR the platform team deployed into your application landing zone subscription. Leave blank if your platform team is using VWAN-provided route tables instead.
    - `bastionSubnetAddresses`: Set this to the `AzureBastionSubnet` range for the Azure Bastion hosts provided by your platform team for VM connectivity (used in jump boxes or build agents).
-   - The give five `...AddressPrefix` values for the subnets in this architecture. The values must be within the platform-allocated address space for spoke and must be large enough for their respective services. Tip: Update the example ranges, not the subnet mask.
+   - The five `...AddressPrefix` values for the subnets in this architecture. The values must be within the platform-allocated address space for spoke and must be large enough for their respective services. Tip: Update the example ranges, not the subnet mask.
 
 1. Run the following command to create a resource group and deploy your workload infrastructure. Make sure:
 
@@ -160,68 +160,70 @@ The flow is still authored in a network-isolated Azure Machine Learning workspac
 
 You'll need to perform this from your workstation that has a private network line of sight to your deployed Machine Learning workspace. This connection is typically established by the platform team. If instead you use a jump box for access, then use the Azure Bastion provided by your platform team. These instructions assume you're on a workstation or connected to a jump box that can access the Azure Machine Learning studio and Azure OpenAI studio.
 
-1. Deploy jump box, **if necessary**.  _Skip this if your platform team has provided workstation based access or another method._
+1. Deploy jump box, **if necessary**. _Skip this if your platform team has provided workstation based access or another method._
 
-   If you need to deploy a jump box, this deployment guide has a simple one that you can use. You will be prompted for an admin password for the jump box; it must satisfy the [complexity requirements for Windows](https://learn.microsoft.com/windows/security/threat-protection/security-policy-settings/password-must-meet-complexity-requirements).
+   If you need to deploy a jump box into your application landing zone, this deployment guide has a simple one that you can use. You will be prompted for an admin password for the jump box; it must satisfy the [complexity requirements for Windows](https://learn.microsoft.com/windows/security/threat-protection/security-policy-settings/password-must-meet-complexity-requirements).
 
    TODO: Convert jump box solo deployment instructions.
 
    ```bash
-      az deployment group create -f ./infra-as-code/bicep/jumpbox.bicep \
-     -g $RESOURCE_GROUP \
-     -p @./infra-as-code/bicep/parameters.alz.json \
-     -p baseName=$BASE_NAME
+   az deployment group create -f ./infra-as-code/bicep/jumpbox.bicep \
+      -g $RESOURCE_GROUP \
+      -p @./infra-as-code/bicep/parameters.alz.json \
+      -p baseName=$BASE_NAME
    ```
 
 1. Open the [Machine Learning Workspace](https://ml.azure.com/) and choose your workspace. Ensure you have [enabled Prompt flow in your Azure Machine Learning workspace](https://learn.microsoft.com/azure/machine-learning/prompt-flow/get-started-prompt-flow?view=azureml-api-2#prerequisites-enable-prompt-flow-in-your-azure-machine-learning-workspace).
 
-1. Create a prompt flow connection to your gpt35 Azure OpenAI deployment. This will be used by the prompt flow you clone in the next step.
+1. Create a prompt flow connection to your gpt35 Azure OpenAI model deployment. This will be used by the prompt flow you clone in the next step.
+
     1. Click on 'Prompt flow' in the left navigation in Machine Learning Studio
     1. Click on the 'Connections' tab and click 'Create' 'Azure OpenAI.'
     1. Fill out the properties:
         - Name: 'gpt35'   **Make sure you use this name.**
         - Provider: Azure OpenAI
-        - Subscription Id: <Choose your subscription>
-        - Azure OpenAI Account Names: <Choose the Azure OpenAI Account created in this deployment>
-        - API Key: <Choose a key from 'Keys and endpoint' in your Azure OpenAI instance in the Portal>
-        - API Base: <Choose the endpoint from 'Keys and endpoint' in your Azure OpenAI instance in the Portal>
+        - Subscription Id: \<Choose your subscription>
+        - Azure OpenAI Account Names: \<Choose the Azure OpenAI Account created in this deployment>
+        - API Key: \<Choose a key from 'Keys and endpoint' in your Azure OpenAI instance in the Portal>
+        - API Base: \<Choose the endpoint from 'Keys and endpoint' in your Azure OpenAI instance in the Portal>
         - API type: azure
-        - API version: <Leave default>
+        - API version: \<Leave default>
+
 1. Clone an existing prompt flow
+
     1. Click on 'Prompt flow' in the left navigation in Machine Learning Studio
     1. Click on the 'Flows' tab and click 'Create'
     1. Click 'Clone' under 'Chat with Wikipedia'
-    1. Name it 'chat_wiki' and Press 'Clone'
-    1. Set the 'Connection' and 'deployment_name' to 'gpt35'and set the max_tokens property of the deployment_name to 256, for the following steps:
+    1. Name the folder _chat_wiki_ and Press 'Clone'
+    1. Set the 'Connection' and 'deployment_name' to 'gpt35' and set the max_tokens property of the deployment_name to 256, for the following two steps:
         - extract_query_from_question
         - augmented_chat
     1. Save
 
 1. Add runtime
 
-   - Click Add runtime
-   - Add compute instance runtime and give it a name
-   - Choose the compute instance created by the Bicep  
-   - Accept the other defaults and click 'Create'
+   1. Click 'Start with advanced settings' and choose 'Compute instance'
+   1. Choose the compute instance created by the Bicep
+   1. Accept the other defaults and click 'Activate'
 
 1. Test the flow
 
-   - Wait for the runtime to be created
+   - Wait for the runtime to be created, takes about four minutes
    - Select the runtime in the UI
    - Click on 'Chat' on the UI
-   - Enter a question
-   - The response should echo your question with 'Echo' appended
+   - Enter a question that is based on recent data, like "Who won the 2023 cricket world cup?"
+   - The response should be returned.
 
 ### Deploy to Azure Machine Learning managed online endpoint
 
 1. Create a deployment in the UI
 
-   - Click on 'Deploy' in the UI
-   - Choose 'Existing' Endpoint and select the one called _ept-<basename>_
-   - Name the deployment ept-<basename>. **Make sure you name the deployment ept-<basename>. An App Service environment variable is set, assuming that naming convention**
-   - Choose a small Virtual Machine size for testing and set the number of instances.
-   - Press 'Review + Create'
-   - Press 'Create'
+   1. Click on 'Deploy' in the UI
+   1. Choose 'Existing' Endpoint and select the one called _ept-<basename>_
+   1. Name the deployment ept-<basename>. **Make sure you name the deployment ept-<basename>. An App Service environment variable is set, assuming that naming convention**
+   1. Choose a small Virtual Machine size for testing and set the number of instances.
+   1. Press 'Review + Create'
+   1. Press 'Create'
 
 ### Publish the chat front-end web app
 
@@ -258,7 +260,7 @@ Run the following commands to:
 - Tell the web app to restart
 
 ```bash
-CLIENT_IP_ADDRESS=<your-public-ip-address>
+CLIENT_IP_ADDRESS=$(curl ifconfig.me)
 
 STORAGE_ACCOUNT_PREFIX=st
 WEB_APP_PREFIX=app-
@@ -268,7 +270,7 @@ LOGGED_IN_USER_ID=$(az ad signed-in-user show --query id -o tsv)
 RESOURCE_GROUP_ID=$(az group show --resource-group $RESOURCE_GROUP --query id -o tsv)
 STORAGE_BLOB_DATA_CONTRIBUTOR=ba92f5b4-2d11-453d-a403-e96b0029c9fe
 
-az storage account network-rule add -g $RESOURCE_GROUP --account-name "$NAME_OF_STORAGE_ACCOUNT" --ip-address $CLIENT_IP_ADDRESS
+az storage account network-rule add -g $RESOURCE_GROUP --account-name $NAME_OF_STORAGE_ACCOUNT --ip-address $CLIENT_IP_ADDRESS
 az role assignment create --assignee-principal-type User --assignee-object-id $LOGGED_IN_USER_ID --role $STORAGE_BLOB_DATA_CONTRIBUTOR --scope $RESOURCE_GROUP_ID
 
 az storage blob upload -f ./website/chatui.zip \
@@ -290,7 +292,7 @@ This section will help you to validate that the workload is exposed correctly an
    > :book: The app team conducts a final acceptance test to be sure that traffic is flowing end-to-end as expected, so they place a request against the Azure Application Gateway endpoint.
 
    ```bash
-   # query the Azure Application Gateway Public Ip
+   # query the Azure Application Gateway Public IP
    APPGW_PUBLIC_IP=$(az network public-ip show --resource-group $RESOURCE_GROUP --name "pip-$BASE_NAME" --query [ipAddress] --output tsv)
    echo APPGW_PUBLIC_IP: $APPGW_PUBLIC_IP
    ```

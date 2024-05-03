@@ -18,7 +18,7 @@ param vnetName string
 
 @description('The name of the resource group containing the spoke virtual network.')
 @minLength(1)
-param virtualNetworkResourceGrouName string
+param virtualNetworkResourceGroupName string
 
 param appServicesSubnetName string
 param privateEndpointsSubnetName string
@@ -46,7 +46,7 @@ var openAIApiKey = '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.
 // ---- Existing resources ----
 resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   name: vnetName
-  scope: resourceGroup(virtualNetworkResourceGrouName)
+  scope: resourceGroup(virtualNetworkResourceGroupName)
 
   resource appServicesSubnet 'subnets' existing = {
     name: appServicesSubnetName
@@ -84,7 +84,7 @@ resource appServiceManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdenti
   location: location
 }
 
-// Grant the App Service managed identity key vault secrets role permissions
+// Grant the App Service managed identity Key Vault secrets role permissions
 module appServiceSecretsUserRoleAssignmentModule './modules/keyvaultRoleAssignment.bicep' = {
   name: 'appServiceSecretsUserRoleAssignmentDeploy'
   params: {
@@ -110,11 +110,11 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2022-09-01' = {
   name: appServicePlanName
   location: location
   sku: {
-    name: 'P2v2'
-    capacity: 2
+    name: 'P1V2' // 'B2'
+    capacity: 3
   }
   properties: {
-    zoneRedundant: true
+    zoneRedundant: true // false
     reserved: true
   }
   kind: 'linux'

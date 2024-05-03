@@ -20,7 +20,7 @@ param vnetName string
 
 @description('The name of the resource group containing the spoke virtual network.')
 @minLength(1)
-param virtualNetworkResourceGrouName string
+param virtualNetworkResourceGroupName string
 
 param appGatewaySubnetName string
 param appName string
@@ -37,7 +37,7 @@ var wafPolicyName = 'waf-${baseName}'
 // ---- Existing resources ----
 resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   name: vnetName
-  scope: resourceGroup(virtualNetworkResourceGrouName)
+  scope: resourceGroup(virtualNetworkResourceGroupName)
 
   resource appGatewaySubnet 'subnets' existing = {
     name: appGatewaySubnetName
@@ -60,13 +60,13 @@ resource keyVaultSecretsUserRole 'Microsoft.Authorization/roleDefinitions@2022-0
 
 // ---- App Gateway resources ----
 
-// Managed Identity for App Gateway. 
+// Managed Identity for Application Gateway. 
 resource appGatewayManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: appGatewayManagedIdentityName
   location: location
 }
 
-// Grant the Azure Application Gateway managed identity with key vault secrets role permissions; this allows pulling certificates.
+// Grant the Azure Application Gateway managed identity with Key Vault secrets role permissions; this allows pulling certificates.
 module appGatewaySecretsUserRoleAssignmentModule './modules/keyvaultRoleAssignment.bicep' = {
   name: 'appGatewaySecretsUserRoleAssignmentDeploy'
   params: {

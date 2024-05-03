@@ -10,7 +10,7 @@ param vnetName string
 
 @description('The name of the resource group containing the spoke virtual network.')
 @minLength(1)
-param virtualNetworkResourceGrouName string
+param virtualNetworkResourceGroupName string
 
 param privateEndpointsSubnetName string
 param logWorkspaceName string
@@ -23,7 +23,7 @@ var openaiPrivateEndpointName = 'pep-${openaiName}'
 // ---- Existing resources ----
 resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   name: vnetName
-  scope: resourceGroup(virtualNetworkResourceGrouName)
+  scope: resourceGroup(virtualNetworkResourceGroupName)
 
   resource privateEndpointsSubnet 'subnets' existing = {
     name: privateEndpointsSubnetName
@@ -36,6 +36,7 @@ resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' exis
 
 resource keyVault 'Microsoft.KeyVault/vaults@2019-09-01' existing = {
   name: keyVaultName
+
   resource kvsGatewayPublicCert 'secrets' = {
     name: 'openai-key'
     properties: {
@@ -170,7 +171,7 @@ resource openAiAccount 'Microsoft.CognitiveServices/accounts@2023-10-01-preview'
       model: {
         format: 'OpenAI'
         name: 'gpt-35-turbo'
-        version: '1106' // If your region doesn't support this version, please change it to a supported value.
+        version: '0613' // If your region or quota doesn't support this version, please change it to a supported value.
       }
       raiPolicyName: openAiAccount::blockingFilter.name
       versionUpgradeOption: 'NoAutoUpgrade'

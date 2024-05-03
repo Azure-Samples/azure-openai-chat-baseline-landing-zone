@@ -14,7 +14,7 @@ param virtualNetworkName string
 
 @description('The name of the resource group containing the spoke virtual network.')
 @minLength(1)
-param virtualNetworkResourceGrouName string
+param virtualNetworkResourceGroupName string
 
 @description('The name of the Log Analytics Workspace used as the workload\'s common log sink.')
 @minLength(4)
@@ -40,7 +40,7 @@ var jumpBoxName = 'jmp-${baseName}'
 @description('Existing virtual network for the solution.')
 resource virtualNetwork 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
   name: virtualNetworkName
-  scope: resourceGroup(virtualNetworkResourceGrouName)
+  scope: resourceGroup(virtualNetworkResourceGroupName)
 
   resource jumpBoxSubnet 'subnets' existing = {
     name: 'snet-jumpbox'

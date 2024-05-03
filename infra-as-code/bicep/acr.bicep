@@ -19,7 +19,7 @@ param vnetName string
 
 @description('The name of the resource group containing the spoke virtual network.')
 @minLength(1)
-param virtualNetworkResourceGrouName string
+param virtualNetworkResourceGroupName string
 
 param privateEndpointsSubnetName string
 param logWorkspaceName string
@@ -31,7 +31,7 @@ var acrPrivateEndpointName = 'pep-${acrName}'
 // ---- Existing resources ----
 resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   name: vnetName
-  scope: resourceGroup(virtualNetworkResourceGrouName)
+  scope: resourceGroup(virtualNetworkResourceGroupName)
 
   resource privateEndpointsSubnet 'subnets' existing = {
     name: privateEndpointsSubnetName
