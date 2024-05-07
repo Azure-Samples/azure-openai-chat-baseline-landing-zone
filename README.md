@@ -33,6 +33,8 @@ Most of the configuration for this scenario is in the **parameters.alz.json** fi
 
 ## Architecture
 
+![Diagram of the whole architecture.](docs/media/azure-openai-baseline-landing-zone.svg)
+
 Just like the baseline reference implementation, this implementation covers the same following scenarios:
 
 1. Authoring a flow - Authoring a flow using prompt flow in an Azure Machine Learning workspace
@@ -41,7 +43,7 @@ Just like the baseline reference implementation, this implementation covers the 
 
 ### Authoring a flow
 
-![Diagram of the authoring architecture using Azure Machine Learning.](docs/media/azure-machine-learning-authoring.png)
+![Diagram of the authoring architecture using Azure Machine Learning.](docs/media/azure-openai-baseline-landing-zone-networking.svg)
 
 The authoring architecture diagram illustrates how flow authors [connect to an Azure Machine Learning Workspace through a private endpoint](https://learn.microsoft.com/azure/machine-learning/how-to-configure-private-link) in a virtual network. In this case, the author connects to the virtual network through routing established by the platform team that supports workstation-based connectivity.
 
