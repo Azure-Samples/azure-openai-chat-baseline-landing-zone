@@ -33,8 +33,6 @@ Most of the configuration for this scenario is in the **parameters.alz.json** fi
 
 ## Architecture
 
-![Diagram of the whole architecture.](docs/media/azure-openai-baseline-landing-zone.svg)
-
 Just like the baseline reference implementation, this implementation covers the same following scenarios:
 
 1. Authoring a flow - Authoring a flow using prompt flow in an Azure Machine Learning workspace
@@ -51,13 +49,13 @@ The diagram further illustrates how the Machine Learning Workspace is configured
 
 ### Deploying a flow to Azure Machine Learning managed online endpoint
 
-![TODO](docs/media/openai-chat-e2e-deployment-amlcompute.png)
+![Architecture diagram using the AML deployment model.](docs/media/azure-openai-landing-zone-amlcompute.svg)
 
 The Azure Machine Learning deployment architecture diagram illustrates how a front-end web application, deployed into a [network-secured App Service](https://github.com/Azure-Samples/app-service-baseline-implementation), [connects to a managed online endpoint through a private endpoint](https://learn.microsoft.com/azure/machine-learning/how-to-configure-private-link) in a virtual network. Like the authoring flow, the diagram illustrates how the Machine Learning Workspace is configured for [Workspace managed virtual network isolation](https://learn.microsoft.com/azure/machine-learning/how-to-managed-network). The deployed flow is able to connect to required resources such as Azure OpenAI and Azure AI Search through managed private endpoints.
 
 ### Deploying a flow to Azure App Service (alternative)
 
-![TODO](docs/media/openai-chat-e2e-deployment-appservices.png)
+![Architecture diagram using the App Services deployment model.](docs/media/azure-openai-landing-zone-appservices.svg)
 
 The Azure App Service deployment architecture diagram illustrates how the same prompt flow can be containerized and deployed to Azure App Service alongside the same front-end web application from the prior architecture. This solution is a completely self-hosted, externalized alternative to an Azure Machine Learning managed online endpoint.
 
