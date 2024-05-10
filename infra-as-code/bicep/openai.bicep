@@ -55,6 +55,7 @@ resource openAiAccount 'Microsoft.CognitiveServices/accounts@2023-10-01-preview'
     networkAcls: {
       defaultAction: 'Deny'
     }
+    disableLocalAuth: false // Ideally you'd set this to 'true' and use Microsoft Entra ID. This is usually enforced through the policy 'Azure AI Services resources should have key access disabled (disable local authentication)'
   }
   sku: {
     name: 'S0'

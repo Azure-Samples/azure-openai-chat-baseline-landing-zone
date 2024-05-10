@@ -106,15 +106,16 @@ resource blobDataReaderRoleAssignment 'Microsoft.Authorization/roleAssignments@2
 }
 
 //App service plan
-resource appServicePlan 'Microsoft.Web/serverfarms@2022-09-01' = {
+resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: appServicePlanName
   location: location
   sku: {
-    name: 'P0V3' // 'B2'
-    capacity: 3
+    tier: 'Premium0V3'
+    name: 'P0V3'
   }
   properties: {
-    zoneRedundant: true // false
+    targetWorkerCount: 3
+    zoneRedundant: true
     reserved: true
   }
   kind: 'linux'
@@ -134,9 +135,13 @@ resource webApp 'Microsoft.Web/sites@2022-09-01' = {
   properties: {
     serverFarmId: appServicePlan.id
     virtualNetworkSubnetId: vnet::appServicesSubnet.id
-    httpsOnly: false
+    httpsOnly: true
     keyVaultReferenceIdentity: appServiceManagedIdentity.id
     hostNamesDisabled: false
+    vnetRouteAllEnabled: true
+    vnetImagePullEnabled: true
+    vnetContentShareEnabled: true
+    publicNetworkAccess: 'Disabled'
     siteConfig: {
       vnetRouteAllEnabled: true
       http20Enabled: true
@@ -304,10 +309,13 @@ resource webAppPf 'Microsoft.Web/sites@2022-09-01' = {
   properties: {
     serverFarmId: appServicePlan.id
     virtualNetworkSubnetId: vnet::appServicesSubnet.id
-    httpsOnly: false
+    httpsOnly: true
     keyVaultReferenceIdentity: appServiceManagedIdentity.id
     hostNamesDisabled: false
     vnetImagePullEnabled: true
+    vnetRouteAllEnabled: true
+    publicNetworkAccess: 'Disabled'
+    vnetContentShareEnabled: true
     siteConfig: {
       linuxFxVersion: 'DOCKER|mcr.microsoft.com/appsvc/staticsite:latest'
       vnetRouteAllEnabled: true

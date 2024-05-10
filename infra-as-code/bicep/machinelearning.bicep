@@ -24,6 +24,7 @@ param keyVaultName string
 param mlStorageAccountName string
 param logWorkspaceName string
 param openAiResourceName string
+param keyExpiration int = dateTimeToEpoch(dateTimeAdd(utcNow(), 'P60D'))
 
 // ---- Variables ----
 var workspaceName = 'mlw-${baseName}'
@@ -294,13 +295,15 @@ resource machineLearning 'Microsoft.MachineLearningServices/workspaces@2023-10-0
     // dependent resources
     applicationInsights: applicationInsights.id
     containerRegistry: containerRegistry.id
-    keyVault: keyVault.id
+    keyVault: keyVault.id     // AML creates secrets that do not have expiry information attached, which is often forbidden through policy such as 'Secrets should have the specified maximum validity period'
     storageAccount: mlStorage.id
 
     // configuration for workspaces with private link endpoint
     imageBuildCompute: null
     publicNetworkAccess: 'Disabled'
     v1LegacyMode: false
+
+    encryption: null // Configure this property this to use customer-managed encryption keys. This is often inforced through 'Azure Machine Learning workspaces should be encrypted with a customer-managed key'
 
     allowPublicAccessWhenBehindVnet: false
 
@@ -359,7 +362,7 @@ resource machineLearning 'Microsoft.MachineLearningServices/workspaces@2023-10-0
   }
 
   @description('Azure Machine Learning Compute Instance - Ideal for development and testing from the Azure Machine Learning Studio.')
-  resource instanceCompute 'computes' = {
+  resource instanceCompute 'computes@2024-04-01' = {
     name: 'amli-${baseName}'
     location: location
     identity: {
@@ -387,6 +390,7 @@ resource machineLearning 'Microsoft.MachineLearningServices/workspaces@2023-10-0
           sshPublicAccess: 'Disabled'
         }
         vmSize: 'STANDARD_DS3_V2'
+        // idleTimeBeforeShutdown: 'PT1D' -- Some organizations use the 'Azure Machine Learning Compute Instance should have idle shutdown.' which depends on a specific preview API version not used here.
       }
     }
     dependsOn: [
@@ -445,6 +449,7 @@ resource managedEndpointPrimaryKeyEntry 'Microsoft.KeyVault/vaults/secrets@2023-
     contentType: 'text/plain'
     attributes: {
       enabled: true
+      exp: keyExpiration // Autoexpire this key
     }
   }
 }
