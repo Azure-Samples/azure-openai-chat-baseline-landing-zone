@@ -6,19 +6,11 @@ param baseName string
 
 @description('The region in which this architecture is deployed.')
 @minLength(1)
-param location string = resourceGroup().location
+param location string = 'uksouth' // TODO - TEMP resourceGroup().location
 
-@description('The name of the virtual network in this resource group.')
-@minLength(1)
-param virtualNetworkName string
-
-@description('The name of the resource group containing the spoke virtual network.')
-@minLength(1)
-param virtualNetworkResourceGroupName string
-
-@description('The name of the Log Analytics Workspace used as the workload\'s common log sink.')
-@minLength(4)
-param logWorkspaceName string
+@description('The resource ID of the subscription vending provided spoke in your application landging zone subscription. For example, /subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg-app-networking/providers/Microsoft.Network/virtualNetworks/vnet-app000-spoke0')
+@minLength(114)
+param existingResourceIdForSpokeVirtualNetwork string
 
 @description('Specifies the name of the administrator account on the Windows jump box. Cannot end in "."\n\nDisallowed values: "administrator", "admin", "user", "user1", "test", "user2", "test1", "user3", "admin1", "1", "123", "a", "actuser", "adm", "admin2", "aspnet", "backup", "console", "david", "guest", "john", "owner", "root", "server", "sql", "support", "support_388945a0", "sys", "test2", "test3", "user4", "user5".\n\nDefault: vmadmin')
 @minLength(4)
@@ -34,13 +26,15 @@ param jumpBoxAdminPassword string
 // ---- Variables ----
 
 var jumpBoxName = 'jmp-${baseName}'
+var existingResourceGroupNameForSpokeVirtualNetwork = split(existingResourceIdForSpokeVirtualNetwork, '/')[4]
+var existingSpokeVirtualNetworkName = split(existingResourceIdForSpokeVirtualNetwork, '/')[8]
 
 // ---- Existing resources ----
 
 @description('Existing virtual network for the solution.')
 resource virtualNetwork 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: virtualNetworkName
-  scope: resourceGroup(virtualNetworkResourceGroupName)
+  name: existingSpokeVirtualNetworkName
+  scope: resourceGroup(existingResourceGroupNameForSpokeVirtualNetwork)
 
   resource jumpBoxSubnet 'subnets' existing = {
     name: 'snet-jumpbox'
@@ -49,7 +43,7 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2023-05-01' existing 
 
 @description('Existing Log Analyitics workspace, used as the common log sink for the workload.')
 resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' existing = {
-  name: logWorkspaceName
+  name: 'log-${baseName}'
 }
 
 // New resources

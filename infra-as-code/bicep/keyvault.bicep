@@ -46,7 +46,7 @@ resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' exis
   name: logWorkspaceName
 }
 
-resource keyVault 'Microsoft.KeyVault/vaults@2019-09-01' = {
+resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: keyVaultName
   location: location
   properties: {
@@ -58,6 +58,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2019-09-01' = {
       defaultAction: 'Deny'
       bypass: 'AzureServices' // Required for AppGW communication
     }
+    publicNetworkAccess: 'Disabled'
 
     tenantId: subscription().tenantId
 
@@ -67,6 +68,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2019-09-01' = {
 
     enableSoftDelete: true
     softDeleteRetentionInDays: 7
+    //enablePurgeProtection: true // Ideally set this. This is usually enforced through 'Key vaults should have deletion protection enabled' policy
     createMode: 'default' // Creating or updating the key vault (not recovering)
   }
   resource kvsGatewayPublicCert 'secrets' = {

@@ -153,6 +153,7 @@ The flow is still authored in a network-isolated Azure Machine Learning workspac
 
    # This takes about 30 minutes to run.
    az deployment sub create -f ./infra-as-code/bicep/main.bicep \
+     -n chat-baseline-000 \
      -l $LOCATION \
      -p @./infra-as-code/bicep/parameters.alz.json \
      -p baseName=${BASE_NAME} workloadResourceGroupName=${RESOURCE_GROUP} appGatewayListenerCertificate=${APP_GATEWAY_LISTENER_CERTIFICATE}
@@ -164,34 +165,35 @@ You'll need to perform this from your workstation that has a private network lin
 
 1. Deploy jump box, **if necessary**. _Skip this if your platform team has provided workstation based access or another method._
 
-   If you need to deploy a jump box into your application landing zone, this deployment guide has a simple one that you can use. You will be prompted for an admin password for the jump box; it must satisfy the [complexity requirements for Windows](https://learn.microsoft.com/windows/security/threat-protection/security-policy-settings/password-must-meet-complexity-requirements).
-
-   TODO: Convert jump box solo deployment instructions.
+   If you need to deploy a jump box into your application landing zone, this deployment guide has a simple one that you can use. You will be prompted for an admin password for the jump box; it must satisfy the [complexity requirements for Windows VM in Azure](https://learn.microsoft.com/azure/virtual-machines/windows/faq#what-are-the-password-requirements-when-creating-a-vm-). You'll need to identify your landing zone virtual network as well in **infra-as-code/bicep/jumpbox/parameters.json**. This is the same value you used in **infra-as-code/bicep/parameters.alz.json**.
 
    ```bash
-   az deployment group create -f ./infra-as-code/bicep/jumpbox.bicep \
+   az deployment group create -f ./infra-as-code/bicep/jumpbox/jumpbox.bicep \
       -g $RESOURCE_GROUP \
-      -p @./infra-as-code/bicep/parameters.alz.json \
+      -p @./infra-as-code/bicep/jumpbox/parameters.json \
       -p baseName=$BASE_NAME
    ```
 
-1. Open the [Machine Learning Workspace](https://ml.azure.com/) and choose your workspace. Ensure you have [enabled Prompt flow in your Azure Machine Learning workspace](https://learn.microsoft.com/azure/machine-learning/prompt-flow/get-started-prompt-flow?view=azureml-api-2#prerequisites-enable-prompt-flow-in-your-azure-machine-learning-workspace).
+   Your hub's egress firewall will need various application rule allowances to support this use case. Below are some key destinations that need to be opened from your jump box's subnet:
+
+   - `ml.azure.com:443`
+   - `login.microsoftonline.com:443`
+   - `login.live.com:443`
+   - and many more...
+
+1. Open the [Machine Learning Workspace](https://ml.azure.com/) and choose your workspace. Ensure you have [enabled prompt flow in your Azure Machine Learning workspace](https://learn.microsoft.com/azure/machine-learning/prompt-flow/get-started-prompt-flow?view=azureml-api-2#prerequisites-enable-prompt-flow-in-your-azure-machine-learning-workspace).
 
 1. Create a prompt flow connection to your gpt35 Azure OpenAI model deployment. This will be used by the prompt flow you clone in the next step.
 
-    1. Click on 'Prompt flow' in the left navigation in Machine Learning Studio
-    1. Click on the 'Connections' tab and click 'Create' 'Azure OpenAI.'
-    1. Fill out the properties:
-        - Name: 'gpt35'   **Make sure you use this name.**
-        - Provider: Azure OpenAI
-        - Subscription Id: \<Choose your subscription>
-        - Azure OpenAI Account Names: \<Choose the Azure OpenAI Account created in this deployment>
-        - API Key: \<Choose a key from 'Keys and endpoint' in your Azure OpenAI instance in the Portal>
-        - API Base: \<Choose the endpoint from 'Keys and endpoint' in your Azure OpenAI instance in the Portal>
-        - API type: azure
-        - API version: \<Leave default>
+    1. Click on 'Connections' in the left navigation in Machine Learning Studio
+    1. Click 'Create' and select 'Azure OpenAI Service'
+    1. Click 'Enter manually' and fill out the properties:
+       - Endpoint: \<Choose the endpoint from Keys and Endpoint in your Azure OpenAI instance in the portal - https://{name}.openai.azure.com/>
+       - Authentication: API Key
+       - Key: \<Choose a key from Keys and Endpoint in your Azure OpenAI instance in the portal>
+       - Connection name: 'gpt35'   **Make sure you use this name.**
 
-1. Clone an existing prompt flow
+1. Clone an existing example prompt flow
 
     1. Click on 'Prompt flow' in the left navigation in Machine Learning Studio
     1. Click on the 'Flows' tab and click 'Create'
@@ -204,17 +206,18 @@ You'll need to perform this from your workstation that has a private network lin
 
 1. Add runtime
 
+   1. Click the 'Select runtime' dropdown box.
    1. Click 'Start with advanced settings' and choose 'Compute instance'
    1. Choose the compute instance created by the Bicep
    1. Accept the other defaults and click 'Activate'
 
 1. Test the flow
 
-   - Wait for the runtime to be created, takes about four minutes
-   - Select the runtime in the UI
+   - Wait for the runtime to be created (this takes about four minutes)
+   - Select the runtime (if not already selected)
    - Click on 'Chat' on the UI
    - Enter a question that is based on recent data, like "Who won the 2023 cricket world cup?"
-   - The response should be returned.
+   - The response using wikipedia data should be returned.
 
 ### Deploy to Azure Machine Learning managed online endpoint
 

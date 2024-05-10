@@ -55,6 +55,14 @@ resource acrResource 'Microsoft.ContainerRegistry/registries@2023-01-01-preview'
     }
     publicNetworkAccess: 'Disabled'
     zoneRedundancy: zoneRedundancy
+    policies: {
+      exportPolicy: {
+        status: 'disabled'
+      }
+      azureADAuthenticationAsArmPolicy: {
+        status: 'disabled'
+      }
+    }
   }
 }
 
