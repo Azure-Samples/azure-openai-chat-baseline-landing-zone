@@ -24,8 +24,13 @@ param vnetName string
 @minLength(1)
 param virtualNetworkResourceGroupName string
 
+@description('The name of the existing subnet for Application Gateway. Must in in the provided virtual network and sized appropriately.')
 param appGatewaySubnetName string
+
+@description('The name of the existing webapp that will be the backend origin for the primary application gateway route.')
 param appName string
+
+@description('The name of the existing Key Vault that contains the SSL certificate for the Application Gateway.')
 param keyVaultName string
 
 @description('The name of the workload\'s existing Log Analytics workspace.')
@@ -84,7 +89,7 @@ module appGatewaySecretsUserRoleAssignmentModule './modules/keyvaultRoleAssignme
 resource appGatewayPublicIp 'Microsoft.Network/publicIPAddresses@2022-11-01' = {
   name: appGatewayPublicIpName
   location: location
-  zones: ['1', '2', '3']
+  zones: pickZones('Microsoft.Network', 'publicIPAddresses', location, 3)
   sku: {
     name: 'Standard'
   }
@@ -126,10 +131,10 @@ resource wafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewallPo
 }
 
 //App Gateway
-resource appGateway 'Microsoft.Network/applicationGateways@2022-11-01' = {
+resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
   name: appGatewayName
   location: location
-  zones: ['1', '2', '3']
+  zones: pickZones('Microsoft.Network', 'applicationGateways', location, 3)
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: {
@@ -305,7 +310,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2022-11-01' = {
 
 //Application Gateway diagnostic settings
 resource appGatewayDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: '${appGateway.name}-diagnosticSettings'
+  name: 'default'
   scope: appGateway
   properties: {
     workspaceId: logWorkspace.id

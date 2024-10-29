@@ -68,12 +68,14 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     enableRbacAuthorization: true // Using RBAC
     enabledForDeployment: true // VMs can retrieve certificates
     enabledForTemplateDeployment: true // ARM can retrieve values
+    enabledForDiskEncryption: false
 
     enableSoftDelete: true
     softDeleteRetentionInDays: 7
     //enablePurgeProtection: true // Ideally set this. This is usually enforced through 'Key vaults should have deletion protection enabled' policy
     createMode: 'default' // Creating or updating the key vault (not recovering)
   }
+
   resource kvsGatewayPublicCert 'secrets' = {
     name: 'gateway-public-cert'
     properties: {
@@ -91,7 +93,7 @@ resource keyVaultDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-
     workspaceId: logWorkspace.id
     logs: [
       {
-        categoryGroup: 'allLogs'
+        categoryGroup: 'allLogs'  // All logs is a good choice for production on this resource.
         enabled: true
         retentionPolicy: {
           enabled: false
@@ -103,7 +105,7 @@ resource keyVaultDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-
   }
 }
 
-resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' = {
+resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-01-01' = {
   name: keyVaultPrivateEndpointName
   location: location
   properties: {
@@ -129,21 +131,20 @@ resource keyVaultDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: keyVaultDnsZoneName
   location: 'global'
   properties: {}
-}
 
-resource keyVaultDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
-  parent: keyVaultDnsZone
-  name: '${keyVaultDnsZoneName}-link'
-  location: 'global'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: {
-      id: vnet.id
+  resource keyVaultDnsZoneLink 'virtualNetworkLinks' = {
+    name: '${keyVaultDnsZoneName}-link'
+    location: 'global'
+    properties: {
+      registrationEnabled: false
+      virtualNetwork: {
+        id: vnet.id
+      }
     }
   }
 }
 
-resource keyVaultDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2022-11-01' = {
+resource keyVaultDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-01-01' = {
   name: keyVaultDnsGroupName
   properties: {
     privateDnsZoneConfigs: [

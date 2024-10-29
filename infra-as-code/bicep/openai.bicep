@@ -51,7 +51,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2019-09-01' existing = {
   }
 }
 
-resource openAiAccount 'Microsoft.CognitiveServices/accounts@2023-10-01-preview' = {
+resource openAiAccount 'Microsoft.CognitiveServices/accounts@2024-06-01-preview' = {
   name: openaiName
   location: location
   kind: 'OpenAI'
@@ -62,6 +62,8 @@ resource openAiAccount 'Microsoft.CognitiveServices/accounts@2023-10-01-preview'
       defaultAction: 'Deny'
     }
     disableLocalAuth: false // Ideally you'd set this to 'true' and use Microsoft Entra ID. This is usually enforced through the policy 'Azure AI Services resources should have key access disabled (disable local authentication)'
+    // restrictOutboundNetworkAccess: true
+    // allowedFqdnList: []
   }
   sku: {
     name: 'S0'
@@ -71,53 +73,47 @@ resource openAiAccount 'Microsoft.CognitiveServices/accounts@2023-10-01-preview'
   resource blockingFilter 'raiPolicies' = {
     name: 'blocking-filter'
     properties: {
-      #disable-next-line BCP037
+#disable-next-line BCP073 // TODO (P5): can we remove type?
       type: 'UserManaged'
       basePolicyName: 'Microsoft.Default'
       mode: 'Default'
       contentFilters: [
         /* PROMPT FILTERS */
         {
-          #disable-next-line BCP037
           name: 'hate'
           blocking: true
           enabled: true
-          allowedContentLevel: 'Low'
+          severityThreshold: 'Low'
           source: 'Prompt'
         }
         {
-          #disable-next-line BCP037
           name: 'sexual'
           blocking: true
           enabled: true
-          allowedContentLevel: 'Low'
+          severityThreshold: 'Low'
           source: 'Prompt'
         }
         {
-          #disable-next-line BCP037
           name: 'selfharm'
           blocking: true
           enabled: true
-          allowedContentLevel: 'Low'
+          severityThreshold: 'Low'
           source: 'Prompt'
         }
         {
-          #disable-next-line BCP037
           name: 'violence'
           blocking: true
           enabled: true
-          allowedContentLevel: 'Low'
+          severityThreshold: 'Low'
           source: 'Prompt'
         }
         {
-          #disable-next-line BCP037
           name: 'jailbreak'
           blocking: true
           enabled: true
           source: 'Prompt'
         }
         {
-          #disable-next-line BCP037
           name: 'profanity'
           blocking: true
           enabled: true
@@ -125,39 +121,34 @@ resource openAiAccount 'Microsoft.CognitiveServices/accounts@2023-10-01-preview'
         }
         /* COMPLETION FILTERS */
         {
-          #disable-next-line BCP037
           name: 'hate'
           blocking: true
           enabled: true
-          allowedContentLevel: 'Low'
+          severityThreshold: 'Low'
           source: 'Completion'
         }
         {
-          #disable-next-line BCP037
           name: 'sexual'
           blocking: true
           enabled: true
-          allowedContentLevel: 'Low'
+          severityThreshold: 'Low'
           source: 'Completion'
         }
         {
-          #disable-next-line BCP037
           name: 'selfharm'
           blocking: true
           enabled: true
-          allowedContentLevel: 'Low'
+          severityThreshold: 'Low'
           source: 'Completion'
         }
         {
-          #disable-next-line BCP037
           name: 'violence'
           blocking: true
           enabled: true
-          allowedContentLevel: 'Low'
+          severityThreshold: 'Low'
           source: 'Completion'
         }
         {
-          #disable-next-line BCP037
           name: 'profanity'
           blocking: true
           enabled: true
@@ -188,13 +179,13 @@ resource openAiAccount 'Microsoft.CognitiveServices/accounts@2023-10-01-preview'
 
 //OpenAI diagnostic settings
 resource openAIDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: '${openAiAccount.name}-diagnosticSettings'
+  name: 'default'
   scope: openAiAccount
   properties: {
     workspaceId: logWorkspace.id
     logs: [
       {
-        categoryGroup: 'allLogs'
+        categoryGroup: 'allLogs' // All logs is a good choice for production on this resource.
         enabled: true
         retentionPolicy: {
           enabled: false

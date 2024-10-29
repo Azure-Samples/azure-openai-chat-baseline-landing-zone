@@ -77,7 +77,7 @@ resource hubFirewallUdr 'Microsoft.Network/routeTables@2022-11-01' existing = if
   }*/
 
 // Virtual network and subnets
-resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
+resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
   name: existingSpokeVirtualNetworkName
   scope: resourceGroup()
 

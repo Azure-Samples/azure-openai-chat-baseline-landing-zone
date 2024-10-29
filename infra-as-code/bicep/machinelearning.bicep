@@ -19,7 +19,9 @@ param vnetName string
 @minLength(1)
 param virtualNetworkResourceGroupName string
 
+@description('The name of the existing subnet within the identified vnet that will contains all private endpoints for this workload.')
 param privateEndpointsSubnetName string
+
 param applicationInsightsName string
 param containerRegistryName string
 param keyVaultName string
@@ -82,7 +84,7 @@ resource storageBlobDataContributorRole 'Microsoft.Authorization/roleDefinitions
 }
 
 @description('Built-in Role: [Storage File Data Privileged Contributor](https://learn.microsoft.com/azure/role-based-access-control/built-in-roles#storage-file-data-privileged-contributor)')
-resource storageFileDataContributor 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+resource storageFileDataContributorRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
   name: '69566ab7-960f-475b-8e7c-b3118f30c6bd'
   scope: subscription()
 }
@@ -112,7 +114,7 @@ resource keyVaultAdministratorRole 'Microsoft.Authorization/roleDefinitions@2022
 }
 
 @description('Built-in Role: [Azure Machine Learning Workspace Connection Secrets Reader](https://learn.microsoft.com/azure/role-based-access-control/built-in-roles)')
-resource machineLearningConnetionSecretsReaderRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+resource amlWorkspaceSecretsReaderRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
   name: 'ea01e6af-a1c1-4350-9563-ad00f8c72ec5'
   scope: subscription()
 }
@@ -158,14 +160,9 @@ resource workspaceContributorToResourceGroupRoleAssignment 'Microsoft.Authorizat
 @description('Assign AML Workspace Azure Machine Learning Workspace Connection Secrets Reader to the endpoint managed identity.')
 resource onlineEndpointSecretsReaderRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: machineLearning
-  name: guid(
-    machineLearning.id,
-    azureMachineLearningOnlineEndpointManagedIdentity.name,
-    machineLearningConnetionSecretsReaderRole.id
-  )
-
+  name: guid(machineLearning.id, azureMachineLearningOnlineEndpointManagedIdentity.name, amlWorkspaceSecretsReaderRole.id)
   properties: {
-    roleDefinitionId: machineLearningConnetionSecretsReaderRole.id
+    roleDefinitionId: amlWorkspaceSecretsReaderRole.id
     principalType: 'ServicePrincipal'
     principalId: azureMachineLearningOnlineEndpointManagedIdentity.properties.principalId
   }
@@ -187,9 +184,9 @@ resource storageBlobDataContributorRoleAssignment 'Microsoft.Authorization/roleA
 @description('Assign AML Workspace\'s ID: Storage File Data Privileged Contributor to workload\'s storage account.')
 resource storageFileDataContributorRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: mlStorage
-  name: guid(mlStorage.id, azureMachineLearningWorkspaceManagedIdentity.name, storageFileDataContributor.id)
+  name: guid(mlStorage.id, azureMachineLearningWorkspaceManagedIdentity.name, storageFileDataContributorRole.id)
   properties: {
-    roleDefinitionId: storageFileDataContributor.id
+    roleDefinitionId: storageFileDataContributorRole.id
     principalType: 'ServicePrincipal'
     principalId: azureMachineLearningWorkspaceManagedIdentity.properties.principalId
   }
@@ -459,7 +456,7 @@ resource managedEndpointPrimaryKeyEntry 'Microsoft.KeyVault/vaults/secrets@2023-
   }
 }
 
-resource machineLearningPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' = {
+resource machineLearningPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-01-01' = {
   name: 'pep-${workspaceName}'
   location: location
   properties: {
@@ -468,7 +465,7 @@ resource machineLearningPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023
         name: 'pep-${workspaceName}'
         properties: {
           groupIds: [
-            'amlworkspace'
+            'amlworkspace'  // Inbound access to the workspace
           ]
           privateLinkServiceId: machineLearning.id
         }

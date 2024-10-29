@@ -12,6 +12,7 @@ param baseName string
 @description('The resource group location')
 param location string = resourceGroup().location
 
+@minLength(1)
 param publishFileName string
 
 // existing resource name params
@@ -41,8 +42,6 @@ var appInsightsName = 'appinsights-${appName}'
 
 var chatApiKey = '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/chatApiKey)'
 var chatApiEndpoint = 'https://ept-${baseName}.${location}.inference.ml.azure.com/score'
-var chatInputName = 'question'
-var chatOutputName = 'answer'
 
 var openAIApiKey = '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/openai-key)'
 
@@ -57,6 +56,10 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   resource privateEndpointsSubnet 'subnets' existing = {
     name: privateEndpointsSubnetName
   }
+}
+
+resource containerRegistry 'Microsoft.ContainerRegistry/registries@2019-05-01' existing = {
+  name: 'cr${baseName}'
 }
 
 resource storage 'Microsoft.Storage/storageAccounts@2022-09-01' existing = {
@@ -76,6 +79,12 @@ resource keyVaultSecretsUserRole 'Microsoft.Authorization/roleDefinitions@2022-0
 // Built-in Azure RBAC role that is applied to a Key storage to grant data reader permissions. 
 resource blobDataReaderRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
   name: '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1'
+  scope: subscription()
+}
+
+@description('Built-in Role: [AcrPull](https://learn.microsoft.com/azure/role-based-access-control/built-in-roles#acrpull)')
+resource containerRegistryPullRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  name: '7f951dda-4ed3-4680-a7ca-43fe172d538d'
   scope: subscription()
 }
 
@@ -124,7 +133,7 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   kind: 'linux'
 }
 
-// Web App
+@description('This is the web app that contains the UI application.')
 resource webApp 'Microsoft.Web/sites@2023-12-01' = {
   name: appName
   location: location
@@ -173,14 +182,14 @@ resource appsettings 'Microsoft.Web/sites/config@2022-09-01' = {
     ApplicationInsightsAgent_EXTENSION_VERSION: '~2'
     chatApiKey: chatApiKey
     chatApiEndpoint: chatApiEndpoint
-    chatInputName: chatInputName
-    chatOutputName: chatOutputName
+    chatInputName: 'question'
+    chatOutputName: 'answer'
   }
 }
 
 //Web App diagnostic settings
 resource webAppDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: '${webApp.name}-diagnosticSettings'
+  name: 'default'
   scope: webApp
   properties: {
     workspaceId: logWorkspace.id
@@ -288,14 +297,12 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   properties: {
     Application_Type: 'web'
     WorkspaceResourceId: logWorkspace.id
+    RetentionInDays: 90
+    IngestionMode: 'LogAnalytics'
+    publicNetworkAccessForIngestion: 'Enabled'
+    publicNetworkAccessForQuery: 'Enabled'
   }
 }
-
-@description('The name of the app service plan.')
-output appServicePlanName string = appServicePlan.name
-
-@description('The name of the web app.')
-output appName string = webApp.name
 
 /*Promptflow app service*/
 // Web App
@@ -351,7 +358,7 @@ resource webAppPf 'Microsoft.Web/sites@2023-12-01' = {
 
 //Web App diagnostic settings
 resource webAppPfDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: '${webAppPf.name}-diagnosticSettings'
+  name: 'default'
   scope: webAppPf
   properties: {
     workspaceId: logWorkspace.id
@@ -386,7 +393,7 @@ resource webAppPfDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-
   }
 }
 
-resource appServicePrivateEndpointPf 'Microsoft.Network/privateEndpoints@2022-11-01' = {
+resource appServicePrivateEndpointPf 'Microsoft.Network/privateEndpoints@2024-01-01' = {
   name: appServicePfPrivateEndpointName
   location: location
   properties: {
@@ -407,16 +414,19 @@ resource appServicePrivateEndpointPf 'Microsoft.Network/privateEndpoints@2022-11
   }
 }
 
-resource containerRegistry 'Microsoft.ContainerRegistry/registries@2019-05-01' existing = {
-  name: 'cr${baseName}'
-}
-
+@description('Allow the prompt flow web app to pull container images from ACR.')
 resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(containerRegistry.id, appServiceManagedIdentity.id)
+  name: guid(containerRegistry.id, appServiceManagedIdentity.id, containerRegistryPullRole.id)
   scope: containerRegistry
   properties: {
-    roleDefinitionId: resourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull role
+    roleDefinitionId: containerRegistryPullRole.id
     principalType: 'ServicePrincipal'
     principalId: appServiceManagedIdentity.properties.principalId
   }
 }
+
+@description('The name of the app service plan.')
+output appServicePlanName string = appServicePlan.name
+
+@description('The name of the web app.')
+output appName string = webApp.name
