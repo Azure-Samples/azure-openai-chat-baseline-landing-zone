@@ -34,7 +34,7 @@ Azure patterns & practices team is transitioning this and related content from A
 | Asset | Workspace |
 | :---- | :-------- |
 | [Basic implementation](https://github.com/Azure-Samples/openai-end-to-end-basic) | :ballot_box_with_check: AI Studio project |
-| [Basic architecture on Microsoft Learn](https://learn.microsoft.com/azure/architecture/ai-ml/architecture/basic-openai-e2e-chat) | :white_square_button: AML workspace |
+| [Basic architecture on Microsoft Learn](https://learn.microsoft.com/azure/architecture/ai-ml/architecture/basic-openai-e2e-chat) | :ballot_box_with_check: AI Studio project |
 | [Baseline implementation](https://github.com/Azure-Samples/openai-end-to-end-baseline) | :white_square_button: AML workspace |
 | [Baseline architecture on Microsoft Learn](https://learn.microsoft.com/azure/architecture/ai-ml/architecture/baseline-openai-e2e-chat) | :white_square_button: AML workspace |
 | Azure landing zone implementation *(this repo)* | :white_square_button: AML workspace |
