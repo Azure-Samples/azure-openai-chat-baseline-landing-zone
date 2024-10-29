@@ -6,6 +6,7 @@ targetScope = 'resourceGroup'
 
 @description('This is the base name for each Azure resource name (6-8 chars)')
 @minLength(6)
+@maxLength(8)
 param baseName string
 
 @description('The resource group location')
@@ -13,7 +14,7 @@ param location string = resourceGroup().location
 
 param publishFileName string
 
-// existing resource name params 
+// existing resource name params
 param vnetName string
 
 @description('The name of the resource group containing the spoke virtual network.')
@@ -24,6 +25,8 @@ param appServicesSubnetName string
 param privateEndpointsSubnetName string
 param storageName string
 param keyVaultName string
+
+@description('The name of the workload\'s existing Log Analytics workspace.')
 param logWorkspaceName string
 
 // variables
@@ -122,7 +125,7 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
 }
 
 // Web App
-resource webApp 'Microsoft.Web/sites@2022-09-01' = {
+resource webApp 'Microsoft.Web/sites@2023-12-01' = {
   name: appName
   location: location
   kind: 'app'
@@ -296,7 +299,7 @@ output appName string = webApp.name
 
 /*Promptflow app service*/
 // Web App
-resource webAppPf 'Microsoft.Web/sites@2022-09-01' = {
+resource webAppPf 'Microsoft.Web/sites@2023-12-01' = {
   name: '${appName}-pf'
   location: location
   kind: 'linux'
@@ -330,20 +333,19 @@ resource webAppPf 'Microsoft.Web/sites@2022-09-01' = {
     appServiceSecretsUserRoleAssignmentModule
     blobDataReaderRoleAssignment
   ]
-}
 
-// App Settings
-resource appsettingsPf 'Microsoft.Web/sites/config@2022-09-01' = {
-  name: 'appsettings'
-  parent: webAppPf
-  properties: {
-    APPINSIGHTS_INSTRUMENTATIONKEY: appInsights.properties.InstrumentationKey
-    APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
-    ApplicationInsightsAgent_EXTENSION_VERSION: '~2'
-    WEBSITES_CONTAINER_START_TIME_LIMIT: '1800'
-    OPENAICONNECTION_API_BASE: 'https://oai${baseName}.openai.azure.com/'
-    OPENAICONNECTION_API_KEY: openAIApiKey
-    WEBSITES_PORT: '8080'
+  // App Settings
+  resource appsettingsPf 'config' = {
+    name: 'appsettings'
+    properties: {
+      APPINSIGHTS_INSTRUMENTATIONKEY: appInsights.properties.InstrumentationKey
+      APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
+      ApplicationInsightsAgent_EXTENSION_VERSION: '~2'
+      WEBSITES_CONTAINER_START_TIME_LIMIT: '1800'
+      OPENAICONNECTION_API_BASE: 'https://oai${baseName}.openai.azure.com/'
+      OPENAICONNECTION_API_KEY: openAIApiKey
+      WEBSITES_PORT: '8080'
+    }
   }
 }
 

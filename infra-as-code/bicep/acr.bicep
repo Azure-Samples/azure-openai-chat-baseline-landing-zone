@@ -6,6 +6,7 @@ targetScope = 'resourceGroup'
 
 @description('This is the base name for each Azure resource name (6-8 chars)')
 @minLength(6)
+@maxLength(8)
 param baseName string
 
 @description('The resource group location')
@@ -22,6 +23,8 @@ param vnetName string
 param virtualNetworkResourceGroupName string
 
 param privateEndpointsSubnetName string
+
+@description('The name of the workload\'s existing Log Analytics workspace.')
 param logWorkspaceName string
 
 //variables
@@ -55,6 +58,7 @@ resource acrResource 'Microsoft.ContainerRegistry/registries@2023-01-01-preview'
     }
     publicNetworkAccess: 'Disabled'
     zoneRedundancy: zoneRedundancy
+    anonymousPullEnabled: false
     policies: {
       exportPolicy: {
         status: 'disabled'
