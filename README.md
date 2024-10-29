@@ -96,10 +96,29 @@ Follow these instructions to deploy this example to your Azure subscription, try
 
   - A mechanism to get private endpoint DNS registered with the DNS services set in the virtual network configuration
 
-  - The application landing zone subscription must have the following quota available in the location you'll select to deploy this implementation.
+- The application landing zone subscription must have the following quota available in the location you'll select to deploy this implementation.
 
-    - Azure OpenAI: Standard, GPT-35-Turbo, 25K TPM
-    - Storage Accounts: 2
+  - Azure OpenAI: Standard, GPT-35-Turbo, 25K TPM
+  - Storage Accounts: 2 instances
+  - App Service Plans: P1v3 (AZ), 3 instances
+  - Azure DDoS protection plan: 1
+  - Standard, static Public IP Addresses: 2
+  - Standard DASv4 Family Cluster Dedicated vCPUs for machine learning: 8
+
+- The application landing zone subscription must have the following resource providers [registered](https://learn.microsoft.com/azure/azure-resource-manager/management/resource-providers-and-types#register-resource-provider).
+
+  - `Microsoft.AlertsManagement`
+  - `Microsoft.CognitiveServices`
+  - `Microsoft.Compute`
+  - `Microsoft.ContainerRegistry`
+  - `Microsoft.KeyVault`
+  - `Microsoft.Insights`
+  - `Microsoft.MachineLearningServices`
+  - `Microsoft.ManagedIdentity`
+  - `Microsoft.Network`
+  - `Microsoft.OperationalInsights`
+  - `Microsoft.Storage`
+  - `Microsoft.Web`
 
 - Your deployment user must have the following permissions at the application landing zone subscription scope.
 
@@ -107,6 +126,10 @@ Follow these instructions to deploy this example to your Azure subscription, try
   - Ability to purge deleted AI services resources. (E.g. `Contributor` or `Cognitive Services Contributor`)
 
 - The [Azure CLI installed](https://learn.microsoft.com/cli/azure/install-azure-cli)
+
+  If you're executing this from WSL, be sure the Azure CLI is installed in WSL and is not using the version installed in Windows. `which az` should show `/usr/bin/az`.
+
+- The [OpenSSL CLI](https://docs.openssl.org/3.3/man7/ossl-guide-introduction/#getting-and-installing-openssl) installed.
 
 ### 1. :rocket: Deploy the infrastructure
 
@@ -134,7 +157,7 @@ The following steps are required to deploy the infrastructure from the command l
    DOMAIN_NAME_APPSERV="contoso.com"
    ```
 
-   :warning: Do not use the certificate created by this script for actual deployments. The use of self-signed certificates are provided for ease of illustration purposes only. Use your organization's requirements for procurement and lifetime management of TLS certificates, _even for development purposes_.
+   :warning: Do not use the certificate created by this script for actual deployments. The use of self-signed certificates are provided for ease of illustration purposes only. Use your organization's requirements for procurement and lifetime management of TLS certificates, *even for development purposes*.
 
    Create the certificate that will be presented to web clients by Azure Application Gateway for your domain.
 
@@ -416,7 +439,7 @@ pip install bs4
 
       > :bulb: The App Service is configured with App Settings that surface as environment variables for ```OPENAICONNECTION_API_KEY``` and ```OPENAICONNECTION_API_BASE```.
 
-1. Build the flow
+1. Bundle the prompt flow to support creating a container image.
 
    ```bash
    pf flow build --source ./ --output dist --format docker
@@ -439,7 +462,7 @@ pip install bs4
 
 1. Make sure you have network access to your Azure Container Registry and have an RBAC role such as ACRPush that will allow you to push an image. If you are running on a local workstation, you can set ```Public network access``` to ```All networks``` or ```Selected networks``` and add your machine IP to the allowed IP list.
 
-1. Build and push the container image
+1. Build and push the container image.
 
    Run the following commands from the dist folder in your terminal:
 
@@ -459,7 +482,7 @@ pip install bs4
 
 Perform the following steps to deploy the container image to Azure App Service:
 
-1. Set the container image on the pf App Service
+1. Set the container image on the pf App Service.
 
    ```azurecli
    PF_APP_SERVICE_NAME="app-$BASE_NAME-pf"
@@ -479,11 +502,21 @@ Perform the following steps to deploy the container image to Azure App Service:
    az webapp restart --name $UI_APP_SERVICE_NAME --resource-group $RESOURCE_GROUP
    ```
 
-1. Validate the client application that is now pointing at the flow deployed in a container still works
+## :checkered_flag: Try it out. Test the final deployment
+
+| :computer: | Unless otherwise noted, all of the remaining steps are performed from your original workstation, not from the jump box. |
+| :--------: | :------------------------- |
+
+Browse to the site (e.g. <https://www.contoso.com>) once again. Once you're there, ask your solution a question. Like before, you question should ideally involve recent data or events, something that would only be known by the RAG process including content from Wikipedia.
+
+In this final configuration, your chat UI is asking the prompt flow code hosted in another Web App in your Azure App Service instance. Your Azure Machine Learning online endpoint is not used, and Wikipedia and Azure OpenAI is being called right from your prompt flow Web App.
 
 ## :broom: Clean up resources
 
 Most Azure resources deployed in the prior steps will incur ongoing charges unless removed. Additionally, a few of the resources deployed go into a soft delete status which may restrict the ability to redeploy another resource with the same name and may not release quota, so it is best to purge any soft deleted resources once you are done exploring. Use the following commands to delete the deployed resources and resource group and to purge each of the resources with soft delete.
+
+| :warning: | This will completely delete any data you may have included in this example. That data and this deployment will be unrecoverable. |
+| :--------: | :------------------------- |
 
 ```bash
 az group delete --name $RESOURCE_GROUP -y

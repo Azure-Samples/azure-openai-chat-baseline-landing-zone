@@ -1,7 +1,7 @@
 targetScope = 'resourceGroup'
 
 /*
-  Deploy container registry with private endpoint
+  Deploy Azure Container Registry with private endpoint
 */
 
 @description('This is the base name for each Azure resource name (6-8 chars)')
@@ -22,12 +22,13 @@ param vnetName string
 @minLength(1)
 param virtualNetworkResourceGroupName string
 
+@description('The name of the subnet for the private endpoint. Must be in the provided virtual network.')
 param privateEndpointsSubnetName string
 
 @description('The name of the workload\'s existing Log Analytics workspace.')
 param logWorkspaceName string
 
-//variables
+// Variables
 var acrName = 'cr${baseName}'
 var acrPrivateEndpointName = 'pep-${acrName}'
 
@@ -45,7 +46,8 @@ resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' exis
   name: logWorkspaceName
 }
 
-resource acrResource 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' = {
+@description('The container registry used by Azure AI Studio to store prompt flow images.')
+resource acrResource 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = {
   name: acrName
   location: location
   sku: {
@@ -53,12 +55,15 @@ resource acrResource 'Microsoft.ContainerRegistry/registries@2023-01-01-preview'
   }
   properties: {
     adminUserEnabled: false
+    dataEndpointEnabled: false
+    networkRuleBypassOptions: 'AzureServices' // This allows support for ACR tasks to push the build image and bypass network restrictions - https://learn.microsoft.com/en-us/azure/container-registry/allow-access-trusted-services#trusted-services-workflow
     networkRuleSet: {
       defaultAction: 'Deny'
+      ipRules: []
     }
+    anonymousPullEnabled: false
     publicNetworkAccess: 'Disabled'
     zoneRedundancy: zoneRedundancy
-    anonymousPullEnabled: false
     policies: {
       exportPolicy: {
         status: 'disabled'
@@ -70,15 +75,15 @@ resource acrResource 'Microsoft.ContainerRegistry/registries@2023-01-01-preview'
   }
 }
 
-//ACR diagnostic settings
+@description('Diagnostic settings for the Azure Container Registry instance.')
 resource acrResourceDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: '${acrResource.name}-diagnosticSettings'
+  name: 'default'
   scope: acrResource
   properties: {
     workspaceId: logWorkspace.id
     logs: [
       {
-        categoryGroup: 'allLogs'
+        categoryGroup: 'allLogs' // All logs is a good choice for production on this resource.
         enabled: true
         retentionPolicy: {
           enabled: false
@@ -90,7 +95,7 @@ resource acrResourceDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-
   }
 }
 
-resource acrPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' = {
+resource acrPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-01-01' = {
   name: acrPrivateEndpointName
   location: location
   properties: {
@@ -110,3 +115,5 @@ resource acrPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' = {
     ]
   }
 }
+
+output acrName string = acrResource.name

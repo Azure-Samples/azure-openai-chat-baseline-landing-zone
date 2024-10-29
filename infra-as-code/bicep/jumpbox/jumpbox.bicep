@@ -198,7 +198,7 @@ resource jumpBoxVirtualMachine 'Microsoft.Compute/virtualMachines@2023-07-01' = 
       diskControllerType: 'SCSI'
       osDisk: {
         createOption: 'FromImage'
-        caching: 'ReadWrite'
+        caching: 'ReadOnly'
         deleteOption: 'Delete'
         diffDiskSettings: null
         managedDisk: {
@@ -213,7 +213,7 @@ resource jumpBoxVirtualMachine 'Microsoft.Compute/virtualMachines@2023-07-01' = 
       imageReference: {
         offer: 'windows-11'
         publisher: 'MicrosoftWindowsDesktop'
-        sku: 'win11-23h2-pro'
+        sku: 'win11-24h2-pro'
         version: 'latest'
       }
     }
