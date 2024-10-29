@@ -1,5 +1,8 @@
 targetScope = 'resourceGroup'
 
+@description('This is the base name for each Azure resource name (6-8 chars)')
+@minLength(6)
+@maxLength(8)
 param baseName string
 
 @description('The resource group location')
@@ -13,7 +16,10 @@ param vnetName string
 param virtualNetworkResourceGroupName string
 
 param privateEndpointsSubnetName string
+
+@description('The name of the workload\'s existing Log Analytics workspace.')
 param logWorkspaceName string
+
 param keyVaultName string
 
 //variables
@@ -175,7 +181,7 @@ resource openAiAccount 'Microsoft.CognitiveServices/accounts@2023-10-01-preview'
         version: '0613' // If your region or quota doesn't support this version, please change it to a supported value.
       }
       raiPolicyName: openAiAccount::blockingFilter.name
-      versionUpgradeOption: 'NoAutoUpgrade'
+      versionUpgradeOption: 'NoAutoUpgrade' // Always pin your dependencies, be intentional about updates.
     }
   }
 }

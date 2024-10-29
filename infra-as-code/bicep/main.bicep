@@ -95,7 +95,7 @@ module networkModule 'network.bicep' = {
   }
 }
 
-// Deploy storage account with private endpoint
+// Deploy Azure Storage account with private endpoint and private DNS zone
 module storageModule 'storage.bicep' = {
   name: 'storageDeploy'
   scope: rgWorkload
@@ -109,7 +109,7 @@ module storageModule 'storage.bicep' = {
   }
 }
 
-// Deploy key vault with private endpoint
+// Deploy Azure Key Vault with private endpoint and private DNS zone
 module keyVaultModule 'keyvault.bicep' = {
   name: 'keyVaultDeploy'
   scope: rgWorkload
@@ -125,7 +125,7 @@ module keyVaultModule 'keyvault.bicep' = {
   }
 }
 
-// Deploy container registry with private endpoint
+// Deploy Azure Container Registry with private endpoint and private DNS zone
 module acrModule 'acr.bicep' = {
   name: 'acrDeploy'
   scope: rgWorkload
@@ -191,7 +191,7 @@ module gatewayModule 'gateway.bicep' = {
   }
 }
 
-// Deploy the web apps for the front end demo ui and the containerised promptflow endpoint
+// Deploy the web apps for the front end demo UI and the containerised promptflow endpoint
 module webappModule 'webapp.bicep' = {
   name: 'webappDeploy'
   scope: rgWorkload
@@ -208,7 +208,7 @@ module webappModule 'webapp.bicep' = {
     logWorkspaceName: monitoringModule.outputs.logWorkspaceName
   }
   dependsOn: [
-    openaiModule
+    mlwModule
     acrModule
   ]
 }
