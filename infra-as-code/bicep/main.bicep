@@ -52,6 +52,11 @@ param agentsSubnetAddressPrefix string
 @minLength(9)
 param jumpBoxSubnetAddressPrefix string
 
+@description('Assign your user some roles to support fluid access when working in AI Studio')
+@maxLength(36)
+@minLength(36)
+param yourPrincipalId string
+
 // ---- Parameters required to set to make it non availability zone compliant ----
 
 var existingResourceGroupNameForSpokeVirtualNetwork = split(existingResourceIdForSpokeVirtualNetwork, '/')[4]
@@ -166,10 +171,11 @@ module mlwModule 'machinelearning.bicep' = {
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
     applicationInsightsName: monitoringModule.outputs.applicationInsightsName
     keyVaultName: keyVaultModule.outputs.keyVaultName
-    mlStorageAccountName: storageModule.outputs.mlDeployStorageName
     containerRegistryName: 'cr${baseName}'
     logWorkspaceName: monitoringModule.outputs.logWorkspaceName
     openAiResourceName: openaiModule.outputs.openAiResourceName
+    aiStudioStorageAccountName:storageModule.outputs.mlDeployStorageName
+    yourPrincipalId: yourPrincipalId
   }
 }
 
