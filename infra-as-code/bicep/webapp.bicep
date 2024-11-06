@@ -16,6 +16,7 @@ param location string = resourceGroup().location
 param publishFileName string
 
 // existing resource name params
+//baseline - managedOnlineEndpointResourceId, acrname and openainame parameter missing in the alz
 param vnetName string
 
 @description('The name of the resource group containing the spoke virtual network.')
@@ -42,7 +43,6 @@ var appInsightsName = 'appinsights-${appName}'
 
 var chatApiKey = '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/chatApiKey)'
 var chatApiEndpoint = 'https://ept-${baseName}.${location}.inference.ml.azure.com/score'
-
 var openAIApiKey = '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/openai-key)'
 
 // ---- Existing resources ----
@@ -57,17 +57,18 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
     name: privateEndpointsSubnetName
   }
 }
+//baseline - azureopenai and chatproj existing resources don't exist in the alz
 
-resource containerRegistry 'Microsoft.ContainerRegistry/registries@2019-05-01' existing = {
-  name: 'cr${baseName}'
-}
-
-resource storage 'Microsoft.Storage/storageAccounts@2022-09-01' existing = {
+resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
   name: storageName
 }
 
 resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' existing = {
   name: logWorkspaceName
+}
+
+resource containerRegistry 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
+  name: 'cr${baseName}'
 }
 
 // Built-in Azure RBAC role that is applied to a Key Vault to grant secrets content read permissions. 
@@ -87,6 +88,7 @@ resource containerRegistryPullRole 'Microsoft.Authorization/roleDefinitions@2022
   name: '7f951dda-4ed3-4680-a7ca-43fe172d538d'
   scope: subscription()
 }
+// baseline - cognitiveServicesOpenAiUserRole doesn't exist in the ALZ
 
 // ---- Web App resources ----
 
@@ -96,7 +98,7 @@ resource appServiceManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdenti
   location: location
 }
 
-// Grant the App Service managed identity Key Vault secrets role permissions
+// Grant the App Service managed identity key vault secrets role permissions
 module appServiceSecretsUserRoleAssignmentModule './modules/keyvaultRoleAssignment.bicep' = {
   name: 'appServiceSecretsUserRoleAssignmentDeploy'
   params: {
@@ -121,16 +123,17 @@ resource blobDataReaderRoleAssignment 'Microsoft.Authorization/roleAssignments@2
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: appServicePlanName
   location: location
+    kind: 'linux'
   sku: {
-    tier: 'Premium0V3'
-    name: 'P0V3'
+    name: 'P0V3' //baseline - P1v3 in baseline
+    tier: 'Premium0V3' //baseline - PremiumV3 in baseline
+    //baseline - capacity: 3 in baseline
   }
   properties: {
-    targetWorkerCount: 3
+    targetWorkerCount: 3 // baseline - doesn't exist in the baseline
     zoneRedundant: true
     reserved: true
   }
-  kind: 'linux'
 }
 
 @description('This is the web app that contains the UI application.')
@@ -147,13 +150,13 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
   properties: {
     serverFarmId: appServicePlan.id
     virtualNetworkSubnetId: vnet::appServicesSubnet.id
-    httpsOnly: true
+    httpsOnly: true //baseline - false in baseline
     keyVaultReferenceIdentity: appServiceManagedIdentity.id
     hostNamesDisabled: false
-    vnetRouteAllEnabled: true
-    vnetImagePullEnabled: true
-    vnetContentShareEnabled: true
-    publicNetworkAccess: 'Disabled'
+    vnetRouteAllEnabled: true //baseline - doesn't exist in the baseline
+    vnetImagePullEnabled: true //baseline - doesn't exist in the baseline
+    vnetContentShareEnabled: true //baseline - doesn't exist in the baseline
+    publicNetworkAccess: 'Disabled' //baseline - doesn't exist in the baseline
     siteConfig: {
       vnetRouteAllEnabled: true
       http20Enabled: true
@@ -187,7 +190,8 @@ resource appsettings 'Microsoft.Web/sites/config@2022-09-01' = {
   }
 }
 
-//Web App diagnostic settings
+
+// Web App diagnostic settings
 resource webAppDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
   name: 'default'
   scope: webApp
@@ -243,6 +247,7 @@ resource appServicePrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-0
       }
     ]
   }
+  //baseline - privatednszonegroup, dnszone, dnszonelink for app service doesn't exist in the alz
 }
 
 // App service plan auto scale settings
@@ -306,12 +311,12 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
 
 /*Promptflow app service*/
 // Web App
-resource webAppPf 'Microsoft.Web/sites@2023-12-01' = {
+resource webAppPf 'Microsoft.Web/sites@2023-12-01' = { //baseline - 2022-09-01 in the baseline
   name: '${appName}-pf'
   location: location
   kind: 'linux'
   identity: {
-    type: 'UserAssigned'
+    type: 'UserAssigned'  //baseline - baseline has both systemAssigned and userAssigned
     userAssignedIdentities: {
       '${appServiceManagedIdentity.id}': {}
     }
@@ -319,13 +324,13 @@ resource webAppPf 'Microsoft.Web/sites@2023-12-01' = {
   properties: {
     serverFarmId: appServicePlan.id
     virtualNetworkSubnetId: vnet::appServicesSubnet.id
-    httpsOnly: true
+    httpsOnly: true //baseline - false in the baseline
     keyVaultReferenceIdentity: appServiceManagedIdentity.id
     hostNamesDisabled: false
     vnetImagePullEnabled: true
-    vnetRouteAllEnabled: true
-    publicNetworkAccess: 'Disabled'
-    vnetContentShareEnabled: true
+    vnetRouteAllEnabled: true //baseline - doesn't exist in the baseline
+    publicNetworkAccess: 'Disabled' //baseline - doesn't exist in the baseline
+    vnetContentShareEnabled: true //baseline - doesn't exist in the baseline
     siteConfig: {
       linuxFxVersion: 'DOCKER|mcr.microsoft.com/appsvc/staticsite:latest'
       vnetRouteAllEnabled: true
@@ -339,9 +344,9 @@ resource webAppPf 'Microsoft.Web/sites@2023-12-01' = {
   dependsOn: [
     appServiceSecretsUserRoleAssignmentModule
     blobDataReaderRoleAssignment
+    containerRegistryPullRole
   ]
 
-  // App Settings
   resource appsettingsPf 'config' = {
     name: 'appsettings'
     properties: {
@@ -356,7 +361,7 @@ resource webAppPf 'Microsoft.Web/sites@2023-12-01' = {
   }
 }
 
-//Web App diagnostic settings
+// Prompt flow Web App diagnostic settings
 resource webAppPfDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
   name: 'default'
   scope: webAppPf
@@ -412,10 +417,11 @@ resource appServicePrivateEndpointPf 'Microsoft.Network/privateEndpoints@2024-01
       }
     ]
   }
+  //baseline - no privatendnszonegrp
 }
 
 @description('Allow the prompt flow web app to pull container images from ACR.')
-resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(containerRegistry.id, appServiceManagedIdentity.id, containerRegistryPullRole.id)
   scope: containerRegistry
   properties: {
@@ -423,6 +429,7 @@ resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
     principalType: 'ServicePrincipal'
     principalId: appServiceManagedIdentity.properties.principalId
   }
+//baseline - azureOpenAiUserRoleAssignment missing in alz
 }
 
 @description('The name of the app service plan.')
