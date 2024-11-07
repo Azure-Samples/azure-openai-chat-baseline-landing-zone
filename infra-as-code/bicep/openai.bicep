@@ -48,9 +48,9 @@ resource openAiAccount 'Microsoft.CognitiveServices/accounts@2024-06-01-preview'
     networkAcls: {
       defaultAction: 'Deny'
     }
-    disableLocalAuth: true  //baseline : aligning with baseline to true
-    restrictOutboundNetworkAccess: true //baseline : uncommenting to align with baseline
-    allowedFqdnList: [] //baseline : uncommenting to align with baseline to true
+    disableLocalAuth: true
+    restrictOutboundNetworkAccess: true
+    allowedFqdnList: []
   }
   sku: {
     name: 'S0'

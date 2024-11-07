@@ -54,7 +54,7 @@ resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' exis
 }
 
 @description('The container registry used by Azure AI Studio to store prompt flow images.')
-resource acrResource 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = { //baseline - baseline uses 2023-07-01
+resource acrResource 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = {
   name: acrName
   location: location
   sku: {
@@ -70,7 +70,7 @@ resource acrResource 'Microsoft.ContainerRegistry/registries@2023-11-01-preview'
     }
     publicNetworkAccess: 'Disabled'
     zoneRedundancy: zoneRedundancy
-    policies: { //baseline - policies missing in baseline
+    policies: {
       exportPolicy: {
         status: 'disabled'
       }

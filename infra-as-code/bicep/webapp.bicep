@@ -16,7 +16,6 @@ param location string = resourceGroup().location
 param publishFileName string
 
 // existing resource name params
-//baseline - managedOnlineEndpointResourceId, acrname and openainame parameter missing in the alz
 param vnetName string
 
 @description('The name of the resource group containing the spoke virtual network.')
@@ -172,10 +171,10 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
     httpsOnly: false
     keyVaultReferenceIdentity: appServiceManagedIdentity.id
     hostNamesDisabled: false
-    vnetRouteAllEnabled: true //baseline - doesn't exist in the baseline
-    vnetImagePullEnabled: true //baseline - doesn't exist in the baseline
-    vnetContentShareEnabled: true //baseline - doesn't exist in the baseline
-    publicNetworkAccess: 'Disabled' //baseline - doesn't exist in the baseline
+    vnetRouteAllEnabled: true
+    vnetImagePullEnabled: true
+    vnetContentShareEnabled: true
+    publicNetworkAccess: 'Disabled'
     siteConfig: {
       vnetRouteAllEnabled: true
       http20Enabled: true
@@ -327,12 +326,12 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
 
 /*Promptflow app service*/
 // Web App
-resource webAppPf 'Microsoft.Web/sites@2023-12-01' = { //baseline - 2022-09-01 in the baseline
+resource webAppPf 'Microsoft.Web/sites@2023-12-01' = {
   name: '${appName}-pf'
   location: location
   kind: 'linux'
   identity: {
-    type: 'UserAssigned'  //baseline - baseline has both systemAssigned and userAssigned
+    type: 'SystemAssigned, UserAssigned'
     userAssignedIdentities: {
       '${appServiceManagedIdentity.id}': {}
     }
@@ -344,9 +343,9 @@ resource webAppPf 'Microsoft.Web/sites@2023-12-01' = { //baseline - 2022-09-01 i
     keyVaultReferenceIdentity: appServiceManagedIdentity.id
     hostNamesDisabled: false
     vnetImagePullEnabled: true
-    vnetRouteAllEnabled: true //baseline - doesn't exist in the baseline
-    publicNetworkAccess: 'Disabled' //baseline - doesn't exist in the baseline
-    vnetContentShareEnabled: true //baseline - doesn't exist in the baseline
+    vnetRouteAllEnabled: true
+    publicNetworkAccess: 'Disabled'
+    vnetContentShareEnabled: true
     siteConfig: {
       linuxFxVersion: 'DOCKER|mcr.microsoft.com/appsvc/staticsite:latest'
       vnetRouteAllEnabled: true

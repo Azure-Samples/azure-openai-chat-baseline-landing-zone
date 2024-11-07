@@ -4,7 +4,7 @@ targetScope = 'resourceGroup'
   Deploy subnets and NSGs
 */
 
-//baseline - training and scoring subnets missing
+//todo - add training and scoring subnets
 
 @description('The resource group location')
 param location string = resourceGroup().location

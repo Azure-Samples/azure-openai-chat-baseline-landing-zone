@@ -49,7 +49,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
 resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' existing = {
   name: logWorkspaceName
 }
-//baseline - added role from baseline
+
 @description('Built-in Role: [Storage Blob Data Contributor](https://learn.microsoft.com/azure/role-based-access-control/built-in-roles#storage-blob-data-contributor)')
 resource storageBlobDataContributorRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
   name: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
@@ -67,7 +67,7 @@ resource appDeployStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   properties: {
     accessTier: 'Hot'
     allowBlobPublicAccess: false
-    allowSharedKeyAccess: false //baseline - false in baseline
+    allowSharedKeyAccess: false
     allowCrossTenantReplication: false
     encryption: {
       keySource: 'Microsoft.Storage'
@@ -169,7 +169,7 @@ resource mlStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   properties: {
     accessTier: 'Hot'
     allowBlobPublicAccess: false
-    allowSharedKeyAccess: true //baseline - should be false ?
+    allowSharedKeyAccess: false
     allowCrossTenantReplication: false
     encryption: {
       keySource: 'Microsoft.Storage'
@@ -203,7 +203,7 @@ resource mlStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
 
 // Enable Machine Learning Storage Account blob diagnostic settings
 resource mlStorageBlobDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: 'default' //baseline - default in baseline
+  name: 'default'
   scope: mlStorage::Blob
   properties: {
     workspaceId: logWorkspace.id

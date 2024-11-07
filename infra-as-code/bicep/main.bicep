@@ -115,8 +115,6 @@ module storageModule 'storage.bicep' = {
   }
 }
 
-//baseline - jumpbox module missing
-
 // Deploy Azure Key Vault with private endpoint and private DNS zone
 module keyVaultModule 'keyvault.bicep' = {
   name: 'keyVaultDeploy'
@@ -131,8 +129,6 @@ module keyVaultModule 'keyvault.bicep' = {
     logWorkspaceName: monitoringModule.outputs.logWorkspaceName
   }
 }
-
-//baseline - missing app insights module
 
 // Deploy Azure Container Registry with private endpoint and private DNS zone
 module acrModule 'acr.bicep' = {

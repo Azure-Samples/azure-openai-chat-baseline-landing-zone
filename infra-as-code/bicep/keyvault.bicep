@@ -125,7 +125,7 @@ resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-01-01'
   }
 }
 
-//baseline - We need a local copy due to a limitation in Azure Application Gateway not using DNS from the hub for cert retrieval
+// We need a local copy due to a limitation in Azure Application Gateway not using DNS from the hub for cert retrieval
 resource keyVaultDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: keyVaultDnsZoneName
   location: 'global'
@@ -143,7 +143,7 @@ resource keyVaultDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   }
 }
 
-resource keyVaultDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-01-01' = { //baseline - baseline uses 2022-11-01
+resource keyVaultDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-01-01' = {
   name: keyVaultDnsGroupName
   properties: {
     privateDnsZoneConfigs: [
