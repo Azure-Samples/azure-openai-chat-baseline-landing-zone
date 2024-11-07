@@ -1,17 +1,18 @@
+//baseline - this isn't in a folder in a baseline
 targetScope = 'resourceGroup'
 
 @description('This is the base name for each Azure resource name (6-8 chars)')
 @minLength(6)
-@maxLength(8)
+@maxLength(8) //baseline - not in baseline
 param baseName string
 
 @description('The region in which this architecture is deployed.')
 @minLength(1)
-param location string = 'uksouth' // TODO - TEMP resourceGroup().location
+param location string = resourceGroup().location 
 
 @description('The resource ID of the subscription vending provided spoke in your application landging zone subscription. For example, /subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg-app-networking/providers/Microsoft.Network/virtualNetworks/vnet-app000-spoke0')
 @minLength(114)
-param existingResourceIdForSpokeVirtualNetwork string
+param existingResourceIdForSpokeVirtualNetwork string //baseline - is the parameters.json file needed?
 
 @description('Specifies the name of the administrator account on the Windows jump box. Cannot end in "."\n\nDisallowed values: "administrator", "admin", "user", "user1", "test", "user2", "test1", "user3", "admin1", "1", "123", "a", "actuser", "adm", "admin2", "aspnet", "backup", "console", "david", "guest", "john", "owner", "root", "server", "sql", "support", "support_388945a0", "sys", "test2", "test3", "user4", "user5".\n\nDefault: vmadmin')
 @minLength(4)
@@ -20,7 +21,7 @@ param jumpBoxAdminName string = 'vmadmin'
 
 @description('Specifies the password of the administrator account on the Windows jump box.\n\nComplexity requirements: 3 out of 4 conditions below need to be fulfilled:\n- Has lower characters\n- Has upper characters\n- Has a digit\n- Has a special character\n\nDisallowed values: "abc@123", "P@$$w0rd", "P@ssw0rd", "P@ssword123", "Pa$$word", "pass@word1", "Password!", "Password1", "Password22", "iloveyou!"')
 @secure()
-@minLength(5)
+@minLength(8)
 @maxLength(123)
 param jumpBoxAdminPassword string
 
@@ -44,7 +45,7 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2023-05-01' existing 
 
 @description('Existing Log Analyitics workspace, used as the common log sink for the workload.')
 resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' existing = {
-  name: 'log-${baseName}'
+  name: 'log-${baseName}' //baseline - which workspace should this be, app or platform?
 }
 
 // New resources
@@ -195,12 +196,12 @@ resource jumpBoxVirtualMachine 'Microsoft.Compute/virtualMachines@2023-07-01' = 
     }
     storageProfile: {
       dataDisks: []
-      diskControllerType: 'SCSI'
+      diskControllerType: 'SCSI'  //baseline - not in baseline
       osDisk: {
         createOption: 'FromImage'
         caching: 'ReadOnly'
         deleteOption: 'Delete'
-        diffDiskSettings: null
+        diffDiskSettings: null  //baseline - not in baseline
         managedDisk: {
           storageAccountType: 'Premium_LRS'
         }

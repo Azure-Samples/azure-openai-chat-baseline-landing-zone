@@ -4,6 +4,8 @@ targetScope = 'resourceGroup'
   Deploy subnets and NSGs
 */
 
+//baseline - training and scoring subnets missing
+
 @description('The resource group location')
 param location string = resourceGroup().location
 
@@ -437,3 +439,6 @@ output privateEndpointsSubnetName string = vnet::privateEnpointsSubnet.name
 
 @description('The DNS servers that were configured on the virtual network.')
 output vnetDNSServers array = vnet.properties.dhcpOptions.dnsServers
+
+@description('The name of the build agent subnet.')
+output agentSubnetName string = vnet::agentsSubnet.name

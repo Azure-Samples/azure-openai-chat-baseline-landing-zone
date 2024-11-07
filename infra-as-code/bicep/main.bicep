@@ -74,7 +74,7 @@ resource rgSpoke 'Microsoft.Resources/resourceGroups@2023-07-01' existing = {
 }
 
 // Deploy Log Analytics workspace
-module monitoringModule 'monitoring.bicep' = {
+module monitoringModule 'applicationinsignts.bicep' = {
   name: 'workloadMonitoring'
   scope: rgWorkload
   params: {
@@ -111,8 +111,11 @@ module storageModule 'storage.bicep' = {
     virtualNetworkResourceGroupName: rgSpoke.name
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
     logWorkspaceName: monitoringModule.outputs.logWorkspaceName
+    yourPrincipalId: yourPrincipalId
   }
 }
+
+//baseline - jumpbox module missing
 
 // Deploy Azure Key Vault with private endpoint and private DNS zone
 module keyVaultModule 'keyvault.bicep' = {
@@ -125,10 +128,11 @@ module keyVaultModule 'keyvault.bicep' = {
     virtualNetworkResourceGroupName: rgSpoke.name
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
     appGatewayListenerCertificate: appGatewayListenerCertificate
-    apiKey: 'key'
     logWorkspaceName: monitoringModule.outputs.logWorkspaceName
   }
 }
+
+//baseline - missing app insights module
 
 // Deploy Azure Container Registry with private endpoint and private DNS zone
 module acrModule 'acr.bicep' = {
@@ -140,6 +144,7 @@ module acrModule 'acr.bicep' = {
     vnetName: networkModule.outputs.vnetName
     virtualNetworkResourceGroupName: rgSpoke.name
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
+    buildAgentSubnetName: networkModule.outputs.agentSubnetName
     logWorkspaceName: monitoringModule.outputs.logWorkspaceName
   }
 }
@@ -155,13 +160,12 @@ module openaiModule 'openai.bicep' = {
     virtualNetworkResourceGroupName: rgSpoke.name
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
     logWorkspaceName: monitoringModule.outputs.logWorkspaceName
-    keyVaultName: keyVaultModule.outputs.keyVaultName
   }
 }
 
-// Deploy machine learning workspace with private endpoint and private DNS zone
-module mlwModule 'machinelearning.bicep' = {
-  name: 'mlwDeploy'
+// Deploy Azure AI Studio with private networking
+module aiStudioModule 'machinelearning.bicep' = {
+  name: 'aiStudioDeploy'
   scope: rgWorkload
   params: {
     location: rgWorkload.location
@@ -171,10 +175,10 @@ module mlwModule 'machinelearning.bicep' = {
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
     applicationInsightsName: monitoringModule.outputs.applicationInsightsName
     keyVaultName: keyVaultModule.outputs.keyVaultName
+    aiStudioStorageAccountName: storageModule.outputs.mlDeployStorageName
     containerRegistryName: 'cr${baseName}'
     logWorkspaceName: monitoringModule.outputs.logWorkspaceName
     openAiResourceName: openaiModule.outputs.openAiResourceName
-    aiStudioStorageAccountName:storageModule.outputs.mlDeployStorageName
     yourPrincipalId: yourPrincipalId
   }
 }
@@ -192,7 +196,7 @@ module gatewayModule 'gateway.bicep' = {
     virtualNetworkResourceGroupName: rgSpoke.name
     appGatewaySubnetName: networkModule.outputs.appGatewaySubnetName
     keyVaultName: keyVaultModule.outputs.keyVaultName
-    gatewayCertSecretUri: keyVaultModule.outputs.gatewayCertSecretUri
+    gatewayCertSecretKey: keyVaultModule.outputs.gatewayCertSecretKey
     logWorkspaceName: monitoringModule.outputs.logWorkspaceName
   }
 }
@@ -204,7 +208,10 @@ module webappModule 'webapp.bicep' = {
   params: {
     location: rgWorkload.location
     baseName: baseName
+    managedOnlineEndpointResourceId: aiStudioModule.outputs.managedOnlineEndpointResourceId
+    acrName: acrModule.outputs.acrName
     publishFileName: publishFileName
+    openAIName: openaiModule.outputs.openAiResourceName
     keyVaultName: keyVaultModule.outputs.keyVaultName
     storageName: storageModule.outputs.appDeployStorageName
     vnetName: networkModule.outputs.vnetName
@@ -213,8 +220,4 @@ module webappModule 'webapp.bicep' = {
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
     logWorkspaceName: monitoringModule.outputs.logWorkspaceName
   }
-  dependsOn: [
-    mlwModule
-    acrModule
-  ]
 }

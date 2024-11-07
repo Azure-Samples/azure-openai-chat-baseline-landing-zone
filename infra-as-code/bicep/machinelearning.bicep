@@ -46,7 +46,6 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
   }
 }
 
-
 resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' existing = {
   name: logWorkspaceName
 }
@@ -147,6 +146,8 @@ resource aiHub 'Microsoft.MachineLearningServices/workspaces@2024-07-01-preview'
   }
   identity: {
     type: 'SystemAssigned'  // This resource's identity is automatically assigned priviledge access to ACR, Storage, Key Vault, and Application Insights.
+                            // Since the priveleges are granted at the project/hub level have elevated access to the resources, it is recommended to isolate these resources
+                            // to a resource group that only contains the project/hub and relevant resources.
   }
   properties: {
     friendlyName: 'Azure OpenAI Chat Hub'
@@ -248,6 +249,8 @@ resource chatProject 'Microsoft.MachineLearningServices/workspaces@2024-04-01' =
   }
   identity: {
     type: 'SystemAssigned'  // This resource's identity is automatically assigned priviledge access to ACR, Storage, Key Vault, and Application Insights.
+                            // Since the priveleges are granted at the project/hub level have elevated access to the resources, it is recommended to isolate these resources
+                            // to a resource group that only contains the project/hub.
   }
   properties: {
     friendlyName: 'Chat with Wikipedia project'
@@ -265,7 +268,7 @@ resource chatProject 'Microsoft.MachineLearningServices/workspaces@2024-04-01' =
     kind: 'Managed'
     identity: {
       type: 'SystemAssigned' // This resource's identity is automatically assigned AcrPull access to ACR, Storage Blob Data Contributor, and AML Metrics Writer on the project. It is also assigned two additional permissions below.
-                             // TODO (Joey): Evaluate moving back to UserAssigned for more granular control.
+                            // Given the permissions assigned to the identity, it is recommended only include deployments in the Azure OpenAI service that are trusted to be invoked from this endpoint.
     }
     properties: {
       description: 'This is the /score endpoint for the "Chat with Wikipedia" example prompt flow deployment. Called by the UI hosted in Web Apps.'

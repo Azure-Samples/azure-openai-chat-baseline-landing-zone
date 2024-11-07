@@ -15,7 +15,7 @@ param location string = resourceGroup().location
 @description('The zone redundancy of the ACR.')
 param zoneRedundancy string = 'Enabled'
 
-// existing resource name params 
+@description('The name of the virtual network that this ACR instance will have a private endpoint in.')
 param vnetName string
 
 @description('The name of the resource group containing the spoke virtual network.')
@@ -25,6 +25,9 @@ param virtualNetworkResourceGroupName string
 @description('The name of the subnet for the private endpoint. Must be in the provided virtual network.')
 param privateEndpointsSubnetName string
 
+@description('The name of the subnet for build agents. Must be in the provided virtual network.')
+param buildAgentSubnetName string
+
 @description('The name of the workload\'s existing Log Analytics workspace.')
 param logWorkspaceName string
 
@@ -33,12 +36,16 @@ var acrName = 'cr${baseName}'
 var acrPrivateEndpointName = 'pep-${acrName}'
 
 // ---- Existing resources ----
-resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
+resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing =  {
   name: vnetName
   scope: resourceGroup(virtualNetworkResourceGroupName)
 
   resource privateEndpointsSubnet 'subnets' existing = {
     name: privateEndpointsSubnetName
+  }
+  
+  resource buildAgentSubnet 'subnets' existing = {
+    name: buildAgentSubnetName
   }
 }
 
@@ -47,7 +54,7 @@ resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' exis
 }
 
 @description('The container registry used by Azure AI Studio to store prompt flow images.')
-resource acrResource 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = {
+resource acrResource 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = { //baseline - baseline uses 2023-07-01
   name: acrName
   location: location
   sku: {
@@ -61,16 +68,26 @@ resource acrResource 'Microsoft.ContainerRegistry/registries@2023-11-01-preview'
       defaultAction: 'Deny'
       ipRules: []
     }
-    anonymousPullEnabled: false
     publicNetworkAccess: 'Disabled'
     zoneRedundancy: zoneRedundancy
-    policies: {
+    policies: { //baseline - policies missing in baseline
       exportPolicy: {
         status: 'disabled'
       }
       azureADAuthenticationAsArmPolicy: {
         status: 'disabled'
       }
+    }
+  }
+  @description('Compute in the virtual network that can be used to build container images. This could also be done with tasks or images could be built on build agents.')
+  resource imageBuildPool 'agentPools@2019-06-01-preview' = {
+    name: 'imgbuild'
+    location: location
+    properties: {
+      os: 'Linux'
+      count: 1
+      virtualNetworkSubnetResourceId: vnet::buildAgentSubnet.id
+      tier: 'S1'
     }
   }
 }

@@ -20,8 +20,6 @@ param privateEndpointsSubnetName string
 @description('The name of the workload\'s existing Log Analytics workspace.')
 param logWorkspaceName string
 
-param keyVaultName string
-
 //variables
 var openaiName = 'oai-${baseName}'
 var openaiPrivateEndpointName = 'pep-${openaiName}'
@@ -40,17 +38,6 @@ resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' exis
   name: logWorkspaceName
 }
 
-resource keyVault 'Microsoft.KeyVault/vaults@2019-09-01' existing = {
-  name: keyVaultName
-
-  resource kvsGatewayPublicCert 'secrets' = {
-    name: 'openai-key'
-    properties: {
-      value: openAiAccount.listKeys().key1
-    }
-  }
-}
-
 resource openAiAccount 'Microsoft.CognitiveServices/accounts@2024-06-01-preview' = {
   name: openaiName
   location: location
@@ -61,9 +48,9 @@ resource openAiAccount 'Microsoft.CognitiveServices/accounts@2024-06-01-preview'
     networkAcls: {
       defaultAction: 'Deny'
     }
-    disableLocalAuth: false // Ideally you'd set this to 'true' and use Microsoft Entra ID. This is usually enforced through the policy 'Azure AI Services resources should have key access disabled (disable local authentication)'
-    // restrictOutboundNetworkAccess: true
-    // allowedFqdnList: []
+    disableLocalAuth: true  //baseline : aligning with baseline to true
+    restrictOutboundNetworkAccess: true //baseline : uncommenting to align with baseline
+    allowedFqdnList: [] //baseline : uncommenting to align with baseline to true
   }
   sku: {
     name: 'S0'
@@ -169,10 +156,10 @@ resource openAiAccount 'Microsoft.CognitiveServices/accounts@2024-06-01-preview'
       model: {
         format: 'OpenAI'
         name: 'gpt-35-turbo'
-        version: '0613' // If your region or quota doesn't support this version, please change it to a supported value.
+        version: '0613' // If your selected region doesn't support this version, please change it.
       }
       raiPolicyName: openAiAccount::blockingFilter.name
-      versionUpgradeOption: 'NoAutoUpgrade' // Always pin your dependencies, be intentional about updates.
+      versionUpgradeOption: 'NoAutoUpgrade'  // Always pin your dependencies, be intentional about updates.
     }
   }
 }
@@ -185,7 +172,7 @@ resource openAIDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-pr
     workspaceId: logWorkspace.id
     logs: [
       {
-        categoryGroup: 'allLogs' // All logs is a good choice for production on this resource.
+        categoryGroup: 'allLogs'  // All logs is a good choice for production on this resource.
         enabled: true
         retentionPolicy: {
           enabled: false
@@ -216,6 +203,10 @@ resource openaiPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' =
       }
     ]
   }
+  dependsOn: [
+    openAiAccount::blockingFilter
+    openAiAccount::gpt35
+  ]
 }
 
 // ---- Outputs ----
