@@ -7,7 +7,7 @@ param baseName string
 
 @description('The region in which this architecture is deployed.')
 @minLength(1)
-param location string = resourceGroup().location 
+param location string = resourceGroup().location
 
 @description('The resource ID of the subscription vending provided spoke in your application landging zone subscription. For example, /subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg-app-networking/providers/Microsoft.Network/virtualNetworks/vnet-app000-spoke0')
 @minLength(114)

@@ -1,3 +1,5 @@
+targetScope = 'resourceGroup'
+
 /*
   Deploy machine learning workspace, private endpoints and compute resources
 */

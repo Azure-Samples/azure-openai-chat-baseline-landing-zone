@@ -34,7 +34,6 @@ param acrName string
 @minLength(6)
 param openAIName string
 
-
 param appServicesSubnetName string
 param privateEndpointsSubnetName string
 param storageName string
@@ -61,7 +60,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
     name: privateEndpointsSubnetName
   }
 }
-resource azureOpenAI 'Microsoft.CognitiveServices/accounts@2024-06-01-preview' existing ={
+resource azureOpenAI 'Microsoft.CognitiveServices/accounts@2024-06-01-preview' existing = {
   name: openAIName
 }
 
@@ -117,7 +116,7 @@ resource appServiceManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdenti
   location: location
 }
 
-// Grant the App Service managed identity key vault secrets role permissions
+// Grant the App Service managed identity Key Vault secrets role permissions
 module appServiceSecretsUserRoleAssignmentModule './modules/keyvaultRoleAssignment.bicep' = {
   name: 'appServiceSecretsUserRoleAssignmentDeploy'
   params: {
@@ -190,6 +189,7 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
     blobDataReaderRoleAssignment
   ]
 
+  // App Settings
   resource appsettings 'config' = {
     name: 'appsettings'
     properties: {
@@ -205,7 +205,6 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
     }
   }
 }
-
 
 // Web App diagnostic settings
 resource webAppDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {

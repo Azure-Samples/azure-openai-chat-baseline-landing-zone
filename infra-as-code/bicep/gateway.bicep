@@ -79,13 +79,13 @@ resource keyVaultSecretsUserRole 'Microsoft.Authorization/roleDefinitions@2022-0
 
 // ---- App Gateway resources ----
 
-// Managed Identity for App Gateway. 
+// Managed Identity for Application Gateway.
 resource appGatewayManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: appGatewayManagedIdentityName
   location: location
 }
 
-// Grant the Azure Application Gateway managed identity with key vault secrets role permissions; this allows pulling certificates.
+// Grant the Azure Application Gateway managed identity with Key Vault secrets role permissions; this allows pulling certificates.
 module appGatewaySecretsUserRoleAssignmentModule './modules/keyvaultRoleAssignment.bicep' = {
   name: 'appGatewaySecretsUserRoleAssignmentDeploy'
   params: {
@@ -293,8 +293,8 @@ resource appGateWay 'Microsoft.Network/applicationGateways@2024-01-01' = {
       }
     ]
     autoscaleConfiguration: {
-      minCapacity: 2
-      maxCapacity: 5
+      minCapacity: 1
+      maxCapacity: 3
     }
   }
   dependsOn: [
@@ -303,7 +303,7 @@ resource appGateWay 'Microsoft.Network/applicationGateways@2024-01-01' = {
 }
 
 //Application Gateway diagnostic settings
-resource appGateWayDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+resource appGatewayDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
   name: 'default'
   scope: appGateWay
   properties: {
