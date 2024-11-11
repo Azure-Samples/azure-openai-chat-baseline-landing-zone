@@ -39,8 +39,8 @@ param gatewayCertSecretKey string
 param logWorkspaceName string
 
 //variables
-var appGateWayName = 'agw-${baseName}'
-var appGatewayManagedIdentityName = 'id-${appGateWayName}'
+var appGatewayName = 'agw-${baseName}'
+var appGatewayManagedIdentityName = 'id-${appGatewayName}'
 var appGatewayPublicIpName = 'pip-${baseName}'
 var appGatewayFqdn = 'fe-${baseName}'
 var wafPolicyName = 'waf-${baseName}'
