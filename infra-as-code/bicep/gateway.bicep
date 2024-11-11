@@ -42,8 +42,8 @@ param logWorkspaceName string
 var appGateWayName = 'agw-${baseName}'
 var appGatewayManagedIdentityName = 'id-${appGateWayName}'
 var appGatewayPublicIpName = 'pip-${baseName}'
-var appGateWayFqdn = 'fe-${baseName}'
-var wafPolicyName= 'waf-${baseName}'
+var appGatewayFqdn = 'fe-${baseName}'
+var wafPolicyName = 'waf-${baseName}'
 
 // ---- Existing resources ----
 resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
@@ -108,7 +108,7 @@ resource appGatewayPublicIp 'Microsoft.Network/publicIPAddresses@2022-11-01' = {
     publicIPAllocationMethod: 'Static'
     idleTimeoutInMinutes: 4
     dnsSettings: {
-      domainNameLabel: appGateWayFqdn
+      domainNameLabel: appGatewayFqdn
     }
   }
 }
@@ -141,8 +141,8 @@ resource wafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewallPo
 }
 
 //App Gateway
-resource appGateWay 'Microsoft.Network/applicationGateways@2024-01-01' = {
-  name: appGateWayName
+resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
+  name: appGatewayName
   location: location
   zones: pickZones('Microsoft.Network', 'applicationGateways', location, 3)
   identity: {
@@ -221,7 +221,7 @@ resource appGateWay 'Microsoft.Network/applicationGateways@2024-01-01' = {
     enableHttp2: false
     sslCertificates: [
       {
-        name: '${appGateWayName}-ssl-certificate'
+        name: '${appGatewayName}-ssl-certificate'
         properties: {
           keyVaultSecretId: keyVault::kvsGatewayPublicCert.properties.secretUri
         }
@@ -249,7 +249,7 @@ resource appGateWay 'Microsoft.Network/applicationGateways@2024-01-01' = {
           pickHostNameFromBackendAddress: true
           requestTimeout: 20
           probe: {
-            id: resourceId('Microsoft.Network/applicationGateways/probes', appGateWayName, 'probe-web${baseName}')
+            id: resourceId('Microsoft.Network/applicationGateways/probes', appGatewayName, 'probe-web${baseName}')
           }
         }
       }
@@ -259,14 +259,14 @@ resource appGateWay 'Microsoft.Network/applicationGateways@2024-01-01' = {
         name: 'WebAppListener'
         properties: {
           frontendIPConfiguration: {
-            id: resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appGateWayName, 'appGwPublicFrontendIp')
+            id: resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appGatewayName, 'appGwPublicFrontendIp')
           }
           frontendPort: {
-            id: resourceId('Microsoft.Network/applicationGateways/frontendPorts', appGateWayName, 'port-443')
+            id: resourceId('Microsoft.Network/applicationGateways/frontendPorts', appGatewayName, 'port-443')
           }
           protocol: 'Https'
           sslCertificate: {
-            id: resourceId('Microsoft.Network/applicationGateways/sslCertificates', appGateWayName, '${appGateWayName}-ssl-certificate')
+            id: resourceId('Microsoft.Network/applicationGateways/sslCertificates', appGatewayName, '${appGatewayName}-ssl-certificate')
           }
           hostName: 'www.${customDomainName}'
           hostNames: []
@@ -281,13 +281,13 @@ resource appGateWay 'Microsoft.Network/applicationGateways@2024-01-01' = {
           ruleType: 'Basic'
           priority: 100
           httpListener: {
-            id: resourceId('Microsoft.Network/applicationGateways/httpListeners', appGateWayName, 'WebAppListener')
+            id: resourceId('Microsoft.Network/applicationGateways/httpListeners', appGatewayName, 'WebAppListener')
           }
           backendAddressPool: {
-            id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools', appGateWayName, 'pool-${appName}')
+            id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools', appGatewayName, 'pool-${appName}')
           }
           backendHttpSettings: {
-            id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', appGateWayName, 'WebAppBackendHttpSettings')
+            id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', appGatewayName, 'WebAppBackendHttpSettings')
           }
         }
       }
@@ -305,7 +305,7 @@ resource appGateWay 'Microsoft.Network/applicationGateways@2024-01-01' = {
 //Application Gateway diagnostic settings
 resource appGatewayDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
   name: 'default'
-  scope: appGateWay
+  scope: appGateway
   properties: {
     workspaceId: logWorkspace.id
     logs: [
@@ -323,4 +323,4 @@ resource appGatewayDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-0
 }
 
 @description('The name of the app gateway resource.')
-output appGateWayName string = appGateWay.name
+output appGateWayName string = appGateway.name
