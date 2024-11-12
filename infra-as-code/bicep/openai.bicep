@@ -40,6 +40,9 @@ resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' exis
 
 resource openAiAccount 'Microsoft.CognitiveServices/accounts@2024-06-01-preview' = {
   name: openaiName
+  identity: {
+    type: 'SystemAssigned'
+  }
   location: location
   kind: 'OpenAI'
   properties: {

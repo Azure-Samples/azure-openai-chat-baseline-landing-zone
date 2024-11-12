@@ -65,19 +65,28 @@ resource appDeployStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
   kind: 'StorageV2'
   properties: {
+    allowedCopyScope: 'AAD'
     accessTier: 'Hot'
     allowBlobPublicAccess: false
     allowSharedKeyAccess: false
     allowCrossTenantReplication: false
     encryption: {
       keySource: 'Microsoft.Storage'
-      requireInfrastructureEncryption: false
+      requireInfrastructureEncryption: true
       services: {
         blob: {
           enabled: true
           keyType: 'Account'
         }
         file: {
+          enabled: true
+          keyType: 'Account'
+        }
+        queue: {
+          enabled: true
+          keyType: 'Account'
+        }
+        table: {
           enabled: true
           keyType: 'Account'
         }
@@ -89,14 +98,18 @@ resource appDeployStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     isLocalUserEnabled: false
     publicNetworkAccess: 'Disabled'
     networkAcls: {
-      bypass: 'AzureServices'
+      bypass: 'None'
       defaultAction: 'Deny'
     }
     supportsHttpsTrafficOnly: true
   }
   resource blobService 'blobServices' = {
     name: 'default'
-
+    properties: {
+      containerDeleteRetentionPolicy : {
+        enabled: true
+      }
+    }
     // Storage container in which the Chat UI App's "Run from Zip" will be sourced
     resource deployContainer 'containers' = {
       name: 'deploy'
@@ -167,13 +180,14 @@ resource mlStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
   kind: 'StorageV2'
   properties: {
+    allowedCopyScope: 'AAD'
     accessTier: 'Hot'
     allowBlobPublicAccess: false
     allowSharedKeyAccess: false
     allowCrossTenantReplication: false
     encryption: {
       keySource: 'Microsoft.Storage'
-      requireInfrastructureEncryption: false
+      requireInfrastructureEncryption: true
       services: {
         blob: {
           enabled: true
@@ -183,11 +197,19 @@ resource mlStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
           enabled: true
           keyType: 'Account'
         }
+        queue: {
+          enabled: true
+          keyType: 'Account'
+        }
+        table: {
+          enabled: true
+          keyType: 'Account'          
+        }
       }
     }
     minimumTlsVersion: 'TLS1_2'
     networkAcls: {
-      bypass: 'AzureServices'
+      bypass:'None'
       defaultAction: 'Deny'
     }
     publicNetworkAccess: 'Disabled'
