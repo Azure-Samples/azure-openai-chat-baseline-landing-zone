@@ -167,7 +167,7 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
   properties: {
     serverFarmId: appServicePlan.id
     virtualNetworkSubnetId: vnet::appServicesSubnet.id
-    httpsOnly: false
+    httpsOnly: true
     keyVaultReferenceIdentity: appServiceManagedIdentity.id
     hostNamesDisabled: false
     vnetRouteAllEnabled: true
