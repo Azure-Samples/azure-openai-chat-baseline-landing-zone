@@ -72,7 +72,7 @@ resource appDeployStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     allowCrossTenantReplication: false
     encryption: {
       keySource: 'Microsoft.Storage'
-      requireInfrastructureEncryption: true
+      requireInfrastructureEncryption: false
       services: {
         blob: {
           enabled: true
@@ -83,11 +83,11 @@ resource appDeployStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
           keyType: 'Account'
         }
         queue: {
-          enabled: true
+          enabled: false
           keyType: 'Account'
         }
         table: {
-          enabled: true
+          enabled: false
           keyType: 'Account'
         }
       }
@@ -187,7 +187,7 @@ resource mlStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     allowCrossTenantReplication: false
     encryption: {
       keySource: 'Microsoft.Storage'
-      requireInfrastructureEncryption: true
+      requireInfrastructureEncryption: false
       services: {
         blob: {
           enabled: true
@@ -198,11 +198,11 @@ resource mlStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
           keyType: 'Account'
         }
         queue: {
-          enabled: true
+          enabled: false
           keyType: 'Account'
         }
         table: {
-          enabled: true
+          enabled: false
           keyType: 'Account'          
         }
       }
