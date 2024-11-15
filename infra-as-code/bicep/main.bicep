@@ -1,3 +1,18 @@
+/*
+//todo-preignite: document exemption from
+// "Enforce recommended guardrails for Customer Managed Keys",
+// "Encryption for storage services should be enforced for Storage Accounts"
+// "Storage Accounts should use a container delete retention policy" policy initiative
+// "Azure Machine Learning workspaces should use user-assigned managed identity
+// "Azure Machine Learning workspaces should enable V1LegacyMode to support network isolation backward compatibility"
+// "Virtual machines and virtual machine scale sets should have encryption at host enabled"
+
+//todo-preignite: Comply with Storage Accounts should restrict CORS rules, Allowed Copy scope should be restricted for Storage Accounts, Network ACL bypass option should be restricted for Storage Accounts
+//todo-postignite: Compliance with "Subnets should be private" policy
+//todo-postignite: Compliance with "Managed disks should disable public network access"
+//todo-postignite: Compliance with "Deploy Azure Monitor Baseline Alerts for Web"
+*/
+
 targetScope = 'subscription'
 
 @description('Name of the resource group that all resources will be deployed into.')
@@ -53,7 +68,7 @@ param agentsSubnetAddressPrefix string
 param jumpBoxSubnetAddressPrefix string
 
 @description('Assign your user some roles to support fluid access when working in AI Studio')
-@maxLength(36)
+@maxLength(37)
 @minLength(36)
 param yourPrincipalId string
 
