@@ -79,7 +79,7 @@ resource acrResource 'Microsoft.ContainerRegistry/registries@2023-11-01-preview'
       }
     }
   }
-
+// if the below resource fails or gets stuck in deployment then make sure your network setting including DNS are correct, for reference https://learn.microsoft.com/en-us/azure/container-registry/tasks-agent-pools#add-firewall-rules
   @description('Compute in the virtual network that can be used to build container images. This could also be done with tasks or images could be built on build agents.')
   resource imageBuildPool 'agentPools@2019-06-01-preview' = {
     name: 'imgbuild'
