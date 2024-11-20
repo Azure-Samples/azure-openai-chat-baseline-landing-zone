@@ -271,6 +271,7 @@ resource chatProject 'Microsoft.MachineLearningServices/workspaces@2024-04-01' =
     identity: {
       type: 'SystemAssigned' // This resource's identity is automatically assigned AcrPull access to ACR, Storage Blob Data Contributor, and AML Metrics Writer on the project. It is also assigned two additional permissions below.
                             // Given the permissions assigned to the identity, it is recommended only include deployments in the Azure OpenAI service that are trusted to be invoked from this endpoint.
+
     }
     properties: {
       description: 'This is the /score endpoint for the "Chat with Wikipedia" example prompt flow deployment. Called by the UI hosted in Web Apps.'
@@ -382,62 +383,5 @@ resource machineLearningPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024
     }
   }
 }
-/*
-  resource privateEndpointDns 'privateDnsZoneGroups' = {
-    name: 'amlworkspace-PrivateDnsZoneGroup'
-    properties: {
-      privateDnsZoneConfigs: [
-        {
-          name: 'privatelink.api.azureml.ms'
-          properties: {
-            privateDnsZoneId: amlPrivateDnsZone.id
-          }
-        }
-        {
-          name: 'privatelink.notebooks.azure.net'
-          properties: {
-            privateDnsZoneId: notebookPrivateDnsZone.id
-          }
-        }
-      ]
-    }
-  }
-}
 
-*/
-/*
-resource amlPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = {
-  name: 'privatelink.api.azureml.ms'
-  location: 'global'
-
-  resource amlPrivateDnsZoneVnetLink 'virtualNetworkLinks' = {
-    name: '${amlPrivateDnsZone.name}-link'
-    location: 'global'
-    properties: {
-      registrationEnabled: false
-      virtualNetwork: {
-        id: vnet.id
-      }
-    }
-  }
-}*/
-
-// Notebook
-/*
-resource notebookPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = {
-  name: 'privatelink.notebooks.azure.net'
-  location: 'global'
-
-  resource notebookPrivateDnsZoneVnetLink 'virtualNetworkLinks' = {
-    name: '${notebookPrivateDnsZone.name}-link'
-    location: 'global'
-    properties: {
-      registrationEnabled: false
-      virtualNetwork: {
-        id: vnet.id
-      }
-    }
-  }
-}
-*/
 output managedOnlineEndpointResourceId string = chatProject::endpoint.id

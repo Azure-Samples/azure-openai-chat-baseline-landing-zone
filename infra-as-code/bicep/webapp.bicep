@@ -60,7 +60,8 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
     name: privateEndpointsSubnetName
   }
 }
-resource azureOpenAI 'Microsoft.CognitiveServices/accounts@2024-06-01-preview' existing = {
+
+resource azureOpenAI 'Microsoft.CognitiveServices/accounts@2024-06-01-preview' existing ={
   name: openAIName
 }
 
@@ -168,12 +169,12 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
     serverFarmId: appServicePlan.id
     virtualNetworkSubnetId: vnet::appServicesSubnet.id
     httpsOnly: true
-    keyVaultReferenceIdentity: appServiceManagedIdentity.id
-    hostNamesDisabled: false
-    vnetRouteAllEnabled: true
-    vnetImagePullEnabled: true
     vnetContentShareEnabled: true
+    vnetImagePullEnabled: true
     publicNetworkAccess: 'Disabled'
+    keyVaultReferenceIdentity: appServiceManagedIdentity.id
+    vnetRouteAllEnabled: true
+    hostNamesDisabled: false
     siteConfig: {
       vnetRouteAllEnabled: true
       http20Enabled: true
@@ -189,7 +190,6 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
     blobDataReaderRoleAssignment
   ]
 
-  // App Settings
   resource appsettings 'config' = {
     name: 'appsettings'
     properties: {
@@ -205,6 +205,7 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
     }
   }
 }
+
 
 // Web App diagnostic settings
 resource webAppDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
@@ -342,8 +343,8 @@ resource webAppPf 'Microsoft.Web/sites@2023-12-01' = {
     keyVaultReferenceIdentity: appServiceManagedIdentity.id
     hostNamesDisabled: false
     vnetImagePullEnabled: true
-    vnetRouteAllEnabled: true
     publicNetworkAccess: 'Disabled'
+    vnetRouteAllEnabled: true
     vnetContentShareEnabled: true
     siteConfig: {
       linuxFxVersion: 'DOCKER|mcr.microsoft.com/appsvc/staticsite:latest'

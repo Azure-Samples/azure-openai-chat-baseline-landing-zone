@@ -12,9 +12,6 @@ param baseName string
 @description('The resource group location')
 param location string = resourceGroup().location
 
-@description('The zone redundancy of the ACR.')
-param zoneRedundancy string = 'Enabled'
-
 @description('The name of the virtual network that this ACR instance will have a private endpoint in.')
 param vnetName string
 
@@ -36,7 +33,7 @@ var acrName = 'cr${baseName}'
 var acrPrivateEndpointName = 'pep-${acrName}'
 
 // ---- Existing resources ----
-resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
+resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing =  {
   name: vnetName
   scope: resourceGroup(virtualNetworkResourceGroupName)
 
@@ -68,8 +65,6 @@ resource acrResource 'Microsoft.ContainerRegistry/registries@2023-11-01-preview'
       defaultAction: 'Deny'
       ipRules: []
     }
-    publicNetworkAccess: 'Disabled'
-    zoneRedundancy: zoneRedundancy
     policies: {
       exportPolicy: {
         status: 'disabled'
@@ -78,6 +73,8 @@ resource acrResource 'Microsoft.ContainerRegistry/registries@2023-11-01-preview'
         status: 'disabled'
       }
     }
+    publicNetworkAccess: 'Disabled'
+    zoneRedundancy: 'Enabled'
   }
 // if the below resource fails or gets stuck in deployment then make sure your network setting including DNS are correct, for reference https://learn.microsoft.com/en-us/azure/container-registry/tasks-agent-pools#add-firewall-rules
   @description('Compute in the virtual network that can be used to build container images. This could also be done with tasks or images could be built on build agents.')

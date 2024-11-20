@@ -35,7 +35,7 @@ var keyVaultDnsGroupName = '${keyVaultPrivateEndpointName}/default'
 var keyVaultDnsZoneName = 'privatelink.vaultcore.azure.net' //Cannot use 'privatelink${environment().suffixes.keyvaultDns}', per https://github.com/Azure/bicep/issues/9708
 
 // ---- Existing resources ----
-resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
+resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing =  {
   name: vnetName
   scope: resourceGroup(virtualNetworkResourceGroupName)
 
@@ -71,8 +71,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 
     enableSoftDelete: true
     softDeleteRetentionInDays: 7
-    enablePurgeProtection: true         // Ideally set this. This is usually enforced through 'Key vaults should have deletion protection enabled' policy
-    createMode: 'default'               // Creating or updating the key vault (not recovering)
+    createMode: 'default'               // Creating or updating the Key Vault (not recovering)
   }
 
   resource kvsGatewayPublicCert 'secrets' = {
@@ -104,7 +103,7 @@ resource keyVaultDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-
   }
 }
 
-resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-01-01' = {
+resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' = {
   name: keyVaultPrivateEndpointName
   location: location
   properties: {
@@ -125,7 +124,6 @@ resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-01-01'
   }
 }
 
-// We need a local copy due to a limitation in Azure Application Gateway not using DNS from the hub for cert retrieval
 resource keyVaultDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: keyVaultDnsZoneName
   location: 'global'
@@ -143,7 +141,7 @@ resource keyVaultDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   }
 }
 
-resource keyVaultDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-01-01' = {
+resource keyVaultDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2022-11-01' = {
   name: keyVaultDnsGroupName
   properties: {
     privateDnsZoneConfigs: [
@@ -160,7 +158,7 @@ resource keyVaultDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZone
   ]
 }
 
-@description('The name of the key vault.')
+@description('The name of the Key Vault.')
 output keyVaultName string = keyVault.name
 
 @description('Name of the secret holding the cert.')

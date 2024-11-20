@@ -43,10 +43,10 @@ var appGatewayName = 'agw-${baseName}'
 var appGatewayManagedIdentityName = 'id-${appGatewayName}'
 var appGatewayPublicIpName = 'pip-${baseName}'
 var appGatewayFqdn = 'fe-${baseName}'
-var wafPolicyName = 'waf-${baseName}'
+var wafPolicyName= 'waf-${baseName}'
 
 // ---- Existing resources ----
-resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
+resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing =  {
   name: vnetName
   scope: resourceGroup(virtualNetworkResourceGroupName)
 
@@ -79,7 +79,7 @@ resource keyVaultSecretsUserRole 'Microsoft.Authorization/roleDefinitions@2022-0
 
 // ---- App Gateway resources ----
 
-// Managed Identity for Application Gateway.
+// Managed Identity for App Gateway.
 resource appGatewayManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: appGatewayManagedIdentityName
   location: location
@@ -293,8 +293,8 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
       }
     ]
     autoscaleConfiguration: {
-      minCapacity: 1
-      maxCapacity: 3
+      minCapacity: 2
+      maxCapacity: 5
     }
   }
   dependsOn: [
@@ -323,4 +323,4 @@ resource appGatewayDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-0
 }
 
 @description('The name of the app gateway resource.')
-output appGateWayName string = appGateway.name
+output appGatewayName string = appGateway.name

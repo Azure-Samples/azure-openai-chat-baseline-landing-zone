@@ -98,18 +98,14 @@ resource appDeployStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     isLocalUserEnabled: false
     publicNetworkAccess: 'Disabled'
     networkAcls: {
-      bypass: 'None'
+      bypass: 'AzureServices'
       defaultAction: 'Deny'
     }
     supportsHttpsTrafficOnly: true
   }
   resource blobService 'blobServices' = {
     name: 'default'
-    properties:{
-      containerDeleteRetentionPolicy: {
-        enabled: true
-      }
-    }
+
     // Storage container in which the Chat UI App's "Run from Zip" will be sourced
     resource deployContainer 'containers' = {
       name: 'deploy'
@@ -183,7 +179,7 @@ resource mlStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     allowedCopyScope: 'AAD'
     accessTier: 'Hot'
     allowBlobPublicAccess: false
-    allowSharedKeyAccess: false
+    allowSharedKeyAccess: true
     allowCrossTenantReplication: false
     encryption: {
       keySource: 'Microsoft.Storage'
@@ -209,7 +205,7 @@ resource mlStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     }
     minimumTlsVersion: 'TLS1_2'
     networkAcls: {
-      bypass:'None'
+      bypass: 'AzureServices'
       defaultAction: 'Deny'
     }
     publicNetworkAccess: 'Disabled'
