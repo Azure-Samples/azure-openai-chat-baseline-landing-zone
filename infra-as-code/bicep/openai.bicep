@@ -156,7 +156,8 @@ resource openAiAccount 'Microsoft.CognitiveServices/accounts@2024-06-01-preview'
       model: {
         format: 'OpenAI'
         name: 'gpt-35-turbo'
-        version: '0613' // If your selected region doesn't support this version, please change it.
+        version: '0613' // If your selected region or quota doesn't support this version, please change it to a supported value.
+
       }
       raiPolicyName: openAiAccount::blockingFilter.name
       versionUpgradeOption: 'NoAutoUpgrade'  // Always pin your dependencies, be intentional about updates.

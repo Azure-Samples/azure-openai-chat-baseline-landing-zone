@@ -35,7 +35,8 @@ var keyVaultDnsGroupName = '${keyVaultPrivateEndpointName}/default'
 var keyVaultDnsZoneName = 'privatelink.vaultcore.azure.net' //Cannot use 'privatelink${environment().suffixes.keyvaultDns}', per https://github.com/Azure/bicep/issues/9708
 
 // ---- Existing resources ----
-resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing =  {
+resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
+
   name: vnetName
   scope: resourceGroup(virtualNetworkResourceGroupName)
 

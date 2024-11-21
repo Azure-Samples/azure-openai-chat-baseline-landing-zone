@@ -33,7 +33,7 @@ var acrName = 'cr${baseName}'
 var acrPrivateEndpointName = 'pep-${acrName}'
 
 // ---- Existing resources ----
-resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing =  {
+resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   name: vnetName
   scope: resourceGroup(virtualNetworkResourceGroupName)
 
@@ -76,7 +76,7 @@ resource acrResource 'Microsoft.ContainerRegistry/registries@2023-11-01-preview'
     publicNetworkAccess: 'Disabled'
     zoneRedundancy: 'Enabled'
   }
-// if the below resource fails or gets stuck in deployment then make sure your network setting including DNS are correct, for reference https://learn.microsoft.com/en-us/azure/container-registry/tasks-agent-pools#add-firewall-rules
+  // If this child resource fails or gets stuck in deployment then make sure your network settings, including DNS are correct. For reference https://learn.microsoft.com/azure/container-registry/tasks-agent-pools#add-firewall-rules
   @description('Compute in the virtual network that can be used to build container images. This could also be done with tasks or images could be built on build agents.')
   resource imageBuildPool 'agentPools@2019-06-01-preview' = {
     name: 'imgbuild'

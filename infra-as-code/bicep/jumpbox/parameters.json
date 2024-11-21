@@ -3,7 +3,7 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "existingResourceIdForSpokeVirtualNetwork": {
-      "value": "/subscriptions/3bfe7a9b-9b6e-48c1-a883-a2b470de100b/resourceGroups/rg-app000-networking/providers/Microsoft.Network/virtualNetworks/vnet-app000-spoke-00"
+      "value": "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg-app000-networking/providers/Microsoft.Network/virtualNetworks/vnet-app000-spoke-00"
     }
   }
 }
