@@ -41,7 +41,7 @@ Just like the baseline reference implementation, this implementation covers the 
 
 ### Authoring a flow
 
-![Diagram of the authoring architecture using Azure AI Foundry. It demonstrates key architecture components and flow when using the Azure AI Foundry portal as an authoring environment.](docs/media/azure-openai-baseline-landing-zone-networking.svg)
+![Diagram of the authoring architecture using Azure AI Foundry. It demonstrates key architecture components and flow when using the Azure AI Foundry portal as an authoring environment.](docs/media/azure-openai-baseline-landing-zone-networking.png)
 
 The authoring architecture diagram illustrates how flow authors [connect to Azure AI Foundry through a private endpoint](https://learn.microsoft.com/azure/ai-studio/how-to/configure-private-link) in a virtual network. In this case, the author connects to the virtual network through routing established by the platform team that supports workstation-based connectivity.
 
@@ -49,13 +49,13 @@ The diagram further illustrates how AI Foundry is configured for [managed virtua
 
 ### Deploying a flow to Azure Machine Learning managed online endpoint
 
-![Diagram of the deploying a flow to managed online endpoint. The diagram illustrates the Azure services' relationships for an AI Foundry environment with a managed online endpoint. This diagram also demonstrates the private endpoints used to ensure private connectivity for the managed private endpoint in Azure AI Foundry.](docs/media/azure-openai-landing-zone-amlcompute.svg)
+![Diagram of the deploying a flow to managed online endpoint. The diagram illustrates the Azure services' relationships for an AI Foundry environment with a managed online endpoint. This diagram also demonstrates the private endpoints used to ensure private connectivity for the managed private endpoint in Azure AI Foundry.](docs/media/azure-openai-baseline-landing-zone.png)
 
 The Azure AI Foundry deployment architecture diagram illustrates how a front-end web application, deployed into a [network-secured App Service](https://github.com/Azure-Samples/app-service-baseline-implementation), [connects to a managed online endpoint through a private endpoint](https://learn.microsoft.com/azure/ai-studio/how-to/configure-private-link) in a virtual network. Like the authoring flow, the diagram illustrates how the AI Foundry project is configured for [managed virtual network isolation](https://learn.microsoft.com/azure/ai-studio/how-to/configure-managed-network). The deployed flow connects to required resources such as Azure OpenAI and Azure AI Search through managed private endpoints.
 
 ### Deploying a flow to Azure App Service (alternative)
 
-![Diagram of the deploying a flow to Azure App Service. This drawing emphasizes how AI Foundry compute and endpoints are bypassed, and Azure App Service and its virtual network become responsible for connecting to the private endpoints for dependencies.](docs/media/azure-openai-landing-zone-appservices.svg)
+![Diagram of the deploying a flow to Azure App Service. This drawing emphasizes how AI Foundry compute and endpoints are bypassed, and Azure App Service and its virtual network become responsible for connecting to the private endpoints for dependencies.](docs/media/azure-openai-chat-baseline-appservices.png)
 
 The Azure App Service deployment architecture diagram illustrates how the same prompt flow is containerized and deployed to Azure App Service alongside the same front-end web application from the prior architecture. This solution is a completely self-hosted, externalized alternative to an Azure AI Foundry managed online endpoint.
 
