@@ -300,8 +300,6 @@ In this architecture, a network perimeter is established, and you must interact 
    - For **deployment_name**, select the same 'gpt35' from the dropdown menu.
    - For **response_format**, also select '{"type":"text"}' from the dropdown menu.
 
-   TODO: Do we still need the `PF_DISABLE_TRACING` workaround?
-
 1. Click **Save** on the whole flow.
 
 ### 3. Test the prompt flow from Azure AI Studio
