@@ -278,8 +278,10 @@ resource chatProject 'Microsoft.MachineLearningServices/workspaces@2024-04-01' =
       authMode: 'Key' // Ideally this should be based on Microsoft Entra ID access. This sample however uses a key stored in Key Vault.
       publicNetworkAccess: 'Disabled'
     }
-
-    // Note: If you reapply this Bicep after an AI Studio managed compute deployment has happened in this endpoint, the taffic routing reverts to 0% to all existing deployments. You'll need to set that back to 100% to your desired deployment.
+    dependsOn:[
+      aiHub::aoaiConnection
+    ]
+    // Note: If you reapply this Bicep after an AI Studio managed compute deployment has happened in this endpoint, the traffic routing reverts to 0% to all existing deployments. You'll need to set that back to 100% to your desired deployment.
   }
 }
 
