@@ -52,7 +52,7 @@ param agentsSubnetAddressPrefix string
 @minLength(9)
 param jumpBoxSubnetAddressPrefix string
 
-@description('Assign your user some roles to support fluid access when working in AI Studio')
+@description('Assign your user some roles to support fluid access when working in the AI Foundry portal.')
 @maxLength(37)
 @minLength(36)
 param yourPrincipalId string
@@ -159,9 +159,9 @@ module openaiModule 'openai.bicep' = {
   }
 }
 
-// Deploy Azure AI Studio with private networking
-module aiStudioModule 'machinelearning.bicep' = {
-  name: 'aiStudioDeploy'
+// Deploy Azure Azure AI Foundry with private networking
+module aiFoundryModule 'machinelearning.bicep' = {
+  name: 'aiFoundryDeploy'
   scope: rgWorkload
   params: {
     location: rgWorkload.location
@@ -171,7 +171,7 @@ module aiStudioModule 'machinelearning.bicep' = {
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
     applicationInsightsName: monitoringModule.outputs.applicationInsightsName
     keyVaultName: keyVaultModule.outputs.keyVaultName
-    aiStudioStorageAccountName: storageModule.outputs.mlDeployStorageName
+    aiFoundryStorageAccountName: storageModule.outputs.mlDeployStorageName
     containerRegistryName: 'cr${baseName}'
     logWorkspaceName: monitoringModule.outputs.logWorkspaceName
     openAiResourceName: openaiModule.outputs.openAiResourceName
@@ -204,7 +204,7 @@ module webappModule 'webapp.bicep' = {
   params: {
     location: rgWorkload.location
     baseName: baseName
-    managedOnlineEndpointResourceId: aiStudioModule.outputs.managedOnlineEndpointResourceId
+    managedOnlineEndpointResourceId: aiFoundryModule.outputs.managedOnlineEndpointResourceId
     acrName: acrModule.outputs.acrName
     publishFileName: publishFileName
     openAIName: openaiModule.outputs.openAiResourceName

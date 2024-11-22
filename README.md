@@ -27,19 +27,6 @@ The key differences when integrating the Azure OpenAI chat baseline into a appli
 
 - **Compliance with centralized governance**: An application landing zone comes with predefined governance policies regarding resource provisioning, network configurations, and security settings. Integrating with the Azure landing zone structure demands compliance with these policies, ensuring that all deployments meet the organization's regulatory, compliance, and governance standards.
 
-#### :recycle: Transitioning to Azure AI Studio
-
-Azure patterns & practices team is transitioning this and related content from Azure Machine Learning workspaces to Azure AI Studio hub + projects. During ths transition period some of the assets might be out of sync with each other technology wise. Architecturally, these two technologies are very similar to each other, even down to the resource provider level. Pardon our dust as we make this transition across the assets. Here is the current status.
-
-| Asset | Workspace |
-| :---- | :-------- |
-| [Basic implementation](https://github.com/Azure-Samples/openai-end-to-end-basic) | :ballot_box_with_check: AI Studio project |
-| [Basic architecture on Microsoft Learn](https://learn.microsoft.com/azure/architecture/ai-ml/architecture/basic-openai-e2e-chat) | :ballot_box_with_check: AI Studio project |
-| [Baseline implementation](https://github.com/Azure-Samples/openai-end-to-end-baseline) | :ballot_box_with_check: AI Studio project |
-| [Baseline architecture on Microsoft Learn](https://learn.microsoft.com/azure/architecture/ai-ml/architecture/baseline-openai-e2e-chat) | :ballot_box_with_check: AI Studio project |
-| Azure landing zone implementation *(this repo)* | :ballot_box_with_check: AI Studio project |
-| [Azure landing zone architecture on Microsoft Learn](https://learn.microsoft.com/azure/architecture/ai-ml/architecture/azure-openai-baseline-landing-zone) | :white_square_button: AML workspace |
-
 ### Integration with existing platform services
 
 Most of the configuration for this scenario is in the **parameters.alz.json** file, which specifies the integration points for existing Azure services such as the spoke virtual network, the UDR to route internet traffic. It also includes an external DNS server address and the IP address of an existing Network Virtual Appliance (NVA) for routing configuration.
@@ -48,31 +35,31 @@ Most of the configuration for this scenario is in the **parameters.alz.json** fi
 
 Just like the baseline reference implementation, this implementation covers the same following three scenarios:
 
-1. Authoring a flow - Authoring a flow using prompt flow in Azure AI Studio
-1. Deploying a flow to managed compute behind an Azure Machine Learning endpoint - The deployment of the executable flow created in Azure AI Studio to managed online endpoint. The client UI that is hosted in Azure App Service accesses the deployed flow.
+1. Authoring a flow - Authoring a flow using prompt flow in the Azure AI Foundry portal
+1. Deploying a flow to managed compute behind an Azure Machine Learning endpoint - The deployment of the executable flow created in Azure AI Foundry to managed online endpoint. The client UI that is hosted in Azure App Service accesses the deployed flow.
 1. Deploying a flow to Azure App Service (Self-hosted option) - The deployment of an executable flow as a container to Azure App Service. The client UI that accesses the flow is also hosted in Azure App Service.
 
 ### Authoring a flow
 
-![Diagram of the authoring architecture using Azure AI Studio. It demonstrates key architecture components and flow when using AI studio as an authoring environment.](docs/media/azure-openai-baseline-landing-zone-networking.svg)
+![Diagram of the authoring architecture using Azure AI Foundry. It demonstrates key architecture components and flow when using the Azure AI Foundry portal as an authoring environment.](docs/media/azure-openai-baseline-landing-zone-networking.svg)
 
-The authoring architecture diagram illustrates how flow authors [connect to an Azure AI Studio through a private endpoint](https://learn.microsoft.com/azure/ai-studio/how-to/configure-private-link) in a virtual network. In this case, the author connects to the virtual network through routing established by the platform team that supports workstation-based connectivity.
+The authoring architecture diagram illustrates how flow authors [connect to Azure AI Foundry through a private endpoint](https://learn.microsoft.com/azure/ai-studio/how-to/configure-private-link) in a virtual network. In this case, the author connects to the virtual network through routing established by the platform team that supports workstation-based connectivity.
 
-The diagram further illustrates how AI Studio is configured for [managed virtual network isolation](https://learn.microsoft.com/azure/ai-studio/how-to/configure-managed-network). With this configuration, a managed virtual network is created, along with managed private endpoints enabling connectivity to private resources such as the project's Azure Storage and Azure Container Registry. You can also create user-defined connections like private endpoints to connect to resources like Azure OpenAI service and Azure AI Search.
+The diagram further illustrates how AI Foundry is configured for [managed virtual network isolation](https://learn.microsoft.com/azure/ai-studio/how-to/configure-managed-network). With this configuration, a managed virtual network is created, along with managed private endpoints enabling connectivity to private resources such as the project's Azure Storage and Azure Container Registry. You can also create user-defined connections like private endpoints to connect to resources like Azure OpenAI service and Azure AI Search.
 
 ### Deploying a flow to Azure Machine Learning managed online endpoint
 
-![Diagram of the deploying a flow to managed online endpoint. The diagram illustrates the Azure services' relationships for an AI studio environment with a managed online endpoint. This diagram also demonstrates the private endpoints used to ensure private connectivity for the managed private endpoint in Azure AI Studio.](docs/media/azure-openai-landing-zone-amlcompute.svg)
+![Diagram of the deploying a flow to managed online endpoint. The diagram illustrates the Azure services' relationships for an AI Foundry environment with a managed online endpoint. This diagram also demonstrates the private endpoints used to ensure private connectivity for the managed private endpoint in Azure AI Foundry.](docs/media/azure-openai-landing-zone-amlcompute.svg)
 
-The Azure AI Studio deployment architecture diagram illustrates how a front-end web application, deployed into a [network-secured App Service](https://github.com/Azure-Samples/app-service-baseline-implementation), [connects to a managed online endpoint through a private endpoint](https://learn.microsoft.com/azure/ai-studio/how-to/configure-private-link) in a virtual network. Like the authoring flow, the diagram illustrates how the AI Studio project is configured for [managed virtual network isolation](https://learn.microsoft.com/azure/ai-studio/how-to/configure-managed-network). The deployed flow connects to required resources such as Azure OpenAI and Azure AI Search through managed private endpoints.
+The Azure AI Foundry deployment architecture diagram illustrates how a front-end web application, deployed into a [network-secured App Service](https://github.com/Azure-Samples/app-service-baseline-implementation), [connects to a managed online endpoint through a private endpoint](https://learn.microsoft.com/azure/ai-studio/how-to/configure-private-link) in a virtual network. Like the authoring flow, the diagram illustrates how the AI Foundry project is configured for [managed virtual network isolation](https://learn.microsoft.com/azure/ai-studio/how-to/configure-managed-network). The deployed flow connects to required resources such as Azure OpenAI and Azure AI Search through managed private endpoints.
 
 ### Deploying a flow to Azure App Service (alternative)
 
-![Diagram of the deploying a flow to Azure App Service. This drawing emphasizes how AI Studio compute and endpoints are bypassed, and Azure App Service and its virtual network become responsible for connecting to the private endpoints for dependencies.](docs/media/azure-openai-landing-zone-appservices.svg)
+![Diagram of the deploying a flow to Azure App Service. This drawing emphasizes how AI Foundry compute and endpoints are bypassed, and Azure App Service and its virtual network become responsible for connecting to the private endpoints for dependencies.](docs/media/azure-openai-landing-zone-appservices.svg)
 
-The Azure App Service deployment architecture diagram illustrates how the same prompt flow is containerized and deployed to Azure App Service alongside the same front-end web application from the prior architecture. This solution is a completely self-hosted, externalized alternative to an Azure AI Studio managed online endpoint.
+The Azure App Service deployment architecture diagram illustrates how the same prompt flow is containerized and deployed to Azure App Service alongside the same front-end web application from the prior architecture. This solution is a completely self-hosted, externalized alternative to an Azure AI Foundry managed online endpoint.
 
-The flow is still authored in a network-isolated Azure AI Studio project. To deploy an App Service in this architecture, the flows need to be containerized and pushed to the Azure Container Registry that is accessible through private endpoints by the App Service.
+The flow is still authored in a network-isolated Azure AI Foundry project. To deploy an App Service in this architecture, the flows need to be containerized and pushed to the Azure Container Registry that is accessible through private endpoints by the App Service.
 
 ## Deployment guide
 
@@ -222,9 +209,9 @@ The following steps are required to deploy the infrastructure from the command l
      -p yourPrincipalId=${PRINCIPAL_ID}
    ```
 
-1. Apply workaround for Azure AI Studio not deploying its managed network.
+1. Apply workaround for Azure AI Foundry not deploying its managed network.
 
-   Azure AI Studio tends to delay deploying its managed network, which causes problems when trying to access Azure AI Studio's portal experience in the next step. Your final IaC implementation must account for this.
+   Azure AI Foundry tends to delay deploying its managed network, which causes problems when trying to access the Azure AI Foundry portal experience in the next step. Your final IaC implementation must account for this.
 
    :clock8: *This might take about 15 minutes.*
 
@@ -233,11 +220,11 @@ The following steps are required to deploy the infrastructure from the command l
    az ml workspace provision-network -n aihub-${BASE_NAME} -g $RESOURCE_GROUP
    ```
 
-### 2. Deploy a prompt flow from Azure AI Studio
+### 2. Deploy a prompt flow from the Azure AI Foundry portal
 
 To test this scenario, you'll be deploying a pre-built prompt flow. The prompt flow is called "Chat with Wikipedia" which adds a Wikipedia search as grounding data. Deploying a prompt flow requires data plane and control plane access.
 
-In this architecture, a network perimeter is established, and you must interact with Azure AI Studio and its resources from the network. You'll need to perform this from your workstation that has a private network line of sight to your deployed Azure AI Studio and dependent resources. This connection is typically established by the platform team. If instead you use a jump box for access, then use the Azure Bastion provided by your platform team. These instructions assume you're on a workstation or connected to a jump box that can access the Azure AI Studio.
+In this architecture, a network perimeter is established, and you must interact with Azure AI Foundry and its resources from the network. You'll need to perform this from your workstation that has a private network line of sight to your deployed Azure AI Foundry and dependent resources. This connection is typically established by the platform team. If instead you use a jump box for access, then use the Azure Bastion provided by your platform team. These instructions assume you're on a workstation or connected to a jump box that can access the Azure AI Foundry portal.
 
 1. Deploy jump box, **if necessary**. *Skip this if your platform team has provided workstation based access or another method.*
 
@@ -268,9 +255,9 @@ In this architecture, a network perimeter is established, and you must interact 
 
    You'll need to sign in if this is the first time you are connecting through a jump box.
 
-1. Open Azure AI Studio by clicking the **Launch studio** button.
+1. Open the Azure AI Foundry portal by clicking the **Launch studio** button.
 
-   This will take you directly into the 'Chat with Wikipedia project'. In the future, you can find all your AI Studio hubs and projects by going to <https://ai.azure.com>.
+   This will take you directly into the 'Chat with Wikipedia project'. In the future, you can find all your AI Foundry hubs and projects by going to <https://ai.azure.com>.
 
 1. Click on **Prompt flow** in the left navigation.
 
@@ -302,9 +289,9 @@ In this architecture, a network perimeter is established, and you must interact 
 
 1. Click **Save** on the whole flow.
 
-### 3. Test the prompt flow from Azure AI Studio
+### 3. Test the prompt flow from the Azure AI Foundry portal
 
-Here you'll test your flow by invoking it directly from the Azure AI Studio. The flow still requires you to bring compute to execute it from. The compute you'll use when in the portal is the default *Serverless* offering, which is only used for portal-based prompt flow experiences. The interactions against Azure OpenAI are performed by your identity; the bicep template has already granted your user data plane access. The serverless compute is run from the managed virtual network and is beholden to the egress network rules defined.
+Here you'll test your flow by invoking it directly from the Azure AI Foundry portal. The flow still requires you to bring compute to execute it from. The compute you'll use when in the portal is the default *Serverless* offering, which is only used for portal-based prompt flow experiences. The interactions against Azure OpenAI are performed by your identity; the bicep template has already granted your user data plane access. The serverless compute is run from the managed virtual network and is beholden to the egress network rules defined.
 
 1. Click **Start compute session**.
 
@@ -320,7 +307,7 @@ Here you'll test your flow by invoking it directly from the Azure AI Studio. The
 
 ### 4. Deploy the prompt flow to an Azure Machine Learning managed online endpoint
 
-Here you'll take your tested flow and deploy it to a managed online endpoint using Azure AI Studio.
+Here you'll take your tested flow and deploy it to a managed online endpoint using Azure AI Foundry.
 
 1. Click the **Deploy** button in the UI.
 
@@ -448,7 +435,7 @@ You will need access to the prompt flow files for this experience, since we'll b
    pip install promptflow[azure] promptflow-tools bs4
    ```
 
-1. Open the Prompt flow UI again in your Azure AI Studio project.
+1. Open the Prompt flow UI again in your Azure AI Foundry project.
 
 1. Expand the **Files** tab in the upper-right pane of the UI.
 
