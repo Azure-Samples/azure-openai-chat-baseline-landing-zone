@@ -72,6 +72,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 
     enableSoftDelete: true
     softDeleteRetentionInDays: 7
+    // enablePurgeProtection: true // Ideally set this. This is usually enforced through 'Key vaults should have deletion protection enabled' policy
     createMode: 'default'               // Creating or updating the Key Vault (not recovering)
   }
 
@@ -104,7 +105,7 @@ resource keyVaultDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-
   }
 }
 
-resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' = {
+resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-01-01' = {
   name: keyVaultPrivateEndpointName
   location: location
   properties: {
@@ -142,7 +143,7 @@ resource keyVaultDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   }
 }
 
-resource keyVaultDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2022-11-01' = {
+resource keyVaultDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-01-01' = {
   name: keyVaultDnsGroupName
   properties: {
     privateDnsZoneConfigs: [

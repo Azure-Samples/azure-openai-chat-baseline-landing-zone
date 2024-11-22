@@ -61,7 +61,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   }
 }
 
-resource azureOpenAI 'Microsoft.CognitiveServices/accounts@2024-06-01-preview' existing ={
+resource azureOpenAI 'Microsoft.CognitiveServices/accounts@2024-06-01-preview' existing = {
   name: openAIName
 }
 
