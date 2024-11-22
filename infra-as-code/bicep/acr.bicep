@@ -12,10 +12,7 @@ param baseName string
 @description('The resource group location')
 param location string = resourceGroup().location
 
-@description('The zone redundancy of the ACR.')
-param zoneRedundancy string = 'Enabled'
-
-// existing resource name params 
+@description('The name of the virtual network that this ACR instance will have a private endpoint in.')
 param vnetName string
 
 @description('The name of the resource group containing the spoke virtual network.')
@@ -24,6 +21,9 @@ param virtualNetworkResourceGroupName string
 
 @description('The name of the subnet for the private endpoint. Must be in the provided virtual network.')
 param privateEndpointsSubnetName string
+
+@description('The name of the subnet for build agents. Must be in the provided virtual network.')
+param buildAgentSubnetName string
 
 @description('The name of the workload\'s existing Log Analytics workspace.')
 param logWorkspaceName string
@@ -39,6 +39,10 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
 
   resource privateEndpointsSubnet 'subnets' existing = {
     name: privateEndpointsSubnetName
+  }
+  
+  resource buildAgentSubnet 'subnets' existing = {
+    name: buildAgentSubnetName
   }
 }
 
@@ -61,9 +65,6 @@ resource acrResource 'Microsoft.ContainerRegistry/registries@2023-11-01-preview'
       defaultAction: 'Deny'
       ipRules: []
     }
-    anonymousPullEnabled: false
-    publicNetworkAccess: 'Disabled'
-    zoneRedundancy: zoneRedundancy
     policies: {
       exportPolicy: {
         status: 'disabled'
@@ -71,6 +72,20 @@ resource acrResource 'Microsoft.ContainerRegistry/registries@2023-11-01-preview'
       azureADAuthenticationAsArmPolicy: {
         status: 'disabled'
       }
+    }
+    publicNetworkAccess: 'Disabled'
+    zoneRedundancy: 'Enabled'
+  }
+  // If this child resource fails or gets stuck in deployment then make sure your network settings, including DNS are correct. For reference https://learn.microsoft.com/azure/container-registry/tasks-agent-pools#add-firewall-rules
+  @description('Compute in the virtual network that can be used to build container images. This could also be done with tasks or images could be built on build agents.')
+  resource imageBuildPool 'agentPools@2019-06-01-preview' = {
+    name: 'imgbuild'
+    location: location
+    properties: {
+      os: 'Linux'
+      count: 1
+      virtualNetworkSubnetResourceId: vnet::buildAgentSubnet.id
+      tier: 'S1'
     }
   }
 }

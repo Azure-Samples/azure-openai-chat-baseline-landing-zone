@@ -22,6 +22,18 @@ param vnetName string
 @minLength(1)
 param virtualNetworkResourceGroupName string
 
+@description('The resource ID of the existing managed online endpoint. Used to retrieve the scoring URI.')
+@minLength(40)
+param managedOnlineEndpointResourceId string
+
+@description('The name of the existing ACR instance that will be used to contain the web app container image.')
+@minLength(6)
+param acrName string
+
+@description('The name of the existing Azure OpenAI instance that will be used from the prompt flow code.')
+@minLength(6)
+param openAIName string
+
 param appServicesSubnetName string
 param privateEndpointsSubnetName string
 param storageName string
@@ -32,18 +44,9 @@ param logWorkspaceName string
 
 // variables
 var appName = 'app-${baseName}'
-var appServicePlanName = 'asp-${appName}${uniqueString(subscription().subscriptionId)}'
-var appServiceManagedIdentityName = 'id-${appName}'
-var packageLocation = 'https://${storageName}.blob.${environment().suffixes.storage}/deploy/${publishFileName}'
 var appServicePrivateEndpointName = 'pep-${appName}'
 var appServicePfPrivateEndpointName = 'pep-${appName}-pf'
-
-var appInsightsName = 'appinsights-${appName}'
-
 var chatApiKey = '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/chatApiKey)'
-var chatApiEndpoint = 'https://ept-${baseName}.${location}.inference.ml.azure.com/score'
-
-var openAIApiKey = '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/openai-key)'
 
 // ---- Existing resources ----
 resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
@@ -58,16 +61,28 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   }
 }
 
-resource containerRegistry 'Microsoft.ContainerRegistry/registries@2019-05-01' existing = {
-  name: 'cr${baseName}'
+resource azureOpenAI 'Microsoft.CognitiveServices/accounts@2024-06-01-preview' existing = {
+  name: openAIName
 }
 
-resource storage 'Microsoft.Storage/storageAccounts@2022-09-01' existing = {
+resource chatProj 'Microsoft.MachineLearningServices/workspaces@2024-04-01' existing = {
+  name: split(managedOnlineEndpointResourceId, '/')[8]
+
+  resource onlineEndpoint 'onlineEndpoints' existing = {
+    name: split(managedOnlineEndpointResourceId, '/')[10]
+  }
+}
+
+resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
   name: storageName
 }
 
 resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' existing = {
   name: logWorkspaceName
+}
+
+resource containerRegistry 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
+  name: acrName
 }
 
 // Built-in Azure RBAC role that is applied to a Key Vault to grant secrets content read permissions. 
@@ -88,11 +103,17 @@ resource containerRegistryPullRole 'Microsoft.Authorization/roleDefinitions@2022
   scope: subscription()
 }
 
+@description('Built-in Role: [Cognitive Services OpenAI User](https://learn.microsoft.com/azure/role-based-access-control/built-in-roles#cognitive-services-openai-user)')
+resource cognitiveServicesOpenAiUserRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  name: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
+  scope: subscription()
+}
+
 // ---- Web App resources ----
 
 // Managed Identity for App Service
 resource appServiceManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: appServiceManagedIdentityName
+  name: 'id-${appName}'
   location: location
 }
 
@@ -119,18 +140,18 @@ resource blobDataReaderRoleAssignment 'Microsoft.Authorization/roleAssignments@2
 
 //App service plan
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
-  name: appServicePlanName
+  name: 'asp-${appName}${uniqueString(subscription().subscriptionId)}'
   location: location
-  sku: {
-    tier: 'Premium0V3'
-    name: 'P0V3'
-  }
+    kind: 'linux'
+    sku: {
+      name: 'P1v3'
+      tier: 'PremiumV3'
+      capacity: 3
+    }
   properties: {
-    targetWorkerCount: 3
     zoneRedundant: true
     reserved: true
   }
-  kind: 'linux'
 }
 
 @description('This is the web app that contains the UI application.')
@@ -148,12 +169,12 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
     serverFarmId: appServicePlan.id
     virtualNetworkSubnetId: vnet::appServicesSubnet.id
     httpsOnly: true
-    keyVaultReferenceIdentity: appServiceManagedIdentity.id
-    hostNamesDisabled: false
-    vnetRouteAllEnabled: true
-    vnetImagePullEnabled: true
     vnetContentShareEnabled: true
+    vnetImagePullEnabled: true
     publicNetworkAccess: 'Disabled'
+    keyVaultReferenceIdentity: appServiceManagedIdentity.id
+    vnetRouteAllEnabled: true
+    hostNamesDisabled: false
     siteConfig: {
       vnetRouteAllEnabled: true
       http20Enabled: true
@@ -168,26 +189,25 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
     appServiceSecretsUserRoleAssignmentModule
     blobDataReaderRoleAssignment
   ]
-}
 
-// App Settings
-resource appsettings 'Microsoft.Web/sites/config@2022-09-01' = {
-  name: 'appsettings'
-  parent: webApp
-  properties: {
-    WEBSITE_RUN_FROM_PACKAGE: packageLocation
-    WEBSITE_RUN_FROM_PACKAGE_BLOB_MI_RESOURCE_ID: appServiceManagedIdentity.id
-    APPINSIGHTS_INSTRUMENTATIONKEY: appInsights.properties.InstrumentationKey
-    APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
-    ApplicationInsightsAgent_EXTENSION_VERSION: '~2'
-    chatApiKey: chatApiKey
-    chatApiEndpoint: chatApiEndpoint
-    chatInputName: 'question'
-    chatOutputName: 'answer'
+  resource appsettings 'config' = {
+    name: 'appsettings'
+    properties: {
+      WEBSITE_RUN_FROM_PACKAGE: '${storage.properties.primaryEndpoints.blob}deploy/${publishFileName}'
+      WEBSITE_RUN_FROM_PACKAGE_BLOB_MI_RESOURCE_ID: appServiceManagedIdentity.id
+      APPINSIGHTS_INSTRUMENTATIONKEY: appInsights.properties.InstrumentationKey
+      APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
+      ApplicationInsightsAgent_EXTENSION_VERSION: '~2'
+      chatApiKey: chatApiKey
+      chatApiEndpoint: chatProj::onlineEndpoint.properties.scoringUri
+      chatInputName: 'question'
+      chatOutputName: 'answer'
+    }
   }
 }
 
-//Web App diagnostic settings
+
+// Web App diagnostic settings
 resource webAppDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
   name: 'default'
   scope: webApp
@@ -291,7 +311,7 @@ resource appServicePlanAutoScaleSettings 'Microsoft.Insights/autoscalesettings@2
 
 // create application insights resource
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: appInsightsName
+  name: 'appinsights-${appName}'
   location: location
   kind: 'web'
   properties: {
@@ -311,7 +331,7 @@ resource webAppPf 'Microsoft.Web/sites@2023-12-01' = {
   location: location
   kind: 'linux'
   identity: {
-    type: 'UserAssigned'
+    type: 'SystemAssigned, UserAssigned'
     userAssignedIdentities: {
       '${appServiceManagedIdentity.id}': {}
     }
@@ -323,8 +343,8 @@ resource webAppPf 'Microsoft.Web/sites@2023-12-01' = {
     keyVaultReferenceIdentity: appServiceManagedIdentity.id
     hostNamesDisabled: false
     vnetImagePullEnabled: true
-    vnetRouteAllEnabled: true
     publicNetworkAccess: 'Disabled'
+    vnetRouteAllEnabled: true
     vnetContentShareEnabled: true
     siteConfig: {
       linuxFxVersion: 'DOCKER|mcr.microsoft.com/appsvc/staticsite:latest'
@@ -339,9 +359,9 @@ resource webAppPf 'Microsoft.Web/sites@2023-12-01' = {
   dependsOn: [
     appServiceSecretsUserRoleAssignmentModule
     blobDataReaderRoleAssignment
+    containerRegistryPullRole
   ]
 
-  // App Settings
   resource appsettingsPf 'config' = {
     name: 'appsettings'
     properties: {
@@ -349,14 +369,13 @@ resource webAppPf 'Microsoft.Web/sites@2023-12-01' = {
       APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
       ApplicationInsightsAgent_EXTENSION_VERSION: '~2'
       WEBSITES_CONTAINER_START_TIME_LIMIT: '1800'
-      OPENAICONNECTION_API_BASE: 'https://oai${baseName}.openai.azure.com/'
-      OPENAICONNECTION_API_KEY: openAIApiKey
+      OPENAICONNECTION_API_BASE: azureOpenAI.properties.endpoint
       WEBSITES_PORT: '8080'
     }
   }
 }
 
-//Web App diagnostic settings
+// Prompt flow Web App diagnostic settings
 resource webAppPfDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
   name: 'default'
   scope: webAppPf
@@ -415,13 +434,24 @@ resource appServicePrivateEndpointPf 'Microsoft.Network/privateEndpoints@2024-01
 }
 
 @description('Allow the prompt flow web app to pull container images from ACR.')
-resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(containerRegistry.id, appServiceManagedIdentity.id, containerRegistryPullRole.id)
   scope: containerRegistry
   properties: {
     roleDefinitionId: containerRegistryPullRole.id
     principalType: 'ServicePrincipal'
     principalId: appServiceManagedIdentity.properties.principalId
+  }
+}
+
+@description('Allow the prompt flow web app to call into Azure OpenAI.')
+resource azureOpenAiUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(azureOpenAI.id, webAppPf.id, cognitiveServicesOpenAiUserRole.id)
+  scope: azureOpenAI
+  properties: {
+    roleDefinitionId: cognitiveServicesOpenAiUserRole.id
+    principalType: 'ServicePrincipal'
+    principalId: webAppPf.identity.principalId
   }
 }
 

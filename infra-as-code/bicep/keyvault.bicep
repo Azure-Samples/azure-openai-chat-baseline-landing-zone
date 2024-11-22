@@ -15,7 +15,6 @@ param location string = resourceGroup().location
 @description('The certificate data for app gateway TLS termination. The value is base64 encoded')
 @secure()
 param appGatewayListenerCertificate string
-param apiKey string
 
 // existing resource name params 
 param vnetName string
@@ -37,6 +36,7 @@ var keyVaultDnsZoneName = 'privatelink.vaultcore.azure.net' //Cannot use 'privat
 
 // ---- Existing resources ----
 resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
+
   name: vnetName
   scope: resourceGroup(virtualNetworkResourceGroupName)
 
@@ -65,15 +65,15 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 
     tenantId: subscription().tenantId
 
-    enableRbacAuthorization: true // Using RBAC
-    enabledForDeployment: true // VMs can retrieve certificates
-    enabledForTemplateDeployment: true // ARM can retrieve values
+    enableRbacAuthorization: true       // Using RBAC
+    enabledForDeployment: true          // VMs can retrieve certificates
+    enabledForTemplateDeployment: true  // ARM can retrieve values
     enabledForDiskEncryption: false
 
     enableSoftDelete: true
     softDeleteRetentionInDays: 7
-    //enablePurgeProtection: true // Ideally set this. This is usually enforced through 'Key vaults should have deletion protection enabled' policy
-    createMode: 'default' // Creating or updating the key vault (not recovering)
+    // enablePurgeProtection: true // Ideally set this. This is usually enforced through 'Key vaults should have deletion protection enabled' policy
+    createMode: 'default'               // Creating or updating the Key Vault (not recovering)
   }
 
   resource kvsGatewayPublicCert 'secrets' = {
@@ -93,7 +93,7 @@ resource keyVaultDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-
     workspaceId: logWorkspace.id
     logs: [
       {
-        categoryGroup: 'allLogs'  // All logs is a good choice for production on this resource.
+        categoryGroup: 'allLogs' // All logs is a good choice for production on this resource.
         enabled: true
         retentionPolicy: {
           enabled: false
@@ -126,7 +126,6 @@ resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-01-01'
   }
 }
 
-// We need a local copy due to a limitation in Azure Application Gateway not using DNS from the hub for cert retrieval
 resource keyVaultDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: keyVaultDnsZoneName
   location: 'global'
@@ -161,16 +160,8 @@ resource keyVaultDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZone
   ]
 }
 
-resource apiKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-02-01' = {
-  parent: keyVault
-  name: 'apiKey'
-  properties: {
-    value: apiKey
-  }
-}
-
-@description('The name of the key vault.')
+@description('The name of the Key Vault.')
 output keyVaultName string = keyVault.name
 
-@description('Uri to the secret holding the cert.')
-output gatewayCertSecretUri string = keyVault::kvsGatewayPublicCert.properties.secretUri
+@description('Name of the secret holding the cert.')
+output gatewayCertSecretKey string = keyVault::kvsGatewayPublicCert.name

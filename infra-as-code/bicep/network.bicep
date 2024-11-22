@@ -4,6 +4,8 @@ targetScope = 'resourceGroup'
   Deploy subnets and NSGs
 */
 
+//todo - add training and scoring subnets
+
 @description('The resource group location')
 param location string = resourceGroup().location
 
@@ -46,35 +48,8 @@ resource hubFirewallUdr 'Microsoft.Network/routeTables@2022-11-01' existing = if
   scope: resourceGroup()
 }
 
-// TODO
-/*resource AppGWHubUdr 'Microsoft.Network/routeTables@2022-11-01' =
-  if (paramFirewallNVAIpAddress != '') {
-    name: 'udr-appgw-hub-firewall'
-    location: location
-    properties: {
-      routes: [
-        {
-          name: 'routeToVnet'
-          properties: {
-            addressPrefix: vnetAddressPrefix
-            nextHopType: 'VirtualAppliance'
-            nextHopIpAddress: paramFirewallNVAIpAddress
-          }
-        }
-      ]
-    }
-  }*/
-
 // ---- Networking resources ----
 
-// DDoS Protection Plan
-// TODO
-/*resource ddosProtectionPlan 'Microsoft.Network/ddosProtectionPlans@2022-11-01' =
-  if (enableDdosProtection) {
-    name: ddosPlanName
-    location: location
-    properties: {}
-  }*/
 
 // Virtual network and subnets
 resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
@@ -111,6 +86,8 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
       networkSecurityGroup: {
         id: appGatewaySubnetNsg.id
       }
+      privateEndpointNetworkPolicies: 'Disabled'
+      privateLinkServiceNetworkPolicies: 'Enabled'
 
       //routeTable: TODO for FW ingress
     }
@@ -128,6 +105,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
       }
       privateEndpointNetworkPolicies: 'Enabled'
       privateLinkServiceNetworkPolicies: 'Enabled'
+      defaultOutboundAccess: false
       routeTable: hubFirewallUdr != null
         ? {
             id: hubFirewallUdr.id
@@ -146,6 +124,8 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
       networkSecurityGroup: {
         id: agentsSubnetNsg.id
       }
+      privateEndpointNetworkPolicies: 'Disabled'
+      privateLinkServiceNetworkPolicies: 'Enabled'
       routeTable: hubFirewallUdr != null
         ? {
             id: hubFirewallUdr.id
@@ -164,6 +144,8 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
       networkSecurityGroup: {
         id: jumpboxSubnetNsg.id
       }
+      privateEndpointNetworkPolicies: 'Disabled'
+      privateLinkServiceNetworkPolicies: 'Enabled'
       routeTable: hubFirewallUdr != null
         ? {
             id: hubFirewallUdr.id
@@ -437,3 +419,6 @@ output privateEndpointsSubnetName string = vnet::privateEnpointsSubnet.name
 
 @description('The DNS servers that were configured on the virtual network.')
 output vnetDNSServers array = vnet.properties.dhcpOptions.dnsServers
+
+@description('The name of the build agent subnet.')
+output agentSubnetName string = vnet::agentsSubnet.name

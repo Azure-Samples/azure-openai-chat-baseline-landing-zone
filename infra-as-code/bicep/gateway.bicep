@@ -15,9 +15,7 @@ param location string = resourceGroup().location
 @description('Domain name to use for App Gateway')
 param customDomainName string
 
-param gatewayCertSecretUri string
-
-// existing resource name params 
+@description('The name of the existing virtual network that this Application Gateway instance will be deployed into.') 
 param vnetName string
 
 @description('The name of the resource group containing the spoke virtual network.')
@@ -32,6 +30,10 @@ param appName string
 
 @description('The name of the existing Key Vault that contains the SSL certificate for the Application Gateway.')
 param keyVaultName string
+
+@description('The name of the existing Key Vault secret that contains the SSL certificate for the Application Gateway.')
+#disable-next-line secure-secrets-in-params
+param gatewayCertSecretKey string
 
 @description('The name of the workload\'s existing Log Analytics workspace.')
 param logWorkspaceName string
@@ -61,6 +63,14 @@ resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' exis
   name: logWorkspaceName
 }
 
+resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
+  name: keyVaultName
+
+  resource kvsGatewayPublicCert 'secrets' existing = {
+    name: gatewayCertSecretKey
+  }
+}
+
 // Built-in Azure RBAC role that is applied to a Key Vault to grant with secrets content read privileges. Granted to both Key Vault and our workload's identity.
 resource keyVaultSecretsUserRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
   name: '4633458b-17de-408a-b874-0445c86b69e6'
@@ -69,7 +79,7 @@ resource keyVaultSecretsUserRole 'Microsoft.Authorization/roleDefinitions@2022-0
 
 // ---- App Gateway resources ----
 
-// Managed Identity for Application Gateway. 
+// Managed Identity for Application Gateway.
 resource appGatewayManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: appGatewayManagedIdentityName
   location: location
@@ -213,7 +223,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
       {
         name: '${appGatewayName}-ssl-certificate'
         properties: {
-          keyVaultSecretId: gatewayCertSecretUri
+          keyVaultSecretId: keyVault::kvsGatewayPublicCert.properties.secretUri
         }
       }
     ]
@@ -249,22 +259,14 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
         name: 'WebAppListener'
         properties: {
           frontendIPConfiguration: {
-            id: resourceId(
-              'Microsoft.Network/applicationGateways/frontendIPConfigurations',
-              appGatewayName,
-              'appGwPublicFrontendIp'
-            )
+            id: resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appGatewayName, 'appGwPublicFrontendIp')
           }
           frontendPort: {
             id: resourceId('Microsoft.Network/applicationGateways/frontendPorts', appGatewayName, 'port-443')
           }
           protocol: 'Https'
           sslCertificate: {
-            id: resourceId(
-              'Microsoft.Network/applicationGateways/sslCertificates',
-              appGatewayName,
-              '${appGatewayName}-ssl-certificate'
-            )
+            id: resourceId('Microsoft.Network/applicationGateways/sslCertificates', appGatewayName, '${appGatewayName}-ssl-certificate')
           }
           hostName: 'www.${customDomainName}'
           hostNames: []
@@ -282,18 +284,10 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
             id: resourceId('Microsoft.Network/applicationGateways/httpListeners', appGatewayName, 'WebAppListener')
           }
           backendAddressPool: {
-            id: resourceId(
-              'Microsoft.Network/applicationGateways/backendAddressPools',
-              appGatewayName,
-              'pool-${appName}'
-            )
+            id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools', appGatewayName, 'pool-${appName}')
           }
           backendHttpSettings: {
-            id: resourceId(
-              'Microsoft.Network/applicationGateways/backendHttpSettingsCollection',
-              appGatewayName,
-              'WebAppBackendHttpSettings'
-            )
+            id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', appGatewayName, 'WebAppBackendHttpSettings')
           }
         }
       }
@@ -316,7 +310,7 @@ resource appGatewayDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-0
     workspaceId: logWorkspace.id
     logs: [
       {
-        categoryGroup: 'allLogs'
+        categoryGroup: 'allLogs' // All logs is a good choice for production on this resource.
         enabled: true
         retentionPolicy: {
           enabled: false
@@ -327,3 +321,6 @@ resource appGatewayDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-0
     logAnalyticsDestinationType: null
   }
 }
+
+@description('The name of the app gateway resource.')
+output appGatewayName string = appGateway.name

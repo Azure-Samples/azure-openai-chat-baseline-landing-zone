@@ -7,7 +7,7 @@ param baseName string
 
 @description('The region in which this architecture is deployed.')
 @minLength(1)
-param location string = 'uksouth' // TODO - TEMP resourceGroup().location
+param location string = resourceGroup().location
 
 @description('The resource ID of the subscription vending provided spoke in your application landging zone subscription. For example, /subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg-app-networking/providers/Microsoft.Network/virtualNetworks/vnet-app000-spoke0')
 @minLength(114)
@@ -20,7 +20,7 @@ param jumpBoxAdminName string = 'vmadmin'
 
 @description('Specifies the password of the administrator account on the Windows jump box.\n\nComplexity requirements: 3 out of 4 conditions below need to be fulfilled:\n- Has lower characters\n- Has upper characters\n- Has a digit\n- Has a special character\n\nDisallowed values: "abc@123", "P@$$w0rd", "P@ssw0rd", "P@ssword123", "Pa$$word", "pass@word1", "Password!", "Password1", "Password22", "iloveyou!"')
 @secure()
-@minLength(5)
+@minLength(8)
 @maxLength(123)
 param jumpBoxAdminPassword string
 
