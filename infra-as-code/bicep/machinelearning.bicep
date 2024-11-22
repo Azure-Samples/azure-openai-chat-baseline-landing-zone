@@ -24,7 +24,7 @@ param privateEndpointsSubnetName string
 param applicationInsightsName string
 param containerRegistryName string
 param keyVaultName string
-param aiStudioStorageAccountName string
+param aiFoundryStorageAccountName string
 
 @description('The name of the workload\'s existing Log Analytics workspace.')
 param logWorkspaceName string
@@ -64,8 +64,8 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
   name: keyVaultName
 }
 
-resource aiStudioStorageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' existing = {
-  name: aiStudioStorageAccountName
+resource aiFoundryStorageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' existing = {
+  name: aiFoundryStorageAccountName
 }
 
 resource openAiAccount 'Microsoft.CognitiveServices/accounts@2023-05-01' existing = {
@@ -98,10 +98,10 @@ resource amlWorkspaceSecretsReaderRole 'Microsoft.Authorization/roleDefinitions@
 
 // ---- New Resources ----
 
-@description('Assign your user the ability to manage files in storage. This is needed to use the prompt flow editor in Azure AI Studio.')
+@description('Assign your user the ability to manage files in storage. This is needed to use the prompt flow editor in the Azure AI Foundry portal.')
 resource storageFileDataContributorForUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  scope: aiStudioStorageAccount
-  name: guid(aiStudioStorageAccount.id, yourPrincipalId, storageFileDataContributorRole.id)
+  scope: aiFoundryStorageAccount
+  name: guid(aiFoundryStorageAccount.id, yourPrincipalId, storageFileDataContributorRole.id)
   properties: {
     roleDefinitionId: storageFileDataContributorRole.id
     principalType: 'User'
@@ -110,10 +110,10 @@ resource storageFileDataContributorForUserRoleAssignment 'Microsoft.Authorizatio
   }
 }
 
-@description('Assign your user the ability to manage prompt flow state files from blob storage. This is needed to execute the prompt flow from within in Azure AI Studio.')
+@description('Assign your user the ability to manage prompt flow state files from blob storage. This is needed to execute the prompt flow from within in the Azure AI Foundry portal.')
 resource blobStorageContributorForUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  scope: aiStudioStorageAccount
-  name: guid(aiStudioStorageAccount.id, yourPrincipalId, storageBlobDataContributorRole.id)
+  scope: aiFoundryStorageAccount
+  name: guid(aiFoundryStorageAccount.id, yourPrincipalId, storageBlobDataContributorRole.id)
   properties: {
     roleDefinitionId: storageBlobDataContributorRole.id
     principalType: 'User'
@@ -124,7 +124,7 @@ resource blobStorageContributorForUserRoleAssignment 'Microsoft.Authorization/ro
   }
 }
 
-@description('Assign your user the ability to invoke models in Azure OpenAI. This is needed to execute the prompt flow from within in Azure AI Studio.')
+@description('Assign your user the ability to invoke models in Azure OpenAI. This is needed to execute the Prompt flow from within in the Azure AI Foundry portal.')
 resource cognitiveServicesOpenAiUserForUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: openAiAccount
   name: guid(openAiAccount.id, yourPrincipalId, cognitiveServicesOpenAiUserRole.id)
@@ -135,7 +135,7 @@ resource cognitiveServicesOpenAiUserForUserRoleAssignment 'Microsoft.Authorizati
   }
 }
 
-// ---- Azure AI Studio resources ----
+// ---- Azure AI Foundry resources ----
 
 @description('A hub provides the hosting environment for this AI workload. It provides security, governance controls, and shared configurations.')
 resource aiHub 'Microsoft.MachineLearningServices/workspaces@2024-07-01-preview' = {
@@ -192,7 +192,7 @@ resource aiHub 'Microsoft.MachineLearningServices/workspaces@2024-07-01-preview'
     }
 
     // Default settings for projects
-    storageAccount: aiStudioStorageAccount.id
+    storageAccount: aiFoundryStorageAccount.id
     containerRegistry: containerRegistry.id
     systemDatastoresAuthMode: 'identity'
     enableSoftwareBillOfMaterials: true
@@ -221,7 +221,7 @@ resource aiHub 'Microsoft.MachineLearningServices/workspaces@2024-07-01-preview'
   }
 }
 
-@description('Azure Diagnostics: Azure AI Studio Hub - allLogs')
+@description('Azure Diagnostics: Azure AI Foundry hub - allLogs')
 resource aiHubDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
   name: 'default'
   scope: aiHub
@@ -281,7 +281,7 @@ resource chatProject 'Microsoft.MachineLearningServices/workspaces@2024-04-01' =
     dependsOn:[
       aiHub::aoaiConnection
     ]
-    // Note: If you reapply this Bicep after an AI Studio managed compute deployment has happened in this endpoint, the traffic routing reverts to 0% to all existing deployments. You'll need to set that back to 100% to your desired deployment.
+    // Note: If you reapply this Bicep after an Azure AI Foundry managed compute deployment has happened in this endpoint, the traffic routing reverts to 0% to all existing deployments. You'll need to set that back to 100% to your desired deployment.
   }
 }
 
@@ -310,7 +310,7 @@ resource projectOpenAIUserForOnlineEndpointRoleAssignment 'Microsoft.Authorizati
   }
 }
 
-@description('Azure Diagnostics: AI Studio chat project - allLogs')
+@description('Azure Diagnostics: AI Foundry chat project - allLogs')
 resource chatProjectDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
   name: 'default'
   scope: chatProject
@@ -330,7 +330,7 @@ resource chatProjectDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-
   }
 }
 
-@description('Azure Diagnostics: AI Studio chat project online endpoint - allLogs')
+@description('Azure Diagnostics: AI Foundry chat project online endpoint - allLogs')
 resource chatProjectOnlineEndpointDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
   name: 'default'
   scope: chatProject::endpoint
