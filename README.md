@@ -55,7 +55,7 @@ The Azure AI Foundry deployment architecture diagram illustrates how a front-end
 
 ### Deploying a flow to Azure App Service (alternative)
 
-![Diagram of the deploying a flow to Azure App Service. This drawing emphasizes how AI Foundry compute and endpoints are bypassed, and Azure App Service and its virtual network become responsible for connecting to the private endpoints for dependencies.](docs/media/azure-openai-landing-zone-appservices.png)
+![Diagram of the deploying a flow to Azure App Service. This drawing emphasizes how AI Foundry compute and endpoints are bypassed, and Azure App Service and its virtual network become responsible for connecting to the private endpoints for dependencies.](docs/media/azure-openai-chat-baseline-appservices.png)
 
 The Azure App Service deployment architecture diagram illustrates how the same prompt flow is containerized and deployed to Azure App Service alongside the same front-end web application from the prior architecture. This solution is a completely self-hosted, externalized alternative to an Azure AI Foundry managed online endpoint.
 
