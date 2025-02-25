@@ -156,7 +156,8 @@ resource openAiAccount 'Microsoft.CognitiveServices/accounts@2024-06-01-preview'
       model: {
         format: 'OpenAI'
         name: 'gpt-35-turbo'
-        version: '0125' // If your selected region doesn't support this version, please change it.
+        version: '0125' // If your selected region or quota doesn't support this version, please change it to a supported value.
+
                         // az cognitiveservices model list -l YOUR_REGION --query "sort([?model.name == 'gpt-35-turbo' && kind == 'OpenAI'].model.version)" -o tsv
       }
       raiPolicyName: openAiAccount::blockingFilter.name
