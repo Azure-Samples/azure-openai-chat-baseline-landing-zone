@@ -25,6 +25,9 @@
     },
     "jumpBoxSubnetAddressPrefix": {
       "value": "10.1.2.128/28"
+    },
+    "parTelemetryOptOut": {
+      "value": false
     }
   }
 }
