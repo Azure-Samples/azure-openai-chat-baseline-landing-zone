@@ -8,7 +8,7 @@ param baseName string
 @description('The resource group location')
 param location string = resourceGroup().location
 
-// existing resource name params 
+// existing resource name params
 param vnetName string
 
 @description('The name of the resource group containing the spoke virtual network.')
@@ -161,7 +161,7 @@ resource openAiAccount 'Microsoft.CognitiveServices/accounts@2024-06-01-preview'
                         // az cognitiveservices model list -l YOUR_REGION --query "sort([?model.name == 'gpt-35-turbo' && kind == 'OpenAI'].model.version)" -o tsv
       }
       raiPolicyName: openAiAccount::blockingFilter.name
-      versionUpgradeOption: 'NoAutoUpgrade'  // Always pin your dependencies, be intentional about updates.
+      versionUpgradeOption: 'NoAutoUpgrade' // Always pin your dependencies, be intentional about updates.
     }
   }
 }
@@ -174,7 +174,7 @@ resource openAIDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-pr
     workspaceId: logWorkspace.id
     logs: [
       {
-        categoryGroup: 'allLogs'  // All logs is a good choice for production on this resource.
+        categoryGroup: 'allLogs' // All logs is a good choice for production on this resource.
         enabled: true
         retentionPolicy: {
           enabled: false

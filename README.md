@@ -495,7 +495,7 @@ You will need access to the prompt flow files for this experience, since we'll b
    NAME_OF_ACR="cr${BASE_NAME}"
    IMAGE_NAME='wikichatflow'
    FULL_IMAGE_NAME="aoai/${IMAGE_NAME}:1.0"
-   
+
    az acr build --agent-pool imgbuild -t $FULL_IMAGE_NAME -r $NAME_OF_ACR .
    ```
 
