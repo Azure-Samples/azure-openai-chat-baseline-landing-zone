@@ -16,7 +16,7 @@ param location string = resourceGroup().location
 @secure()
 param appGatewayListenerCertificate string
 
-// existing resource name params 
+// existing resource name params
 param vnetName string
 
 @description('The name of the resource group containing the spoke virtual network.')
@@ -65,15 +65,15 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 
     tenantId: subscription().tenantId
 
-    enableRbacAuthorization: true       // Using RBAC
-    enabledForDeployment: true          // VMs can retrieve certificates
-    enabledForTemplateDeployment: true  // ARM can retrieve values
+    enableRbacAuthorization: true      // Using RBAC
+    enabledForDeployment: true         // VMs can retrieve certificates
+    enabledForTemplateDeployment: true // ARM can retrieve values
     enabledForDiskEncryption: false
 
     enableSoftDelete: true
     softDeleteRetentionInDays: 7
-    // enablePurgeProtection: true // Ideally set this. This is usually enforced through 'Key vaults should have deletion protection enabled' policy
-    createMode: 'default'               // Creating or updating the Key Vault (not recovering)
+    // enablePurgeProtection: true     // Ideally set this. This is usually enforced through 'Key vaults should have deletion protection enabled' policy
+    createMode: 'default'              // Creating or updating the Key Vault (not recovering)
   }
 
   resource kvsGatewayPublicCert 'secrets' = {

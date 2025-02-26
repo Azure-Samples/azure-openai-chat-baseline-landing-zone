@@ -92,7 +92,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
       //routeTable: TODO for FW ingress
     }
     dependsOn: [
-      appServiceSubnet  // Single thread these
+      appServiceSubnet // Single thread these
     ]
   }
 
@@ -113,7 +113,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
         : null
     }
     dependsOn: [
-      appGatewaySubnet  // Single thread these
+      appGatewaySubnet // Single thread these
     ]
   }
 
@@ -133,7 +133,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
         : null
     }
     dependsOn: [
-      privateEnpointsSubnet  // Single thread these
+      privateEnpointsSubnet // Single thread these
     ]
   }
 
@@ -153,7 +153,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
         : null
     }
     dependsOn: [
-      agentsSubnet  // Single thread these
+      agentsSubnet // Single thread these
     ]
   }
 }
@@ -337,7 +337,7 @@ resource agentsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = 
   }
 }
 
-// Jump box subnet NSG 
+// Jump box subnet NSG
 resource jumpboxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
   name: 'nsg-jumpboxSubnet'
   location: location
