@@ -57,11 +57,16 @@ param jumpBoxSubnetAddressPrefix string
 @minLength(36)
 param yourPrincipalId string
 
+@description('Set to true to opt-out of deployment telemetry.')
+param telemetryOptOut bool = false
+
 // ---- Parameters required to set to make it non availability zone compliant ----
 
 var existingResourceGroupNameForSpokeVirtualNetwork = split(existingResourceIdForSpokeVirtualNetwork, '/')[4]
 var existingSpokeVirtualNetworkName = split(existingResourceIdForSpokeVirtualNetwork, '/')[8]
 var existingUdrForInternetTrafficName = split(existingResourceIdForUdrForInternetTraffic, '/')[8]
+var varCuaid = '58c6a07c-0380-404b-9642-1daaddeca33e' // Customer Usage Attribution Id
+
 
 // ---- Target Resource Groups ----
 
@@ -216,4 +221,11 @@ module webappModule 'webapp.bicep' = {
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
     logWorkspaceName: monitoringModule.outputs.logWorkspaceName
   }
+}
+
+// Optional Deployment for Customer Usage Attribution
+module customerUsageAttributionModule 'customerUsageAttribution/cuaIdSubscription.bicep' = if (!telemetryOptOut) {
+  #disable-next-line no-loc-expr-outside-params // Only to ensure telemetry data is stored in same location as deployment. See https://github.com/Azure/ALZ-Bicep/wiki/FAQ#why-are-some-linter-rules-disabled-via-the-disable-next-line-bicep-function for more information
+  name: 'pid-${varCuaid}-${uniqueString(deployment().location)}'
+  params: {}
 }

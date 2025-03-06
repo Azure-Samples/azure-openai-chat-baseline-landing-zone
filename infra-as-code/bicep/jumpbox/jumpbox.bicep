@@ -24,11 +24,15 @@ param jumpBoxAdminName string = 'vmadmin'
 @maxLength(123)
 param jumpBoxAdminPassword string
 
+@description('Set to true to opt-out of deployment telemetry.')
+param telemetryOptOut bool = false
+
 // ---- Variables ----
 
 var jumpBoxName = 'jmp-${baseName}'
 var existingResourceGroupNameForSpokeVirtualNetwork = split(existingResourceIdForSpokeVirtualNetwork, '/')[4]
 var existingSpokeVirtualNetworkName = split(existingResourceIdForSpokeVirtualNetwork, '/')[8]
+var varCuaid = '54b6da01-930f-45ca-87eb-773dc3943863' // Customer Usage Attribution Id
 
 // ---- Existing resources ----
 
@@ -274,4 +278,11 @@ resource jumpBoxDcrAssociation 'Microsoft.Insights/dataCollectionRuleAssociation
   dependsOn: [
     jumpBoxVirtualMachine::amaDependencyAgent
   ]
+}
+
+// Optional Deployment for Customer Usage Attribution
+module customerUsageAttributionModule '../customerUsageAttribution/cuaIdResourceGroup.bicep' = if (!telemetryOptOut) {
+  #disable-next-line no-loc-expr-outside-params // Only to ensure telemetry data is stored in same location as deployment. See https://github.com/Azure/ALZ-Bicep/wiki/FAQ#why-are-some-linter-rules-disabled-via-the-disable-next-line-bicep-function for more information
+  name: 'pid-${varCuaid}-${uniqueString(resourceGroup().location)}'
+  params: {}
 }
