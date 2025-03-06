@@ -231,7 +231,7 @@ In this architecture, a network perimeter is established, and you must interact 
 
    If you need to deploy a jump box into your application landing zone, this deployment guide has a simple one that you can use. You will be prompted for an admin password for the jump box; it must satisfy the [complexity requirements for Windows VM in Azure](https://learn.microsoft.com/azure/virtual-machines/windows/faq#what-are-the-password-requirements-when-creating-a-vm-). You'll need to identify your landing zone virtual network as well in **infra-as-code/bicep/jumpbox/parameters.json**. This is the same value you used in **infra-as-code/bicep/parameters.alz.json**.<br>
 
-   **_NOTE:_** There is an optional tracking ID on this deployment. To opt out of deployment tracking update the parTelemetryOptOut in the parameters file and set it to "true".
+   **_NOTE:_** There is an optional tracking ID on this deployment. To opt out of the deployment tracking, update the parTelemetryOptOut in the parameters file and set it to "true".
 
    ```bash
    az deployment group create -f ./infra-as-code/bicep/jumpbox/jumpbox.bicep \
