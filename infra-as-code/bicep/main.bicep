@@ -229,4 +229,3 @@ module customerUsageAttributionModule 'customerUsageAttribution/cuaIdSubscriptio
   name: 'pid-${varCuaid}-${uniqueString(deployment().location)}'
   params: {}
 }
-
