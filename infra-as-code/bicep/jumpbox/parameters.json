@@ -5,7 +5,7 @@
     "existingResourceIdForSpokeVirtualNetwork": {
       "value": "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg-app000-networking/providers/Microsoft.Network/virtualNetworks/vnet-app000-spoke-00"
     },
-    "parTelemetryOptOut": {
+    "telemetryOptOut": {
       "value": false
     }
   }

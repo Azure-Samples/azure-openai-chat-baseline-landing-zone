@@ -190,7 +190,7 @@ The following steps are required to deploy the infrastructure from the command l
    ```
 
 1. Create a resource group and deploy the workload infrastructure.<br>
-   **_NOTE:_** There is an optional tracking ID on this deployment. To opt out of its use add the following parameter to the deployment code below: "-p parTelemetryOptOut TRUE"
+   *There is an optional tracking ID on this deployment. To opt out of its use, add the following parameter to the deployment code below: `-p telemetryOptOut true`.*
 
    :clock8: *This might take about 20 minutes.*
 
@@ -229,9 +229,9 @@ In this architecture, a network perimeter is established, and you must interact 
 
 1. Deploy jump box, **if necessary**. *Skip this if your platform team has provided workstation based access or another method.*
 
-   If you need to deploy a jump box into your application landing zone, this deployment guide has a simple one that you can use. You will be prompted for an admin password for the jump box; it must satisfy the [complexity requirements for Windows VM in Azure](https://learn.microsoft.com/azure/virtual-machines/windows/faq#what-are-the-password-requirements-when-creating-a-vm-). You'll need to identify your landing zone virtual network as well in **infra-as-code/bicep/jumpbox/parameters.json**. This is the same value you used in **infra-as-code/bicep/parameters.alz.json**.<br>
-
-   **_NOTE:_** There is an optional tracking ID on this deployment. To opt out of the deployment tracking, update the parTelemetryOptOut in the parameters file and set it to "true".
+   If you need to deploy a jump box into your application landing zone, this deployment guide has a simple one that you can use. You will be prompted for an admin password for the jump box; it must satisfy the [complexity requirements for Windows VM in Azure](https://learn.microsoft.com/azure/virtual-machines/windows/faq#what-are-the-password-requirements-when-creating-a-vm-). You'll need to identify your landing zone virtual network as well in **infra-as-code/bicep/jumpbox/parameters.json**. This is the same value you used in **infra-as-code/bicep/parameters.alz.json**.
+   
+   *There is an optional tracking ID on this deployment. To opt out of the deployment tracking, update the `telemetryOptOut` in the parameters file and set it to `true`.*
 
    ```bash
    az deployment group create -f ./infra-as-code/bicep/jumpbox/jumpbox.bicep \

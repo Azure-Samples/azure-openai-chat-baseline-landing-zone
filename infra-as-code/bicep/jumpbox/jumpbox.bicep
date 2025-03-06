@@ -24,8 +24,8 @@ param jumpBoxAdminName string = 'vmadmin'
 @maxLength(123)
 param jumpBoxAdminPassword string
 
-@sys.description('Set Parameter to true to Opt-out of deployment telemetry.')
-param parTelemetryOptOut bool = false
+@description('Set to true to opt-out of deployment telemetry.')
+param telemetryOptOut bool = false
 
 // ---- Variables ----
 
@@ -282,8 +282,8 @@ resource jumpBoxDcrAssociation 'Microsoft.Insights/dataCollectionRuleAssociation
 
 
 // Optional Deployment for Customer Usage Attribution
-module modCustomerUsageAttribution '../customerUsageAttribution/cuaIdResourceGroup.bicep' = if (!parTelemetryOptOut) {
-  #disable-next-line no-loc-expr-outside-params //Only to ensure telemetry data is stored in same location as deployment. See https://github.com/Azure/ALZ-Bicep/wiki/FAQ#why-are-some-linter-rules-disabled-via-the-disable-next-line-bicep-function for more information //Only to ensure telemetry data is stored in same location as deployment. See https://github.com/Azure/ALZ-Bicep/wiki/FAQ#why-are-some-linter-rules-disabled-via-the-disable-next-line-bicep-function for more information
+module customerUsageAttributionModule '../customerUsageAttribution/cuaIdResourceGroup.bicep' = if (!telemetryOptOut) {
+  #disable-next-line no-loc-expr-outside-params // Only to ensure telemetry data is stored in same location as deployment. See https://github.com/Azure/ALZ-Bicep/wiki/FAQ#why-are-some-linter-rules-disabled-via-the-disable-next-line-bicep-function for more information
   name: 'pid-${varCuaid}-${uniqueString(resourceGroup().location)}'
   params: {}
 }
