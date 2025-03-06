@@ -189,7 +189,8 @@ The following steps are required to deploy the infrastructure from the command l
    BASE_NAME=<base resource name, between 6 and 8 lowercase characters, all DNS names will include this text, so it must be unique.>
    ```
 
-1. Create a resource group and deploy the workload infrastructure.<br>
+1. Create a resource group and deploy the workload infrastructure.
+
    *There is an optional tracking ID on this deployment. To opt out of its use, add the following parameter to the deployment code below: `-p telemetryOptOut true`.*
 
    :clock8: *This might take about 20 minutes.*
