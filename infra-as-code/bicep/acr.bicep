@@ -40,7 +40,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   resource privateEndpointsSubnet 'subnets' existing = {
     name: privateEndpointsSubnetName
   }
-  
+
   resource buildAgentSubnet 'subnets' existing = {
     name: buildAgentSubnetName
   }

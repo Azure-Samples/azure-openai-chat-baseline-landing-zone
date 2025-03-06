@@ -143,7 +143,7 @@ resource blobStorageContributorForUserRoleAssignment 'Microsoft.Authorization/ro
   properties: {
     roleDefinitionId: storageBlobDataContributorRole.id
     principalType: 'User'
-    principalId: yourPrincipalId  // Part of the deployment guide requires you to upload the web app to this storage container. Assigning that data plane permission here.
+    principalId: yourPrincipalId // Part of the deployment guide requires you to upload the web app to this storage container. Assigning that data plane permission here.
   }
 }
 
@@ -227,7 +227,7 @@ resource mlStorageBlobDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-0
     workspaceId: logWorkspace.id
     logs: [
       {
-        categoryGroup: 'allLogs'  // All logs is a good choice for production on this resource.
+        categoryGroup: 'allLogs' // All logs is a good choice for production on this resource.
         enabled: true
         retentionPolicy: {
           enabled: false
@@ -247,7 +247,7 @@ resource mlStorageFileDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-0
     workspaceId: logWorkspace.id
     logs: [
       {
-        categoryGroup: 'allLogs'  // All logs is a good choice for production on this resource.
+        categoryGroup: 'allLogs' // All logs is a good choice for production on this resource.
         enabled: true
         retentionPolicy: {
           enabled: false
