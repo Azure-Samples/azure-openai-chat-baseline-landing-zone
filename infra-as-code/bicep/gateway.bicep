@@ -15,7 +15,7 @@ param location string = resourceGroup().location
 @description('Domain name to use for App Gateway')
 param customDomainName string
 
-@description('The name of the existing virtual network that this Application Gateway instance will be deployed into.') 
+@description('The name of the existing virtual network that this Application Gateway instance will be deployed into.')
 param vnetName string
 
 @description('The name of the resource group containing the spoke virtual network.')
