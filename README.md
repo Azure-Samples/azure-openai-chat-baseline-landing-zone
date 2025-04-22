@@ -6,7 +6,7 @@ If you haven't yet, you should start by reviewing the [Azure OpenAI chat baselin
 
 ## Azure landing zone: application landing zone deployment
 
-This application landing zone deployment guide assuming you are using a typical Azure landing zone approach with platform and workload seperation. This deployment assumes many pre-existing platform resources and deploys nothing outside of the scope of the application landing zone. That means to fully deploy this repo, it must be done so as part of your organization's actual subscription vending process. If you do not have the ability to deploy into an actual application landing zone, then consider this simply reference material.
+This application landing zone deployment guide assuming you are using a typical Azure landing zone approach with platform and workload separation. This deployment assumes many pre-existing platform resources and deploys nothing outside of the scope of the application landing zone. That means to fully deploy this repo, it must be done so as part of your organization's actual subscription vending process. If you do not have the ability to deploy into an actual application landing zone, then consider this simply reference material.
 
 > [!IMPORTANT]
 > Because organizations may implement landing zones different, it is *expected* that you will need to further adjust the deployment beyond the configuration provided.
@@ -301,7 +301,7 @@ Here you'll test your flow by invoking it directly from the Azure AI Foundry por
 
 1. :clock8: Wait for that button to change to *Compute session running*. This might take about ten minutes.
 
-   *Do not advance until the serverless compute is running.*
+   *Do not advance until the serverless compute session is running.*
 
 1. Click the enabled **Chat** button on the UI.
 
@@ -321,7 +321,7 @@ Here you'll take your tested flow and deploy it to a managed online endpoint usi
 
    - **Deployment name**: ept-chat-deployment
    - **Virtual machine**: Choose a small virtual machine size from which you have quota. 'Standard_D2as_v4' is plenty for this sample.
-   - **Instance count**: 3. This is the recommended minimum count.
+   - **Instance count**: 3. *This is the recommended minimum count.*
    - **Inferencing data collection**: Enabled
 
 1. Set the following Advanced settings and click **Next**.
@@ -343,9 +343,9 @@ Here you'll take your tested flow and deploy it to a managed online endpoint usi
 
 1. :clock9: Wait for the deployment to finish creating.
 
-   The deployment can take over 15 minutes to create. To check on the process, navigate to the **Deployments** screen using the link in the left navigation. If you are asked about unsaved changes, just click **Confirm**.
+   The deployment can take over 15 minutes to create. To check on the process, navigate to the deployments screen using the **Models + endpoints** link in the left navigation. If you are asked about unsaved changes, just click **Confirm**.
 
-   Eventually 'ept-chat-deployment' will be on this list and then eventually the deployment will be listed with a State of 'Succeeded' and have 100% traffic allocation. Use the **Refresh** button as needed.
+   Eventually 'ept-chat-deployment' will be on this list and the deployment will be listed with a State of 'Succeeded' and have 100% traffic allocation. Use the **Refresh** button as needed.
 
    *Do not advance until this deployment is complete.*
 
@@ -379,7 +379,7 @@ For this deployment guide, you'll continue using your network connected workstat
 1. Download the web UI.
 
    ```bash
-   wget https://raw.githubusercontent.com/Azure-Samples/openai-end-to-end-baseline/refs/heads/main/website/chatui.zip
+   wget https://github.com/Azure-Samples/azure-openai-chat-baseline-landing-zone/raw/main/website/chatui.zip
    ```
 
 1. Upload the web application to Azure Storage, where the web app will load the code from.
@@ -420,7 +420,7 @@ This section will help you to validate that the workload is exposed correctly an
 
 1. Try it out!
 
-   Once you're there, ask your solution a question. Your question should involve something that would only be known if the RAG process included content from Wikipedia such as recent data or events.
+   Once you're there, ask your solution a question. Your question should involve something that would only be known if the RAG process included context from Wikipedia such as recent data or events.
 
 ### 8. Rehost the prompt flow in Azure App Service
 
@@ -527,18 +527,21 @@ You will need access to the prompt flow files for this experience, since we'll b
 | :computer: | Unless otherwise noted, the remaining steps are performed from your original workstation, not from the jump box. |
 | :--------: | :------------------------- |
 
-Browse to the site (e.g. <https://www.contoso.com>) once again. Once there, ask your solution a question. Like before, your question should involve something that would only be known if the RAG process included content from Wikipedia such as recent data or events.
+Browse to the site (e.g. <https://www.contoso.com>) once again. Once there, ask your solution a question. Like before, your question should involve something that would only be known if the RAG process included context from Wikipedia such as recent data or events.
 
 In this final configuration, your chat UI is interacting with the prompt flow code hosted in another Web App in your Azure App Service instance. Your Azure Machine Learning online endpoint is not used, and Wikipedia and Azure OpenAI are being called right from your prompt flow Web App.
 
 ## :broom: Clean up resources
 
-Most Azure resources deployed in the prior steps will incur ongoing charges unless removed. Additionally, a few of the resources deployed go into a soft delete status which may restrict the ability to redeploy another resource with the same name and may not release quota, so it is best to purge any soft deleted resources once you are done exploring. Use the following commands to delete the deployed resources and resource group and to purge each of the resources with soft delete.
+Most Azure resources deployed in the prior steps will incur ongoing charges unless removed. This deployment is typically over $100 a day, mostly due to Azure DDoS Protection and Azure AI Foundry's managed network's firewall. Promptly delete resources when you are done using them.
+
+Additionally, a few of the resources deployed enter soft delete status which will restrict the ability to redeploy another resource with the same name and might not release quota. It's best to purge any soft deleted resources once you are done exploring. Use the following commands to delete the deployed resources and resource group and to purge each of the resources with soft delete.
 
 | :warning: | This will completely delete any data you may have included in this example. That data and this deployment will be unrecoverable. |
 | :--------: | :------------------------- |
 
 ```bash
+# These deletes and purges take about 30 minutes to run.
 az group delete --name $RESOURCE_GROUP -y
 
 az keyvault purge  -n kv-${BASE_NAME}

@@ -46,12 +46,12 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   }
 }
 
-resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' existing = {
+resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
   name: logWorkspaceName
 }
 
 @description('The container registry used by Azure AI Foundry to store Prompt flow images.')
-resource acrResource 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = {
+resource acrResource 'Microsoft.ContainerRegistry/registries@2024-11-01-preview' = {
   name: acrName
   location: location
   sku: {
@@ -75,6 +75,7 @@ resource acrResource 'Microsoft.ContainerRegistry/registries@2023-11-01-preview'
     }
     publicNetworkAccess: 'Disabled'
     zoneRedundancy: 'Enabled'
+    metadataSearch: 'Disabled'
   }
   // If this child resource fails or gets stuck in deployment then make sure your network settings, including DNS are correct. For reference https://learn.microsoft.com/azure/container-registry/tasks-agent-pools#add-firewall-rules
   @description('Compute in the virtual network that can be used to build container images. This could also be done with tasks or images could be built on build agents.')
@@ -98,7 +99,15 @@ resource acrResourceDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-
     workspaceId: logWorkspace.id
     logs: [
       {
-        categoryGroup: 'allLogs' // All logs is a good choice for production on this resource.
+        category: 'ContainerRegistryRepositoryEvents'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+      {
+        category: 'ContainerRegistryLoginEvents'
         enabled: true
         retentionPolicy: {
           enabled: false
