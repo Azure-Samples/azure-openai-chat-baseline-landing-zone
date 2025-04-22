@@ -142,7 +142,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
     properties: {
       addressPrefix: jumpBoxSubnetAddressPrefix
       networkSecurityGroup: {
-        id: jumpboxSubnetNsg.id
+        id: jumpBoxSubnetNsg.id
       }
       privateEndpointNetworkPolicies: 'Disabled'
       privateLinkServiceNetworkPolicies: 'Enabled'
@@ -338,7 +338,7 @@ resource agentsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = 
 }
 
 // Jump box subnet NSG
-resource jumpboxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
+resource jumpBoxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
   name: 'nsg-jumpboxSubnet'
   location: location
   properties: {

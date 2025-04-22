@@ -46,7 +46,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   }
 }
 
-resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' existing = {
+resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
   name: logWorkspaceName
 }
 
@@ -57,7 +57,7 @@ resource storageBlobDataContributorRole 'Microsoft.Authorization/roleDefinitions
 }
 
 // ---- Storage resources ----
-resource appDeployStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+resource appDeployStorage 'Microsoft.Storage/storageAccounts@2024-01-01' = {
   name: appDeployStorageName
   location: location
   sku: {
@@ -95,6 +95,7 @@ resource appDeployStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     minimumTlsVersion: 'TLS1_2'
     isHnsEnabled: false
     isSftpEnabled: false
+    defaultToOAuthAuthentication: true
     isLocalUserEnabled: false
     publicNetworkAccess: 'Disabled'
     networkAcls: {
@@ -124,7 +125,23 @@ resource appDeployStorageDiagSettings 'Microsoft.Insights/diagnosticSettings@202
     workspaceId: logWorkspace.id
     logs: [
       {
-        categoryGroup: 'allLogs' // All logs is a good choice for production on this resource.
+        category: 'StorageRead'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+      {
+        category: 'StorageWrite'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+      {
+        category: 'StorageDelete'
         enabled: true
         retentionPolicy: {
           enabled: false
@@ -168,7 +185,7 @@ resource appDeployStoragePrivateEndpoint 'Microsoft.Network/privateEndpoints@202
   }
 }
 
-resource mlStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+resource mlStorage 'Microsoft.Storage/storageAccounts@2024-01-01' = {
   name: mlStorageName
   location: location
   sku: {
@@ -180,10 +197,14 @@ resource mlStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     accessTier: 'Hot'
     allowBlobPublicAccess: false
     allowSharedKeyAccess: true
+    isSftpEnabled: false
+    isHnsEnabled: false
     allowCrossTenantReplication: false
+    defaultToOAuthAuthentication: true
+    isLocalUserEnabled: false
     encryption: {
       keySource: 'Microsoft.Storage'
-      requireInfrastructureEncryption: false
+      requireInfrastructureEncryption: false // In this scenario, this account for Azure AI Foundry doesn't require double encryption, but if your scenario does, please enable.
       services: {
         blob: {
           enabled: true
@@ -227,7 +248,23 @@ resource mlStorageBlobDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-0
     workspaceId: logWorkspace.id
     logs: [
       {
-        categoryGroup: 'allLogs' // All logs is a good choice for production on this resource.
+        category: 'StorageRead'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+      {
+        category: 'StorageWrite'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+      {
+        category: 'StorageDelete'
         enabled: true
         retentionPolicy: {
           enabled: false
@@ -247,7 +284,23 @@ resource mlStorageFileDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-0
     workspaceId: logWorkspace.id
     logs: [
       {
-        categoryGroup: 'allLogs' // All logs is a good choice for production on this resource.
+        category: 'StorageRead'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+      {
+        category: 'StorageWrite'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+      {
+        category: 'StorageDelete'
         enabled: true
         retentionPolicy: {
           enabled: false
