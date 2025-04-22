@@ -379,7 +379,7 @@ For this deployment guide, you'll continue using your network connected workstat
 1. Download the web UI.
 
    ```bash
-   wget https://github.com/Azure-Samples/azure-openai-chat-baseline-landing-zone/raw/refs/heads/main/website/chatui.zip
+   wget https://github.com/Azure-Samples/azure-openai-chat-baseline-landing-zone/raw/main/website/chatui.zip
    ```
 
 1. Upload the web application to Azure Storage, where the web app will load the code from.
