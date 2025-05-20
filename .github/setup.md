@@ -6,12 +6,12 @@ The GitHub workflows in this project require several secrets set at the reposito
 
 ## Workflow Definitions
 
-- **[1-infra-build-deploy-all](./workflows/1-infra-build-deploy-all.yml):** Deploys the main.bicep template then builds and deploys all the apps
-- **[2a_deploy_infra.yml](./workflows/1_deploy_infra.yml):** Deploys the main.bicep template with all new resources and does nothing else. You can use this to do a `what-if` deployment to see what resources will be created/updated/deleted by the [main.bicep](../infra-as-code/bicep/main.bicep) file.
-- **[2b-build-deploy-all.yml](./workflows/2b-build-deploy-all.yml):** Builds the app and deploys it to Azure - this could/should be set up to happen automatically after each check-in to main branch app folder
-- **[3_scan_build_pr.yml](./workflows/3_scan_build_pr.yml):** Runs each time a Pull Request is submitted and includes the results in the PR
-- **[4_scheduled_scan.yml](./workflows/4_scheduled_scan.yml):** Runs a scheduled periodic scan of the app for security vulnerabilities
-- **[5-deploy-ai-hub-project.yml](./workflows/5-deploy-ai-hub-project.yml):** Deploys an AI Foundry Hub
+- **[1_deploy_infra.yml](./workflows/1_deploy_infra.yml):** Deploys the main.bicep template with all new resources and does nothing else. You can use this to do a `what-if` deployment to see what resources will be created/updated/deleted by the [main.bicep](../infra-as-code/bicep/main.bicep) file.
+- **[2-build-deploy-apps.yml](./workflows/2-build-deploy-apps.yml):** Builds the app and deploys it to Azure - this could/should be set up to happen automatically after each check-in to main branch app folder
+- **[3-deploy-infra-and-apps](./workflows/1-infra-build-deploy-all.yml):** Deploys the main.bicep template then builds and deploys all the apps
+- **[4_scan_build_pr.yml](./workflows/4_scan_build_pr.yml):** Runs each time a Pull Request is submitted and includes the results in the PR
+- **[5_scheduled_scan.yml](./workflows/5_scheduled_scan.yml):** Runs a scheduled periodic scan of the app for security vulnerabilities
+- **[6-deploy-ai-hub-project.yml](./workflows/6-deploy-ai-hub-project.yml):** Deploys an AI Foundry Hub
 
 ---
 
