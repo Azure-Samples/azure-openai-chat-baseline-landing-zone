@@ -31,10 +31,6 @@ jobs:
       UI_ACR_APP_NAME: ${{ env.UI_ACR_APP_NAME }}
       UI_PORT: ${{ env.UI_PORT }}
 
-      BATCH_APP_PATH: ${{ env.BATCH_APP_PATH }}
-      BATCH_ACR_APP_NAME: ${{ env.BATCH_ACR_APP_NAME }}
-      BATCH_PORT: ${{ env.BATCH_PORT }}
-
     steps:
       - name: Set common environment variables
         id: set-env
@@ -44,10 +40,6 @@ jobs:
           echo "UI_APP_PATH: ${{ env.UI_APP_PATH }}"
           echo "UI_ACR_APP_NAME: ${{ env.UI_ACR_APP_NAME }}"
           echo "UI_PORT: ${{ env.UI_PORT }}"
-
-          echo "BATCH_APP_PATH: ${{ env.BATCH_APP_PATH }}"
-          echo "BATCH_ACR_APP_NAME: ${{ env.BATCH_ACR_APP_NAME }}"
-          echo "BATCH_PORT: ${{ env.BATCH_PORT }}"
 
   # ------------------------------------------------------------------------------------------------------------------------
   scan-code:

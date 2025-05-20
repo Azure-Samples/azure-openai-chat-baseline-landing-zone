@@ -34,7 +34,7 @@ variables:
   - name: sourceAcrName
     value: YYYYcrdev
   - name: uiAppName
-    value: XXXlabel-ca-api-dev
+    value: XXXlabel-ca-ui-dev
   - name: resourceGroupName
     value: rg-ai-docs-dev
 

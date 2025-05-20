@@ -98,8 +98,8 @@ jobs:
         echo "Running in Resource Group=$(resourceGroupName)"
         echo "Using Service Connection=$(serviceConnectionName)"
 
-        nslookup XXXlabel-ca-api-dev.DEPLOYNAME.centralus.azurecontainerapps.io
+        nslookup XXXlabel-ca-ui-dev.DEPLOYNAME.centralus.azurecontainerapps.io
         nslookup XXXlabelkvdev.vault.azure.net
 
-        curl -v https://XXXlabel-ca-api-dev.DEPLOYNAME.centralus.azurecontainerapps.io/health
+        curl -v https://XXXlabel-ca-ui-dev.DEPLOYNAME.centralus.azurecontainerapps.io/health
         

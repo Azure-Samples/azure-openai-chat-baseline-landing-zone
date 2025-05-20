@@ -53,10 +53,6 @@ on:
         description: Deploy AI Hub?
         type: boolean
         default: false
-      deployBatchApp:
-        description: Deploy Batch App?
-        type: boolean
-        default: true
       addRoleAssignments:
         description: Add Role Assignments?
         type: boolean
@@ -85,7 +81,6 @@ jobs:
       publicAccessEnabled: ${{ inputs.publicAccessEnabled }}
       createDnsZones: ${{ inputs.createDnsZones }}
       deployAIHub: ${{ inputs.deployAIHub }}
-      deployBatchApp: ${{ inputs.deployBatchApp }}
       addRoleAssignments: ${{ inputs.addRoleAssignments }}
 
     # ------------------------------------------------------------------------------------------------------------------------
@@ -217,8 +212,6 @@ jobs:
           echo "MANAGED_ENVIRONMENT_ID=${{ steps.deploy-bicep-rg.outputs.MANAGED_ENVIRONMENT_ID }}"
           echo "MANAGED_ENVIRONMENT_NAME=${{ steps.deploy-bicep-rg.outputs.MANAGED_ENVIRONMENT_NAME }}"
           echo "RESOURCE_TOKEN=${{ steps.deploy-bicep-rg.outputs.RESOURCE_TOKEN }}"
-          echo "STORAGE_ACCOUNT_BATCH_IN_CONTAINER=${{ steps.deploy-bicep-rg.outputs.STORAGE_ACCOUNT_BATCH_IN_CONTAINER }}"
-          echo "STORAGE_ACCOUNT_BATCH_OUT_CONTAINER=${{ steps.deploy-bicep-rg.outputs.STORAGE_ACCOUNT_BATCH_OUT_CONTAINER }}"
           echo "STORAGE_ACCOUNT_CONTAINER=${{ steps.deploy-bicep-rg.outputs.STORAGE_ACCOUNT_CONTAINER }}"
           echo "STORAGE_ACCOUNT_NAME=${{ steps.deploy-bicep-rg.outputs.STORAGE_ACCOUNT_NAME }}"
           echo "VNET_CORE_ID=${{ steps.deploy-bicep-rg.outputs.VNET_CORE_ID }}"

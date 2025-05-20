@@ -26,16 +26,6 @@ on:
         required: true
         type: string
 
-      BUILD_DEPLOY_BATCH:
-        default: false
-        type: boolean
-      BATCH_APP_PATH:
-        required: true
-        type: string
-      BATCH_ACR_APP_NAME:
-        required: true
-        type: string
-
       PUSH_TO_ACR:
         required: false
         type: boolean
@@ -59,19 +49,13 @@ on:
         value: ${{ jobs.build.outputs.IMAGE_VERSION  }}
       ACR_REPO_NAME:
         value: ${{ inputs.ACR_REPO_NAME  }}
-      API_IMAGE_NAME:
-        value: ${{ jobs.build.outputs.API_IMAGE_NAME  }}
+      UI_IMAGE_NAME:
+        value: ${{ jobs.build.outputs.UI_IMAGE_NAME  }}
       UI_APP_PATH:
         value: ${{ inputs.UI_APP_PATH  }}
       UI_ACR_APP_NAME:
         value: ${{ inputs.UI_ACR_APP_NAME  }}
-      BATCH_IMAGE_NAME:
-        value: ${{ jobs.build.outputs.BATCH_IMAGE_NAME  }}
-      BATCH_APP_PATH:
-        value: ${{ inputs.BATCH_APP_PATH  }}
-      BATCH_ACR_APP_NAME:
-        value: ${{ inputs.BATCH_ACR_APP_NAME  }}
-    
+
 # ------------------------------------------------------------------------------------------------------------------------
 jobs:
   build:
@@ -79,8 +63,7 @@ jobs:
     environment: ${{ inputs.ENV_CODE  }}
     outputs:
       IMAGE_VERSION: ${{ steps.image-name.outputs.IMAGE_VERSION }}
-      API_IMAGE_NAME: ${{ steps.image-name.outputs.API_IMAGE_NAME }}
-      BATCH_IMAGE_NAME: ${{ steps.image-name.outputs.BATCH_IMAGE_NAME }}
+      UI_IMAGE_NAME: ${{ steps.image-name.outputs.UI_IMAGE_NAME }}
 
     steps:
       - name: Checkout code
@@ -94,10 +77,8 @@ jobs:
         id: image-name
         run: |
           echo "IMAGE_VERSION=${{ steps.get-date.outputs.TAG}}" >> $GITHUB_OUTPUT
-          echo "API_IMAGE_NAME=${{ inputs.ACR_REPO_NAME }}/${{ inputs.UI_ACR_APP_NAME }}:${{ steps.get-date.outputs.TAG }}" >> $GITHUB_OUTPUT
-          echo "API_IMAGE_NAME_NO_TAG=${{ inputs.ACR_REPO_NAME }}/${{ inputs.UI_ACR_APP_NAME }}" >> $GITHUB_OUTPUT
-          echo "BATCH_IMAGE_NAME=${{ inputs.ACR_REPO_NAME }}/${{ inputs.BATCH_ACR_APP_NAME }}:${{ steps.get-date.outputs.TAG }}" >> $GITHUB_OUTPUT
-          echo "BATCH_IMAGE_NAME_NO_TAG=${{ inputs.ACR_REPO_NAME }}/${{ inputs.BATCH_ACR_APP_NAME }}" >> $GITHUB_OUTPUT
+          echo "UI_IMAGE_NAME=${{ inputs.ACR_REPO_NAME }}/${{ inputs.UI_ACR_APP_NAME }}:${{ steps.get-date.outputs.TAG }}" >> $GITHUB_OUTPUT
+          echo "UI_IMAGE_NAME_NO_TAG=${{ inputs.ACR_REPO_NAME }}/${{ inputs.UI_ACR_APP_NAME }}" >> $GITHUB_OUTPUT
 
       - name: Display Variables and Files
         run: |-
@@ -105,15 +86,9 @@ jobs:
           echo "inputs.ACR_REPO_NAME=${{ inputs.ACR_REPO_NAME }}"
           echo "inputs.UI_ACR_APP_NAME=${{ inputs.UI_ACR_APP_NAME }}"
           echo "inputs.UI_APP_PATH=${{ inputs.UI_APP_PATH }}"
-          echo "inputs.BATCH_ACR_APP_NAME=${{ inputs.BATCH_ACR_APP_NAME }}"
-          echo "inputs.BATCH_APP_PATH=${{ inputs.BATCH_APP_PATH }}"
-          echo "steps.image-name.API_IMAGE_VERSION=${{ steps.image-name.outputs.API_IMAGE_VERSION }}"
-          echo "steps.image-name.API_IMAGE_NAME=${{ steps.image-name.outputs.API_IMAGE_NAME }}"
-          echo "steps.image-name.API_IMAGE_NAME_NO_TAG=${{ steps.image-name.outputs.API_IMAGE_NAME_NO_TAG }}"
-          echo "steps.image-name.BATCH_IMAGE_VERSION=${{ steps.image-name.outputs.BATCH_IMAGE_VERSION }}"
-          echo "steps.image-name.BATCH_IMAGE_NAME=${{ steps.image-name.outputs.BATCH_IMAGE_NAME }}"
-          echo "steps.image-name.BATCH_IMAGE_NAME_NO_TAG=${{ steps.image-name.outputs.BATCH_IMAGE_NAME_NO_TAG }}"
-
+          echo "steps.image-name.UI_IMAGE_VERSION=${{ steps.image-name.outputs.UI_IMAGE_VERSION }}"
+          echo "steps.image-name.UI_IMAGE_NAME=${{ steps.image-name.outputs.UI_IMAGE_NAME }}"
+          echo "steps.image-name.UI_IMAGE_NAME_NO_TAG=${{ steps.image-name.outputs.UI_IMAGE_NAME_NO_TAG }}"
           echo "---------------------------------"
           echo "##[group]All Variables:"
           echo "Environment:"
@@ -163,7 +138,7 @@ jobs:
         if: ${{ inputs.PUSH_TO_ACR && inputs.BUILD_DEPLOY_API }}
         id: meta-ui
         with:
-          images: ${{ inputs.ACR_NAME }}.azurecr.io/${{ steps.image-name.outputs.API_IMAGE_NAME_NO_TAG }}
+          images: ${{ inputs.ACR_NAME }}.azurecr.io/${{ steps.image-name.outputs.UI_IMAGE_NAME_NO_TAG }}
           labels: |
             org.opencontainers.image.title=AI Chat UI
             org.opencontainers.image.source=msft-mfg-ai.github.com
