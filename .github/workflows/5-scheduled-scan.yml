@@ -1,0 +1,24 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# Action: Scan Bicep and other Source Code on a schedule
+# ------------------------------------------------------------------------------------------------------------------------
+name: 5 - Scheduled DevOps Scan
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "27 3 * * 1"
+
+# ------------------------------------------------------------------------------------------------------------------------
+jobs:
+  scan-code:
+    name: Scan Source Code
+    uses: ./.github/workflows/template-scan-code.yml
+    secrets: inherit
+    permissions:
+      actions: read
+      contents: write
+      checks: write
+      security-events: write
+    with:
+      runSecurityScan: true
+      continueOnScanError: false

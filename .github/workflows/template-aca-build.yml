@@ -1,0 +1,194 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# Reusable Workflow: Docker Build to a Registry
+# ------------------------------------------------------------------------------------------------------------------------
+name: z_template_docker_build
+run-name: Build Docker Image
+on:
+  workflow_call:
+    inputs:
+      APP_PATH:
+        required: true
+        type: string
+      ACR_REPO_NAME:
+        required: true
+        type: string
+      ACR_APP_NAME:
+        required: true
+        type: string
+      ACR_NAME:
+        required: true
+        type: string
+      PUSH_TO_ACR:
+        required: false
+        type: boolean
+        default: true
+      RESOURCE_GROUP:
+        required: true
+        type: string
+      ACR_FW_UPDATE:
+        required: false
+        type: boolean
+        default: true
+      DOCKER_PUSH_TYPE:
+        required: false
+        type: string
+        default: 'TASK'
+      ENV_CODE:
+        required: true
+        type: string
+        default: 'DEV'
+
+# ------------------------------------------------------------------------------------------------------------------------
+    outputs:
+      IMAGE_NAME:
+        value: ${{ jobs.build.outputs.IMAGE_NAME  }}
+      IMAGE_VERSION:
+        value: ${{ jobs.build.outputs.IMAGE_VERSION  }}
+      APP_PATH:
+        value: ${{ inputs.APP_PATH  }}
+      ACR_REPO_NAME:
+        value: ${{ inputs.ACR_REPO_NAME  }}
+      ACR_APP_NAME:
+        value: ${{ inputs.ACR_APP_NAME  }}
+    
+# ------------------------------------------------------------------------------------------------------------------------
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.ENV_CODE  }}
+    outputs:
+      IMAGE_NAME: ${{ steps.image-name.outputs.IMAGE_NAME }}
+      IMAGE_VERSION: ${{ steps.image-name.outputs.IMAGE_VERSION }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.1.1
+
+      - name: Get the current date
+        id: get-date
+        run: echo "TAG=$(date +'%Y%m%d%H%M')" >> $GITHUB_OUTPUT
+
+      - name: Set image name
+        id: image-name
+        run: |
+          echo "IMAGE_VERSION=${{ steps.get-date.outputs.TAG}}" >> $GITHUB_OUTPUT
+          echo "IMAGE_NAME=${{ inputs.ACR_REPO_NAME }}/${{ inputs.ACR_APP_NAME }}:${{ steps.get-date.outputs.TAG }}" >> $GITHUB_OUTPUT
+          echo "IMAGE_NAME_NO_TAG=${{ inputs.ACR_REPO_NAME }}/${{ inputs.ACR_APP_NAME }}" >> $GITHUB_OUTPUT
+
+      - name: Display Variables and Files
+        run: |-
+          echo "inputs.ACR_NAME=${{ inputs.ACR_NAME }}"
+
+          echo "inputs.ACR_REPO_NAME=${{ inputs.ACR_REPO_NAME }}"
+          echo "inputs.ACR_APP_NAME=${{ inputs.ACR_APP_NAME }}"
+          echo "inputs.APP_PATH=${{ inputs.APP_PATH }}"
+
+          echo "steps.image-name.IMAGE_VERSION=${{ steps.image-name.outputs.IMAGE_VERSION }}"
+          echo "steps.image-name.IMAGE_NAME=${{ steps.image-name.outputs.IMAGE_NAME }}"
+
+          echo "---------------------------------"
+          echo "##[group]All Variables:"
+          echo "Environment:"
+          echo '${{ toJSON(env) }}'
+          echo "Variables:"
+          echo '${{ toJSON(vars) }}'
+          echo "Secrets:"
+          echo '${{ toJSON(secrets) }}'
+          echo "Inputs:"
+          echo '${{ toJSON(inputs) }}'
+          echo "##[endgroup]"
+
+          echo "---------------------------------"
+          echo "##[group]Directory of ${{ github.workspace  }}"
+          tree -R ${{ github.workspace  }}
+          echo "##[endgroup]"
+        continue-on-error: true
+
+      - name: OIDC Login to Azure
+        if: ${{ inputs.PUSH_TO_ACR }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.CICD_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get Agent IP Address
+        id: get-ip
+        if: ${{ inputs.PUSH_TO_ACR && inputs.ACR_FW_UPDATE }}
+        run: echo "agentIpAddress=`curl -s http://ifconfig.me/ip`" >> $GITHUB_OUTPUT
+        
+      - name: 'ACR: Add Agent to FW'
+        if: ${{ inputs.PUSH_TO_ACR && inputs.ACR_FW_UPDATE }}
+        run: |
+           echo "Executing: az acr network-rule add --name ${{ inputs.ACR_NAME }} --resource-group ${{ inputs.RESOURCE_GROUP }} --ip-address ${{ steps.get-ip.outputs.agentIpAddress }}"
+           az acr network-rule add --name ${{ inputs.ACR_NAME }} --resource-group ${{ inputs.RESOURCE_GROUP }} --ip-address  ${{ steps.get-ip.outputs.agentIpAddress }}
+
+      - name: ACR Login
+        if: ${{ inputs.PUSH_TO_ACR }}
+        working-directory: '${{ github.workspace }}/${{ inputs.APP_PATH }}'
+        run: |
+            az acr login -n ${{ inputs.ACR_NAME }}
+
+      # -- Task Based Docker Push Commands ----------------------------------------------------------------------
+      - name: Get metadata Task 
+        uses: docker/metadata-action@v5
+        if: ${{ inputs.PUSH_TO_ACR  && inputs.DOCKER_PUSH_TYPE == 'TASK' }}
+        id: meta
+        with:
+          images: ${{ inputs.ACR_NAME }}.azurecr.io/${{ steps.image-name.outputs.IMAGE_NAME_NO_TAG }}
+          labels: |
+            org.opencontainers.image.title=AI Chat UI
+            org.opencontainers.image.source=msft-mfg-ai.github.com
+          tags: |
+            type=raw,enable=true,priority=200,prefix=,suffix=,value=${{ steps.get-date.outputs.TAG }}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+        # removed this tag...
+        #  type=sha
+
+      - name: Task Build and push
+        uses: docker/build-push-action@v6
+        if: ${{ inputs.PUSH_TO_ACR && inputs.DOCKER_PUSH_TYPE == 'TASK' }}
+        with:
+          context: '${{ github.workspace }}/${{ inputs.APP_PATH }}'
+          push: ${{ github.event_name != 'pull_request' }}
+          labels: ${{ steps.meta.outputs.labels }}            
+          tags: ${{ steps.meta.outputs.tags }}
+      # END -- Task Based Docker Push Commands ----------------------------------------------------------------------
+
+      # -- Native Docker Push Commands ----------------------------------------------------------------------
+      - name: Native Docker Build
+        if: ${{ inputs.PUSH_TO_ACR && inputs.DOCKER_PUSH_TYPE == 'NATIVE' }}
+        id: docker-build
+        working-directory: '${{ github.workspace }}/${{ inputs.APP_PATH }}'
+        run: |
+            docker build . -t ${{ steps.image-name.outputs.IMAGE_NAME }}
+            docker images
+
+      - name: Native Docker Push
+        if: ${{ inputs.PUSH_TO_ACR && inputs.DOCKER_PUSH_TYPE == 'NATIVE' }}
+        working-directory: '${{ github.workspace }}/${{ inputs.APP_PATH }}'
+        run: |
+            docker tag ${{ steps.image-name.outputs.IMAGE_NAME }} ${{ inputs.ACR_NAME }}.azurecr.io/${{ steps.image-name.outputs.IMAGE_NAME }}
+            docker push ${{ inputs.ACR_NAME }}.azurecr.io/${{ steps.image-name.outputs.IMAGE_NAME }}
+      # END -- Native Docker Push Commands ----------------------------------------------------------------------
+      
+      - name: 'ACR: Remove Agent from FW'
+        if: ${{ inputs.PUSH_TO_ACR && inputs.ACR_FW_UPDATE }}
+        run: |
+           echo "Executing: az acr network-rule remove --name ${{ inputs.ACR_NAME }} --resource-group ${{ inputs.RESOURCE_GROUP }} --ip-address  ${{ steps.get-ip.outputs.agentIpAddress }}"
+           az acr network-rule remove --name ${{ inputs.ACR_NAME }} --resource-group ${{ inputs.RESOURCE_GROUP }} --ip-address  ${{ steps.get-ip.outputs.agentIpAddress }}
+
+      ## ------------------------------------------------------------------------------------------------------------------------
+      # It would be nice to get these parms working right and just use this task..., but they are not quite right yet
+      # - name: Docker Build & Push
+      #   uses: docker/build-push-action@v2
+      #   with:
+      #     context: '${{ github.workspace }}/${{ inputs.APP_PATH }}'
+      #     push: true
+      #     tags: ${{ inputs.ACR_NAME }}.azurecr.io/${{ steps.image-name.outputs.IMAGE_NAME }}
+
+          

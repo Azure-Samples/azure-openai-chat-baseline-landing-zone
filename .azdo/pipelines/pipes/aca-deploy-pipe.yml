@@ -1,0 +1,25 @@
+# ----------------------------------------------------------------------------------------------------
+# Pipe to deploy an Azure Container App for multiple apps and environments
+# ----------------------------------------------------------------------------------------------------
+parameters:
+  - name: environments
+    type: object
+    default: ['DEV']
+  - name: apps
+    type: object
+    default: []
+
+# ----------------------------------------------------------------------------------------------------
+stages:
+  - ${{ each environmentName in parameters.environments }}:
+    - ${{ each app in parameters.apps }}:
+      - stage: Deploy${{ app.containerAppName }}${{ environmentName }}Service
+        displayName: Deploy ${{ app.containerAppName }} ${{ environmentName }}
+        jobs:
+          - template: templates/aca-deploy-template.yml
+            parameters:
+              serviceConnectionName: $(serviceConnectionName)
+              containerAppName: ${{ app.containerAppName }}
+              acrAppName: ${{ app.acrAppName }}
+              port: ${{ app.port }}
+              environmentName: ${{ environmentName }}

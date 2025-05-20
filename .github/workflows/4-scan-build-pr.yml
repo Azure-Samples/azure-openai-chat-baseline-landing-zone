@@ -1,0 +1,80 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# Action: Scan and build apps on Pull Request - no app or bicep deployment
+# ------------------------------------------------------------------------------------------------------------------------
+name: 4 - PR Scan and Build
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+# ------------------------------------------------------------------------------------------------------------------------
+env:
+  # these are defined by the project itself, so they can stay here...
+  ACR_REPO_NAME: 'aiapps'
+  ENV_CODE: 'DEV'
+
+  UI_APP_PATH: 'website/chatui'
+  UI_ACR_APP_NAME: 'chatui'
+  UI_PORT: '8080'
+
+jobs:
+  template-env:
+    # You can't pass environment variables to templates, so put them in outputs here that you CAN pass
+    name: Template Env Variables
+    runs-on: ubuntu-latest
+    outputs:
+      ACR_NAME: '${{ vars.APP_NAME_NO_DASHES }}crdev'
+      ACR_REPO_NAME: ${{ env.ACR_REPO_NAME }}
+      ENV_CODE: ${{ env.ENV_CODE }}
+
+      UI_APP_PATH: ${{ env.UI_APP_PATH }}
+      UI_ACR_APP_NAME: ${{ env.UI_ACR_APP_NAME }}
+      UI_PORT: ${{ env.UI_PORT }}
+
+      BATCH_APP_PATH: ${{ env.BATCH_APP_PATH }}
+      BATCH_ACR_APP_NAME: ${{ env.BATCH_ACR_APP_NAME }}
+      BATCH_PORT: ${{ env.BATCH_PORT }}
+
+    steps:
+      - name: Set common environment variables
+        id: set-env
+        run: |
+          echo "ACR_REPO_NAME: ${{ env.ACR_REPO_NAME }}"
+
+          echo "UI_APP_PATH: ${{ env.UI_APP_PATH }}"
+          echo "UI_ACR_APP_NAME: ${{ env.UI_ACR_APP_NAME }}"
+          echo "UI_PORT: ${{ env.UI_PORT }}"
+
+          echo "BATCH_APP_PATH: ${{ env.BATCH_APP_PATH }}"
+          echo "BATCH_ACR_APP_NAME: ${{ env.BATCH_ACR_APP_NAME }}"
+          echo "BATCH_PORT: ${{ env.BATCH_PORT }}"
+
+  # ------------------------------------------------------------------------------------------------------------------------
+  scan-code:
+    name: Scan Source Code
+    uses: ./.github/workflows/template-scan-code.yml
+    secrets: inherit
+    permissions:
+      actions: read
+      contents: write
+      checks: write
+      security-events: write
+    with:
+      runSecurityScan: true
+      continueOnScanError: false
+
+  # ------------------------------------------------------------------------------------------------------------------------
+  build-ui:
+    name: Build UI
+    uses: ./.github/workflows/template-aca-build.yml
+    secrets: inherit
+    needs:
+      - template-env
+    with:
+      ENV_CODE: ${{ needs.template-env.outputs.ENV_CODE }}
+      APP_PATH: ${{ needs.template-env.outputs.UI_APP_PATH }}
+      ACR_APP_NAME: ${{ needs.template-env.outputs.UI_ACR_APP_NAME }}
+      ACR_NAME: ${{ needs.template-env.outputs.ACR_NAME }}
+      ACR_REPO_NAME: ${{ needs.template-env.outputs.ACR_REPO_NAME }}
+      PUSH_TO_ACR: false
+      RESOURCE_GROUP: ''

@@ -1,0 +1,18 @@
+# ----------------------------------------------------------------------------------------------------
+# Variables common to all environments
+# ----------------------------------------------------------------------------------------------------
+variables:
+  # - name: appName   (moved to variable group, or you can put it here if you prefer)
+  #   value: 'this is unique to you - define in a variable group or on the pipeline variables!'
+  # - name: resourceGroupPrefix   (moved to variable group, or you can put it here if you prefer)
+  #   value: 'this is unique to your subscription - define in a variable group or on the pipeline variables!'
+
+  - name: location
+    value: 'eastus2'
+  - name: openAI_deploy_location 
+    value:  'eastus2'
+
+  - name: workingDirectoryInfra
+    value: '/infra-as-code/bicep'
+  - name: workingDirectoryIgnore
+    value: '/docs'

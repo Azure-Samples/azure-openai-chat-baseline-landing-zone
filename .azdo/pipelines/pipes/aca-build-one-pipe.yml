@@ -1,0 +1,28 @@
+# ----------------------------------------------------------------------------------------------------
+# Pipe to build an Azure Container App for multiple apps and environments
+# ----------------------------------------------------------------------------------------------------
+parameters:
+  - name: environments
+    type: object
+    default: ['DEV']
+  - name: apps
+    type: object
+    default: []
+  - name: pushToACR
+    default: true
+    type: boolean
+
+# ----------------------------------------------------------------------------------------------------
+stages:
+- ${{ each environmentName in parameters.environments }}:
+  - ${{ each app in parameters.apps }}:
+    - stage: Build${{ app.containerAppName }}${{ environmentName }}Service
+      displayName: Build ${{ app.containerAppName }} ${{ environmentName }}
+      jobs:
+        - template: templates/aca-build-one-template.yml
+          parameters:
+            serviceConnectionName: $(serviceConnectionName)
+            acrAppName: ${{ app.acrAppName }}
+            projectFolderName: ${{ app.projectFolderName }}
+            environmentName: ${{ environmentName }}
+            pushToACR: ${{ parameters.pushToACR }}

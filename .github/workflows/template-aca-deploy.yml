@@ -1,0 +1,76 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# Reusable Workflow: Deploying a Container App from a Registry
+# ------------------------------------------------------------------------------------------------------------------------
+name: z_template_deploy_container_app
+run-name: Deploy Container App
+on:
+  workflow_call:
+    inputs:
+      ENV_CODE:
+        required: true
+        type: string
+      ACR_NAME:
+        required: true
+        type: string
+      RESOURCE_GROUP:
+        required: true
+        type: string
+      CONTAINER_APP_ENV_NAME:
+        required: true
+        type: string
+      CONTAINER_NAME:
+        required: true
+        type: string
+      IMAGE_NAME:
+        required: true
+        type: string
+      PORT:
+        required: true
+        type: string
+
+# ------------------------------------------------------------------------------------------------------------------------
+jobs:
+  deploy:
+    name: deploy ${{ inputs.ENV_CODE }} ${{ inputs.CONTAINER_NAME }}
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.ENV_CODE }}
+    steps:
+      - name: Display Variables and Files
+        run: |-
+          echo "inputs.ENV_CODE=${{ inputs.ENV_CODE }}"
+          echo "inputs.ACR_NAME=${{ inputs.ACR_NAME }}"
+          echo "inputs.CONTAINER_APP_ENV_NAME=${{ inputs.CONTAINER_APP_ENV_NAME }}"
+          echo "inputs.CONTAINER_NAME=${{ inputs.CONTAINER_NAME }}"
+          echo "inputs.RESOURCE_GROUP=${{ inputs.RESOURCE_GROUP }}"
+          echo "inputs.IMAGE_NAME=${{ inputs.IMAGE_NAME }}"
+          echo "inputs.PORT=${{ inputs.PORT }}"
+
+          echo "---------------------------------"
+          echo "##[group]All Variables:"
+          echo "Environment:"
+          echo '${{ toJSON(env) }}'
+          echo "Variables:"
+          echo '${{ toJSON(vars) }}'
+          echo "Secrets:"
+          echo '${{ toJSON(secrets) }}'
+          echo "Inputs:"
+          echo '${{ toJSON(inputs) }}'
+          echo "##[endgroup]"
+        continue-on-error: true
+
+      - name: OIDC Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.CICD_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Container App
+        run: |
+          echo "az containerapp update --name ${{ inputs.CONTAINER_NAME }} --resource-group ${{ inputs.RESOURCE_GROUP }} --container-name app --image '${{ inputs.ACR_NAME }}.azurecr.io/${{ inputs.IMAGE_NAME }}'"
+          az containerapp update \
+            --name ${{ inputs.CONTAINER_NAME }} \
+            --resource-group ${{ inputs.RESOURCE_GROUP }} \
+            --container-name app \
+            --image '${{ inputs.ACR_NAME }}.azurecr.io/${{ inputs.IMAGE_NAME }}'

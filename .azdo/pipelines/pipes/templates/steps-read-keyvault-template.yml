@@ -1,0 +1,88 @@
+# ----------------------------------------------------------------------------------------------------
+# Steps Template to read secrets from a Key Vault, and to add and/or remove the Agent IP from the Key Vault FW
+# ----------------------------------------------------------------------------------------------------
+# Usage:
+# - template: steps-read-keyvault-template.yml
+#   parameters:
+#     serviceConnectionName: $(serviceConnectionName)
+#     vaultName: $(KeyVaultName)
+#     vaultResourceGroup: $(KeyVaultRG)
+#     secretsToRetrieve: 'secret1,secret2,secret3'
+#     action: 'add-read-remove' or 'add' or 'read' or 'remove'
+# See: https://learn.microsoft.com/en-us/azure/devops/pipelines/release/key-vault-in-own-project
+# ----------------------------------------------------------------------------------------------------
+
+parameters:
+  - name: serviceConnectionName
+    default: ''
+  - name: vaultName
+    default: ''
+  - name: vaultResourceGroup
+    default: ''
+  - name: secretsToRetrieve
+    default: '*'
+  - name: action
+    default: 'add-read-remove'
+  - name: agentIpAddress
+    default: ''
+
+steps:
+  - task: CmdLine@2
+    displayName: 'Display KV Parameters'
+    #condition: eq($System.Debug, true)
+    inputs:
+      script: |
+        echo "serviceConnectionName=${{ parameters.serviceConnectionName }}"
+        echo "vaultName=${{ parameters.vaultName }}"
+        echo "vaultResourceGroup=${{ parameters.vaultResourceGroup }}"
+        echo "secretsToRetrieve=${{ parameters.secretsToRetrieve }}"
+        echo "action=${{ parameters.action }}"
+    continueOnError: true
+
+  - ${{ if contains(lower(parameters.action), 'add') }}:
+    - task: AzurePowerShell@5
+      displayName: 'KV: Add Agent FW'
+      inputs:
+        AzureSubscription: ${{ parameters.serviceConnectionName }}
+        AzurePowerShellVersion: LatestVersion
+        ScriptType: InlineScript
+        Inline: |
+          echo "Executing: Add-AzKeyVaultNetworkRule -VaultName ${{ parameters.vaultName }} -ResourceGroupName ${{ parameters.vaultResourceGroup }} -IpAddressRange $(agentIpAddress)"
+          Add-AzKeyVaultNetworkRule -VaultName ${{ parameters.vaultName }} -ResourceGroupName ${{ parameters.vaultResourceGroup }} -IpAddressRange $(agentIpAddress)
+          echo "##vso[task.setvariable variable=agentIP]ip"
+
+  - ${{ if contains(lower(parameters.action), 'read') }}:
+    - task: AzureKeyVault@2
+      displayName: 'KV: Get Secrets'
+      inputs:
+        AzureSubscription: ${{ parameters.serviceConnectionName }}
+        KeyVaultName: ${{ parameters.vaultName }}
+        SecretsFilter: ${{ parameters.secretsToRetrieve }}
+
+  - ${{ if contains(lower(parameters.action), 'remove') }}:
+    - task: AzurePowerShell@5
+      displayName: 'KV: Rmv Agent FW'
+      inputs:
+        AzureSubscription: ${{ parameters.serviceConnectionName }}
+        AzurePowerShellVersion: LatestVersion
+        ScriptType: InlineScript
+        Inline: |
+          $ipRange = $(agentIpAddress) + "/32"
+          echo "Executing: Remove-AzKeyVaultNetworkRule -VaultName ${{ parameters.vaultName }} -IpAddressRange $ipRange"
+          Remove-AzKeyVaultNetworkRule -VaultName ${{ parameters.vaultName }} -IpAddressRange $ipRange
+      condition: succeededOrFailed()
+
+# - task: PowerShell@2
+#   name: createVariables
+#   displayName: Create Variables PS
+#   continueOnError: true
+#   inputs:
+#     targetType: 'inline'
+#     script: |
+#       $agentIpAddress = $(Invoke-WebRequest -Uri "https://api.ipify.org").Content
+#       echo "##vso[task.setvariable variable=agentIpAddress]$agentIpAddress"
+# - bash: |
+#     agentIpAddress=`curl -s http://ifconfig.me/ip`
+#     echo "agentIpAddress=$agentIpAddress"
+#     echo "##vso[task.setvariable variable=agentIpAddress]$agentIpAddress"
+#   displayName: Create Variables Bash

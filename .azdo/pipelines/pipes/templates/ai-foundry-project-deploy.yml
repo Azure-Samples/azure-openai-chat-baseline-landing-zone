@@ -1,0 +1,203 @@
+# ----------------------------------------------------------------------------------------------------
+# Template to deploy a Project inside of an AI Foundry Hub
+# See https://learn.microsoft.com/en-us/azure/ai-studio/how-to/create-projects?tabs=azurecli
+# ----------------------------------------------------------------------------------------------------
+# This template gets the appName from the variable group: AI.Doc.Review.Keys
+#   and the resource group name from /vars/var-<env>.yml
+# ----------------------------------------------------------------------------------------------------
+parameters:
+  - name: environmentName
+    default: 'DEV'
+  - name: templateFolderName
+    default: 'infra-as-code/bicep'
+  - name: templateFileName
+    default: 'find-ai-hub-id.bicep'
+  - name: parameterFileName
+    default: 'find-ai-hub-id.azdo.bicepparam'
+  - name: createResourceGroup
+    default: true
+  - name: deployToResourceGroup
+    default: true
+
+# ----------------------------------------------------------------------------------------------------
+jobs:
+  - deployment: InitDeployAIHP${{ parameters.environmentName }}
+    displayName: Init Deploy AIHP  ${{ parameters.environmentName }}
+    environment: ${{ parameters.environmentName }}
+
+  - job: DeployAIHProject${{ parameters.environmentName }}Job
+    displayName: Deploy AIH Project  ${{ parameters.environmentName }}
+    variables:
+      - group: AI.Doc.Review.Keys # need to get the appName from here
+      - name: environmentName
+        value: ${{ parameters.environmentName }}
+      - name: environmentNameUpper
+        value: ${{ upper(parameters.environmentName) }}
+      - name: environmentNameLower
+        value: ${{ lower(parameters.environmentName) }}
+      - name: templateFile
+        value: '$(Pipeline.Workspace)/s/${{ parameters.templateFolderName }}/${{ parameters.templateFileName }}'
+      - name: parameterFile
+        value: '$(Pipeline.Workspace)/s/${{ parameters.templateFolderName }}/${{ parameters.parameterFileName }}'
+
+      # Bring in environment common variable file
+      - template: ../../vars/var-service-connections.yml
+      - template: ../../vars/var-common.yml
+      - template: ../../vars/var-source-location-app.yml
+
+      # Bring in environment specific variable files
+      - ${{ if eq(lower(parameters.environmentName), 'dev') }}:
+          - template: ../../vars/var-dev.yml
+      - ${{ if eq(lower(parameters.environmentName), 'qa') }}:
+          - template: ../../vars/var-qa.yml
+      - ${{ if eq(lower(parameters.environmentName), 'prod') }}:
+          - template: ../../vars/var-prod.yml
+
+    steps:
+      - bash: |
+          echo "appName=$(appName)"
+          appNameLower=$(echo "$(appName)" | tr '[:upper:]' '[:lower:]')
+          echo "appNameLower=$appNameLower"
+          echo "##vso[task.setvariable variable=appNameLower]$appNameLower"
+
+          echo "appPrefix=$(appPrefix)"
+          appPrefixLower=$(echo "$(appPrefix)" | tr '[:upper:]' '[:lower:]')
+          echo "appPrefixLower=$appPrefixLower"
+          echo "##vso[task.setvariable variable=appPrefixLower]$appPrefixLower"
+
+          echo "environmentName=$(environmentName)"
+          echo "environmentNameLower=$(environmentNameLower)"
+          echo "appNameLower=$appNameLower"
+
+          resourceGroupName=$(echo "$(resourceGroupPrefix)-$(environmentNameLower)" | tr '[:upper:]' '[:lower:]')
+          echo "resourceGroupName=$resourceGroupName"
+          echo "##vso[task.setvariable variable=resourceGroupName]$resourceGroupName"
+          
+          runDateTime=$(echo $(date '+%Y%m%d-%H%M%S'))
+          echo "##vso[task.setvariable variable=runDateTime]$runDateTime"
+          echo "runDateTime=$runDateTime"
+
+          runDateTimeZ=$(echo $(date '+%Y%m%dT%H%M%SZ'))
+          echo "##vso[task.setvariable variable=runDateTimeZ]$runDateTimeZ"
+          echo "runDateTimeZ=$runDateTimeZ"
+        displayName: 'Create Variables'
+        continueOnError: true
+
+      - bash: |
+          echo "environmentName=${{ parameters.environmentName }}"
+          echo "templateFolderName=${{ parameters.templateFolderName }}"
+          echo "templateFileName=${{ parameters.templateFileName }}"
+          echo "parameterFileName=${{ parameters.parameterFileName }}"
+          echo "resourceGroupName=$(resourceGroupName)"
+          echo "appName=$(appName)"
+          echo "appNameLower=$(appNameLower)"
+          echo "appPrefix=$(appPrefix)"
+          echo "appPrefixLower=$(appPrefixLower)"
+
+          echo "##[group]Display All Environment Variables:"
+          printenv | sort
+          echo "##[endgroup]"
+
+          echo "----------------------------------------"
+          echo "##[group]Directory of pipeline workspace:"
+          tree -L 4 $(Pipeline.Workspace)
+          echo "##[endgroup]"
+        displayName: 'Display Variables and Files'
+        continueOnError: true
+
+      - task: qetza.replacetokens.replacetokens-task.replacetokens@5
+        displayName: 'Update Parameter File'
+        inputs:
+          targetFiles: $(parameterFile)
+          tokenPrefix: '#{'
+          tokenSuffix: '}#'
+
+      - task: CmdLine@2
+        displayName: Display Parameter File Contents
+        continueOnError: true
+        inputs:
+          script: |
+            echo "Bicep File Name: $(templateFile)"
+            echo "##[group]Contents of Parameter File  $(parameterFile)"
+            cat  $(parameterFile)
+            echo "##[endgroup]"
+
+      # in order to use multiple dynamic service connections, you can't just use a variable.
+      # they need to be defined and available at YML pre-compile time, so use this technique.
+      # this switch allows you to dynamically select a 'hard-coded' service connection
+      - ${{ if eq(variables.environmentNameUpper, 'DEV') }}:
+          - template: steps-deploy-bicep-template.yml
+            parameters:
+              serviceConnectionName: $(serviceConnectionDEV)
+              createResourceGroup: ${{ parameters.createResourceGroup }}
+              deployToResourceGroup: ${{ parameters.deployToResourceGroup }}
+              resourceGroupName: $(resourceGroupName)
+              parseBicepOutputs: true
+      - ${{ if eq(variables.environmentNameUpper, 'QA') }}:
+          - template: steps-deploy-bicep-template.yml
+            parameters:
+              serviceConnectionName: $(serviceConnectionQA)
+              createResourceGroup: ${{ parameters.createResourceGroup }}
+              deployToResourceGroup: ${{ parameters.deployToResourceGroup }}
+              resourceGroupName: $(resourceGroupName)
+              parseBicepOutputs: true
+      - ${{ if eq(variables.environmentNameUpper, 'PROD') }}:
+          - template: steps-deploy-bicep-template.yml
+            parameters:
+              serviceConnectionName: $(serviceConnectionPROD)
+              createResourceGroup: ${{ parameters.createResourceGroup }}
+              deployToResourceGroup: ${{ parameters.deployToResourceGroup }}
+              resourceGroupName: $(resourceGroupName)
+              parseBicepOutputs: true
+
+      # Be sure to set the "parseBicepOutputs: true" on the template above to get the outputs
+      - task: CmdLine@2
+        displayName: Display Bicep Outputs
+        continueOnError: true
+        inputs:
+          script: |
+            echo "bicepOutputs: $(bicepOutputs)"            
+            echo "bicepOutputs-AI_HUB_ID:       $(bicepOutputs-AI_HUB_ID)"
+            echo "bicepOutputs-AI_HUB_NAME:     $(bicepOutputs-AI_HUB_NAME)"
+            echo "bicepOutputs-AI_PROJECT_NAME: $(bicepOutputs-AI_PROJECT_NAME)"
+
+      - bash: |
+          echo "WIPED!" > $(parameterFile)
+        displayName: 'Wipe Parameter File'
+        condition: always()
+
+      # ----------------------------------------------------------------------------------------------------
+      # Deploy the AI Foundry Hub Project
+      # ----------------------------------------------------------------------------------------------------
+      # in order to use multiple dynamic service connections, you can't just use a variable.
+      # they need to be defined and available at YML pre-compile time, so use this technique.
+      # this switch allows you to dynamically select a 'hard-coded' service connection
+      - ${{ if eq(variables.environmentNameUpper, 'DEV') }}:
+        - task: AzureCLI@2
+          displayName: Deploy AI Foundry Hub Project
+          inputs:
+            AzureSubscription: $(serviceConnectionDEV)
+            scriptType: bash
+            scriptLocation: inlineScript
+            inlineScript: |
+              az ml workspace create --kind project --resource-group $(resourceGroupName) --hub-id $(bicepOutputs-AI_HUB_ID) --name $(bicepOutputs-AI_PROJECT_NAME)
+
+      - ${{ if eq(variables.environmentNameUpper, 'QA') }}:
+        - task: AzureCLI@2
+          displayName: Deploy AI Foundry Hub Project
+          inputs:
+            AzureSubscription: $(serviceConnectionQA)
+            scriptType: bash
+            scriptLocation: inlineScript
+            inlineScript: |
+              az ml workspace create --kind project --resource-group $(resourceGroupName) --hub-id $(bicepOutputs-AI_HUB_ID) --name $(bicepOutputs-AI_PROJECT_NAME)
+
+      - ${{ if eq(variables.environmentNameUpper, 'PROD') }}:
+        - task: AzureCLI@2
+          displayName: Deploy AI Foundry Hub Project
+          inputs:
+            AzureSubscription: $(serviceConnectionPROD)
+            scriptType: bash
+            scriptLocation: inlineScript
+            inlineScript: |
+              az ml workspace create --kind project --resource-group $(resourceGroupName) --hub-id $(bicepOutputs-AI_HUB_ID) --name $(bicepOutputs-AI_PROJECT_NAME)

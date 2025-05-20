@@ -1,0 +1,95 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# Pipeline to deploy Azure Resources Only
+# See readme file for info about the contents of the variable group
+# ------------------------------------------------------------------------------------------------------------------------
+name: $(date:yyyy).$(date:MM).$(date:dd)$(rev:.r)
+pool:
+  vmImage: ubuntu-latest
+
+# ------------------------------------------------------------------------------------------------------------------------
+trigger:
+  # since this repo has both AzDO and GHA pipelines, nothing is run automatically...
+  - none
+  # batch: true
+  # branches:
+  #   include:
+  #     - main
+  # paths:
+  #   include:
+  #     - '**/*.yml'
+  #     - '**/*.yaml'
+  #     - '**/*.bicep'
+
+# ----------------------------------------------------------------------------------------------------
+parameters:
+  - name: deployToEnvironment
+    displayName: Deploy To
+    type: string
+    values:
+      - DEV
+      - QA
+      - PROD
+      - DEV-QA-PROD
+    default: DEV
+  - name: deploymentMode
+    displayName: Deploy Mode
+    type: string
+    values:
+      - Incremental
+      - Validation
+      - Complete
+    default: Incremental
+  - name: createResourceGroup
+    displayName: Create Resource Group?
+    type: boolean
+    default: true
+  - name: publicAccessEnabled
+    displayName: Public Access Enabled?
+    type: boolean
+    default: true
+  - name: createDnsZones
+    displayName: Create DNS Zones?
+    type: boolean
+    default: true
+  - name: addRoleAssignments
+    displayName: Add Role Assignments?
+    type: boolean
+    default: true
+  - name: runGHASScan
+    displayName: Run GHAS Scan?
+    type: boolean
+    default: false
+  - name: runMSDevSecOpsScan
+    displayName: Run MS DevSecOps Scan?
+    type: boolean
+    default: false
+
+# ----------------------------------------------------------------------------------------------------
+variables:
+  - group: AI.Doc.Review.Keys
+  - template: vars/var-service-connections.yml
+
+# ----------------------------------------------------------------------------------------------------
+stages:
+  - ${{ if ne(parameters.deployToEnvironment, 'DEV-QA-PROD') }}:
+      - template: pipes/infra-only-pipe.yml
+        parameters:
+          environments: ['${{ parameters.deployToEnvironment }}']
+          runMSDevSecOpsScan: ${{ parameters.runMSDevSecOpsScan }}
+          runGHASScan: ${{ parameters.runGHASScan }}
+          singleEnvironment: 'true'
+          createResourceGroup: ${{ parameters.createResourceGroup }}
+          publicAccessEnabled: ${{ parameters.publicAccessEnabled }}
+          createDnsZones: ${{ parameters.createDnsZones }}
+          addRoleAssignments: ${{ parameters.addRoleAssignments }}
+
+  - ${{ if eq(parameters.deployToEnvironment, 'DEV-QA-PROD') }}:
+      - template: pipes/infra-only-pipe.yml
+        parameters:
+          environments: ['DEV', 'QA', 'PROD']
+          runMSDevSecOpsScan: ${{ parameters.runMSDevSecOpsScan }}
+          runGHASScan: ${{ parameters.runGHASScan }}
+          createResourceGroup: ${{ parameters.createResourceGroup }}
+          publicAccessEnabled: ${{ parameters.publicAccessEnabled }}
+          createDnsZones: ${{ parameters.createDnsZones }}
+          addRoleAssignments: ${{ parameters.addRoleAssignments }}

@@ -1,0 +1,138 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# Reusable Workflow: Deploying a Project in an AI Foundry Hub
+# See https://learn.microsoft.com/en-us/azure/ai-studio/how-to/create-projects?tabs=azurecli
+# ------------------------------------------------------------------------------------------------------------------------
+# Note - I'm having trouble with this...
+#   You need the resource Id to deploy the project
+#   The hub is created in an earlier step with Bicep and I can't seem to get the output variables to pass through...
+#   So I'm recreating it with a simple Bicep file here
+#   I could maybe do something direct like this if I had the name of the hub, but I don't have that either yet...
+#     $myResourceId=(az resource list --name 'myapp-hub-dev' --query "[].id" -otsv)
+# ------------------------------------------------------------------------------------------------------------------------
+name: z_template_deploy_ai_hub_project
+run-name: Deploy AI Hub Project
+on:
+  workflow_call:
+    inputs:
+      envCode:
+        required: true
+        type: string
+      resourceGroupName:
+        required: true
+        type: string
+      templatePath:
+        required: false
+        type: string
+        default: 'infra-as-code/bicep/'
+      templateFile:
+        required: false
+        type: string
+        default: 'find-ai-hub-id.bicep'
+      parameterFile:
+        required: false
+        type: string
+        default: 'find-ai-hub-id.gh.bicepparam'
+      parameterFileReplaceTokens:
+        required: false
+        type: string
+        default: 'true'
+
+# ------------------------------------------------------------------------------------------------------------------------
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.envCode }} Foundry Project 
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.envCode }}
+    env:
+      envCode: ${{ inputs.envCode }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Get the current date
+        id: get-date
+        run: echo "DATE_TIME_STAMP=$(date +'%Y%m%d%H%M')" >> $GITHUB_OUTPUT
+
+      - name: Display Variables and Files
+        run: |-
+          echo "inputs.envCode=${{ inputs.envCode }}"
+          echo "inputs.resourceGroupName=${{ inputs.resourceGroupName }}"
+          echo "vars.APP_NAME=${{ vars.APP_NAME }}"
+          echo "templatePath=${{ inputs.templatePath }}"
+          echo "templateFile=${{ inputs.templateFile }}"
+          echo "templateFilePath=${{ inputs.templatePath }}${{ inputs.templateFile }}"
+          echo "parameterFile=${{ inputs.parameterFile }}"
+          echo "parameterFilePath=$${{ inputs.templatePath }}${{ inputs.parameterFile }}"
+          echo "parameterFileReplaceTokens=${{ inputs.parameterFileReplaceTokens }}"
+        continue-on-error: true
+
+      - name: Replace Tokens
+        if: ${{ inputs.parameterFileReplaceTokens == 'true' }}
+        uses: qetza/replacetokens-action@v1
+        with:
+          sources: '${{ inputs.templatePath }}${{ inputs.parameterFile }}; !local/ => ${{ inputs.parameterFile }}'
+          variables: '[${{ toJSON(env) }},${{ toJSON(vars) }},${{ toJSON(secrets) }}]' # use environment & variables & secrets
+
+      - name: Display Param File
+        run: |-
+          echo "##[group]Contents of ${{ inputs.templatePath }}${{ inputs.parameterFile }}"
+          cat ${{ inputs.templatePath }}${{ inputs.parameterFile }}
+          echo "##[endgroup]"
+        continue-on-error: true
+      - name: OIDC Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.CICD_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # I need the actual Resource ID of the hub, and I can't seem to get it to pass through output variables... :(
+      # so - I'll call the bicep to locate the existing resource, then output the ID, then use that in my command...
+      - name: Find Azure Resources
+        uses: azure/arm-deploy@v2
+        id: run-bicep
+        with:
+          scope: resourcegroup
+          region: ${{ vars.RESOURCEGROUP_LOCATION }}
+          resourceGroupName: ${{ inputs.resourceGroupName }}
+          deploymentName: ${{ inputs.templateFile }}-find-${{ steps.get-date.outputs.DATE_TIME_STAMP}}
+          template: ${{ inputs.templatePath }}${{ inputs.templateFile }}
+          parameters: ${{ inputs.templatePath }}${{ inputs.parameterFile }}
+          deploymentMode: Incremental
+
+      - name: Display Output
+        run: |-
+          echo "AI_HUB_ID=${{ steps.run-bicep.outputs.AI_HUB_ID }}"
+          echo "AI_HUB_NAME=${{ steps.run-bicep.outputs.AI_HUB_NAME }}"
+          echo "AI_PROJECT_NAME=${{ steps.run-bicep.outputs.AI_PROJECT_NAME }}"
+
+          echo "---------------------------------"
+          echo "##[group]All Variables:"
+          echo "Environment:"
+          echo '${{ toJSON(env) }}'
+          echo "Variables:"
+          echo '${{ toJSON(vars) }}'
+          echo "Secrets:"
+          echo '${{ toJSON(secrets) }}'
+          echo "Inputs:"
+          echo '${{ toJSON(inputs) }}'
+          echo "##[endgroup]"
+        continue-on-error: true
+
+      - name: OIDC Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.CICD_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy AI Foundry Project
+        run: |
+          az config set extension.dynamic_install_allow_preview=true          
+          echo "az ml workspace create --kind project --resource-group ${{ inputs.resourceGroupName }} --hub-id ${{ steps.run-bicep.outputs.AI_HUB_ID }} --name ${{ steps.run-bicep.outputs.AI_PROJECT_NAME }}"
+          az ml workspace create \
+            --kind project \
+            --resource-group ${{ inputs.resourceGroupName }} \
+            --hub-id ${{ steps.run-bicep.outputs.AI_HUB_ID }} \
+            --name ${{ steps.run-bicep.outputs.AI_PROJECT_NAME }}

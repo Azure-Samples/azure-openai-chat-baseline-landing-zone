@@ -1,0 +1,117 @@
+# ----------------------------------------------------------------------------------------------------
+# Steps Template to Add or Remove the Agent IP from the Container Registry FW
+# ----------------------------------------------------------------------------------------------------
+# Usage:
+# - template: steps-container-registry-firewall-template.yml
+#   parameters:
+#     action: 'add' or 'add-login' or 'push' or 'add-login-push-remove' or 'remove'
+#     serviceConnectionName: $(serviceConnectionName)
+#     registryName: $(registryName)
+#     registryResourceGroup: $(registryResourceGroup)
+#     imageName: $(imageName)
+#     updateFirewall: true/false
+#     agentIpAddress: $(agentIpAddress)
+# ----------------------------------------------------------------------------------------------------
+
+parameters:
+  - name: action
+    default: 'add' # 'add' or 'add-login' or 'push' or 'add-login-push-remove' or 'remove'
+  - name: serviceConnectionName
+    default: ''
+  - name: registryName
+    default: ''
+  - name: registryResourceGroup
+    default: ''
+  - name: imageName
+    default: ''
+  - name: imageNameLatest
+    default: ''
+  - name: updateFirewall
+    default: true
+    type: boolean
+  - name: agentIpAddress
+    default: ''
+
+steps:
+  # # If you want to get the IP Address here, do one of these...
+  # - task: PowerShell@2
+  #   name: createVariables
+  #   displayName: Create Variables PS
+  #   continueOnError: true
+  #   inputs:
+  #     targetType: 'inline'
+  #     script: |
+  #       $agentIpAddress = $(Invoke-WebRequest -Uri "https://api.ipify.org").Content
+  #       echo "##vso[task.setvariable variable=agentIpAddress]$agentIpAddress"
+  # - bash: |
+  #     agentIpAddress=`curl -s http://ifconfig.me/ip`
+  #     echo "agentIpAddress=$agentIpAddress"
+  #     echo "##vso[task.setvariable variable=agentIpAddress]$agentIpAddress"
+  #   displayName: Create Variables Bash
+
+  - task: CmdLine@2
+    displayName: 'Display CR Parameters'
+    #condition: eq($System.Debug, true)
+    inputs:
+      script: |
+        echo "serviceConnectionName=${{ parameters.serviceConnectionName }}"
+        echo "registryName=${{ parameters.registryName }}"
+        echo "registryResourceGroup=${{ parameters.registryResourceGroup }}"
+        echo "action=${{ parameters.action }}"
+        echo "agentIpAddress=${{ parameters.agentIpAddress }}"
+    continueOnError: true
+
+  - ${{ if and(contains(lower(parameters.action), 'add'), parameters.updateFirewall) }}:
+    - task: AzureCLI@2
+      displayName: 'ACR: Add Agent FW'
+      inputs:
+        azureSubscription: ${{ parameters.serviceConnectionName }}
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "Executing: az acr network-rule add --name ${{ parameters.registryName }} --resource-group ${{ parameters.registryResourceGroup }} --ip-address ${{ parameters.agentIpAddress }}"
+          az acr network-rule add --name ${{ parameters.registryName }} --resource-group ${{ parameters.registryResourceGroup }} --ip-address ${{ parameters.agentIpAddress }}
+
+  # ----------------------------------------------------------------------------------------------------
+  # Deploy with docker push - log in with service connection identity - it must have acrpush rights...
+  # ----------------------------------------------------------------------------------------------------
+  # You could also authorize using this instead of the az acr login:
+  #   echo $(ContainerRegistryPassword) | docker login $(ContainerRegistryUrl) -u $(ContainerRegistryUserName) --password-stdin
+  # ----------------------------------------------------------------------------------------------------
+  - ${{ if contains(lower(parameters.action), 'login') }}:
+    - task: AzureCLI@2
+      displayName: 'ACR: Docker Login'
+      inputs:
+        AzureSubscription: $(serviceConnectionName)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "Logging in to ${{ parameters.registryName }}.azurecr.io"
+          az acr login -n ${{ parameters.registryName }}
+
+  - ${{ if contains(lower(parameters.action), 'push') }}:
+    - task: AzureCLI@2
+      displayName: 'ACR: Docker Push ${{ parameters.imageName }}'
+      inputs:
+        AzureSubscription: $(serviceConnectionName)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "Pushing ${{ parameters.imageName }} to ${{ parameters.registryName }}.azurecr.io/${{ parameters.imageName }}"
+          docker tag ${{ parameters.imageName }} ${{ parameters.registryName }}.azurecr.io/${{ parameters.imageName }}
+          docker push ${{ parameters.registryName }}.azurecr.io/${{ parameters.imageName }}
+
+          echo "Pushing ${{ parameters.imageNameLatest }} to ${{ parameters.registryName }}.azurecr.io/${{ parameters.imageNameLatest }}"
+          docker tag ${{ parameters.imageName }} ${{ parameters.registryName }}.azurecr.io/${{ parameters.imageNameLatest }}
+          docker push ${{ parameters.registryName }}.azurecr.io/${{ parameters.imageNameLatest }}
+
+  - ${{ if and(contains(lower(parameters.action), 'remove'), parameters.updateFirewall) }}:
+    - task: AzureCLI@2
+      displayName: 'ACR: Remove Agent FW'
+      inputs:
+        azureSubscription: ${{ parameters.serviceConnectionName }}
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "Executing: az acr network-rule remove --name ${{ parameters.registryName }} --resource-group ${{ parameters.registryResourceGroup }} --ip-address ${{ parameters.agentIpAddress }}"
+          az acr network-rule remove --name ${{ parameters.registryName }} --resource-group ${{ parameters.registryResourceGroup }} --ip-address ${{ parameters.agentIpAddress }}

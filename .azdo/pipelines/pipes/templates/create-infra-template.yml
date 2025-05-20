@@ -1,0 +1,177 @@
+﻿# ----------------------------------------------------------------------------------------------------
+# Template to deploy Azure Resources in a bicep file in one environment
+# This template is optimized for a Linux build agent -- see create-infra-win.yml for a Windows build agent
+# ----------------------------------------------------------------------------------------------------
+parameters:
+  - name: environmentName
+    default: 'DEV'
+  - name: templateFolderName
+    default: 'infra-as-code/bicep'
+  - name: templateFileName
+    default: 'main.bicep'
+  - name: parameterFileName
+    default: 'main.azdo.bicepparam'
+  - name: deploymentMode
+    default: 'Incremental' # 'Incremental' | 'Complete' | 'Validation'
+  - name: createResourceGroup
+    default: true
+  - name: deployToResourceGroup
+    default: true
+  - name: publicAccessEnabled
+    default: false
+  - name: createDnsZones
+    default: true
+  - name: deployAIHub
+    default: true
+  - name: addRoleAssignments
+    default: true
+
+# ----------------------------------------------------------------------------------------------------
+jobs:
+  - deployment: CreateInfra
+    displayName: Initialize Create ${{ parameters.environmentName }} Infra
+    environment: ${{ parameters.environmentName }}
+
+  - job: Create${{ parameters.environmentName }}InfraJob
+    displayName: Create ${{ parameters.environmentName }} Infrastructure
+    variables:
+      - name: environmentName
+        value: ${{ parameters.environmentName }}
+      - name: environmentNameUpper
+        value: ${{ upper(parameters.environmentName) }}
+      - name: environmentNameLower
+        value: ${{ lower(parameters.environmentName) }}
+      - name: templateFile
+        value: '$(Pipeline.Workspace)/s/${{ parameters.templateFolderName }}/${{ parameters.templateFileName }}'
+      - name: parameterFile
+        value: '$(Pipeline.Workspace)/s/${{ parameters.templateFolderName }}/${{ parameters.parameterFileName }}'
+
+      - name: publicAccessEnabled
+        value: '${{ lower(parameters.publicAccessEnabled) }}'
+      - name: createDnsZones
+        value: '${{ lower(parameters.createDnsZones) }}'
+      - name: deployAIHub
+        value: '${{ lower(parameters.deployAIHub) }}'
+      - name: addRoleAssignments
+        value: '${{ lower(parameters.addRoleAssignments) }}'
+
+      # Bring in environment common variable file
+      - template: ../../vars/var-service-connections.yml
+      - template: ../../vars/var-common.yml
+      - template: ../../vars/var-source-location-app.yml
+
+      # Bring in environment specific variable files
+      - ${{ if eq(lower(parameters.environmentName), 'dev') }}:
+          - template: ../../vars/var-dev.yml
+      - ${{ if eq(lower(parameters.environmentName), 'qa') }}:
+          - template: ../../vars/var-qa.yml
+      - ${{ if eq(lower(parameters.environmentName), 'prod') }}:
+          - template: ../../vars/var-prod.yml
+
+    # ----------------------------------------------------------------------------------------------------
+    steps:
+      - task: PowerShell@2
+        name: createVariables
+        displayName: Create Variables
+        continueOnError: true
+        inputs:
+          targetType: 'inline'
+          script: |
+            $environmentNameLower="${{ parameters.environmentName }}".ToLower()
+            echo "##vso[task.setvariable variable=environmentNameLower]$environmentNameLower"
+
+            $appNameLower="$(appName)".ToLower()
+            echo "##vso[task.setvariable variable=appNameLower]$appNameLower"
+
+            $appNameLowerNoDashes="$(appName)".ToLower().Replace("-", "")
+            echo "##vso[task.setvariable variable=appNameLowerNoDashes]$appNameLowerNoDashes"
+
+            $resourceGroupName="$(resourceGroupPrefix)-$environmentNameLower".ToLower()
+            echo "##vso[task.setvariable variable=resourceGroupName]$resourceGroupName"
+
+            $runDateTime=(Get-Date).ToString("yyyyMMdd-HHmmss")
+            echo "##vso[task.setvariable variable=runDateTime]$runDateTime"
+            $runDateTimeZ=(Get-Date).ToString("yyyyMMddTHHmmss")+"Z"
+            echo "##vso[task.setvariable variable=runDateTimeZ]$runDateTimeZ"
+
+      - bash: |
+          echo "environmentName=${{ parameters.environmentName }}"
+          echo "templateFolderName=${{ parameters.templateFolderName }}"
+          echo "templateFileName=${{ parameters.templateFileName }}"
+          echo "templateFile=$(templateFile)"
+          echo "parameterFileName=${{ parameters.parameterFileName }}"
+          echo "parameterFile=$(parameterFile)"
+          echo "deploymentMode=${{ parameters.deploymentMode }}"
+          echo "resourceGroupName=$(resourceGroupName)"
+          echo "appName=$(appName)"
+          echo "appNameLower=$(appNameLower)"
+          echo "appNameLowerNoDashes=$(appNameLowerNoDashes)"
+          echo "runDateTime=$(runDateTime)"
+          echo "runDateTimeZ=$(runDateTimeZ)"
+
+          echo "publicAccessEnabled=$(publicAccessEnabled)"
+          echo "parameters.publicAccessEnabled=${{ parameters.publicAccessEnabled }}"
+          echo "createDnsZones=$(createDnsZones)"
+          echo "parameters.createDnsZones=${{ parameters.createDnsZones }}"
+          echo "deployAIHub=$(deployAIHub)"
+          echo "parameters.deployAIHub=${{ parameters.deployAIHub }}"
+          echo "addRoleAssignments=$(addRoleAssignments)"
+          echo "parameters.addRoleAssignments=${{ parameters.addRoleAssignments }}"
+
+          echo "##[group]Display All Environment Variables:"
+          printenv | sort
+          echo "##[endgroup]"
+
+          echo "----------------------------------------"
+          echo "##[group]Directory of pipeline workspace:"
+          tree -L 4 $(Pipeline.Workspace)
+          echo "##[endgroup]"
+        displayName: 'Display Variables and Files'
+        continueOnError: true
+
+      - task: qetza.replacetokens.replacetokens-task.replacetokens@5
+        displayName: 'Update Parameter File'
+        inputs:
+          targetFiles: $(parameterFile)
+          tokenPrefix: '#{'
+          tokenSuffix: '}#'
+
+      - task: CmdLine@2
+        displayName: Display Parameter File Contents
+        continueOnError: true
+        inputs:
+          script: |
+            echo "Bicep File Name: $(templateFile)"
+            echo "##[group]Contents of Parameter File  $(parameterFile)"
+            cat  $(parameterFile)
+            echo "##[endgroup]"
+
+      # in order to use multiple dynamic service connections, you can't just use a variable.
+      # they need to be defined and available at YML pre-compile time, so use this technique.
+      # this switch allows you to dynamically select a 'hard-coded' service connection
+      - ${{ if eq(variables.environmentNameUpper, 'DEV') }}:
+          - template: steps-deploy-bicep-template.yml
+            parameters:
+              serviceConnectionName: $(serviceConnectionDEV)
+              createResourceGroup: ${{ parameters.createResourceGroup }}
+              deployToResourceGroup: ${{ parameters.deployToResourceGroup }}
+              resourceGroupName: $(resourceGroupName)
+      - ${{ if eq(variables.environmentNameUpper, 'QA') }}:
+          - template: steps-deploy-bicep-template.yml
+            parameters:
+              serviceConnectionName: $(serviceConnectionQA)
+              createResourceGroup: ${{ parameters.createResourceGroup }}
+              deployToResourceGroup: ${{ parameters.deployToResourceGroup }}
+              resourceGroupName: $(resourceGroupName)
+      - ${{ if eq(variables.environmentNameUpper, 'PROD') }}:
+          - template: steps-deploy-bicep-template.yml
+            parameters:
+              serviceConnectionName: $(serviceConnectionPROD)
+              createResourceGroup: ${{ parameters.createResourceGroup }}
+              deployToResourceGroup: ${{ parameters.deployToResourceGroup }}
+              resourceGroupName: $(resourceGroupName)
+
+      - bash: |
+          echo "WIPED!" > $(parameterFile)
+        displayName: 'Wipe Parameter File'
+        condition: always()

@@ -1,0 +1,93 @@
+# ----------------------------------------------------------------------------------------------------
+# Pipeline to deploy the app using AZD commands
+# ----------------------------------------------------------------------------------------------------
+trigger:
+  - none
+  
+pool:
+  vmImage: ubuntu-latest
+
+# This should probably be in a variable group!
+variables:
+  CONNECTION_NAME: YOURConnectionName
+  AZURE_SUBSCRIPTION_ID: YourSubscriptionGUID
+  AZURE_ENV_NAME: XXX-label
+  AZURE_LOCATION: centralus
+  AZURE_TENANT_ID: YourTeanntGUID
+  AZURE_RESOURCE_GROUP: rg-ai-label-dev
+  PUBLIC_ACCESS_ENABLED: false
+  RESOURCE_TOKEN: YOURRESOURCETOKEN
+  SUBNET_APP_NAME: snet-YOURNAME
+  SUBNET_PE_NAME: snet-YOURNAME
+  VNET_NAME: your-vnet-name
+  ADD_ROLE_ASSIGNMENTS: false
+  AZD_INITIAL_ENVIRONMENT_CONFIG: 
+ 
+steps:
+  # setup-azd@0 needs to be manually installed in your organization
+  # if you can't install it, you can use the below bash script to install azd
+  # and remove this step
+  # - task: setup-azd@0
+  #   displayName: Install azd
+ 
+  # If you can't install above task in your organization, you can comment it and uncomment below task to install azd
+  - task: Bash@3
+    displayName: Install azd
+    inputs:
+      targetType: 'inline'
+      script: |
+        curl -fsSL https://aka.ms/install-azd.sh | bash
+ 
+  # azd delegate auth to az to use service connection with AzureCLI@2
+  - pwsh: |
+      azd config set auth.useAzCliAuth "true"
+      # azd env set DO_ROLE_ASSIGNMENTS false --no-prompt
+    displayName: Configure AZD to Use AZ CLI Authentication.
+ 
+  - task: AzureCLI@2
+    displayName: Provision Infrastructure
+    inputs:
+      azureSubscription: $(CONNECTION_NAME)
+      scriptType: bash
+      scriptLocation: inlineScript
+      # keepAzSessionActive: true
+      inlineScript: |
+        azd provision --no-prompt
+    env:
+      # AZURE_CLIENT_ID: $(AZURE_CLIENT_ID)
+      AZURE_TENANT_ID: $(AZURE_TENANT_ID)
+      AZURE_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)
+      AZURE_ENV_NAME: $(AZURE_ENV_NAME)
+      AZURE_LOCATION: $(AZURE_LOCATION)
+      AZD_INITIAL_ENVIRONMENT_CONFIG: $(AZD_INITIAL_ENVIRONMENT_CONFIG)
+      AZURE_RESOURCE_GROUP: $(AZURE_RESOURCE_GROUP)
+      PUBLIC_ACCESS_ENABLED: $(PUBLIC_ACCESS_ENABLED)
+      RESOURCE_TOKEN: $(RESOURCE_TOKEN)
+      SUBNET_APP_NAME: $(SUBNET_APP_NAME)
+      SUBNET_PE_NAME: $(SUBNET_PE_NAME)
+      VNET_NAME: $(VNET_NAME)
+      ADD_ROLE_ASSIGNMENTS: $(ADD_ROLE_ASSIGNMENTS)
+ 
+ 
+  - task: AzureCLI@2
+    displayName: Deploy Application
+    inputs:
+      azureSubscription: $(CONNECTION_NAME)
+      scriptType: bash
+      scriptLocation: inlineScript
+      # keepAzSessionActive: true
+      inlineScript: |
+        azd deploy --no-prompt
+    env:
+      AZURE_CLIENT_ID: $(AZURE_CLIENT_ID)
+      AZURE_TENANT_ID: $(AZURE_TENANT_ID)
+      AZURE_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)
+      AZURE_ENV_NAME: $(AZURE_ENV_NAME)
+      AZURE_LOCATION: $(AZURE_LOCATION)
+ 
+  - task: Bash@3
+    displayName: List outputs
+    inputs:
+      targetType: 'inline'
+      script: |
+        azd env get-values

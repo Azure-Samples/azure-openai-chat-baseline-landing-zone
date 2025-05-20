@@ -1,0 +1,33 @@
+# ----------------------------------------------------------------------------------------------------
+# Testing Pipeline to test an api call in a restricted network
+# ----------------------------------------------------------------------------------------------------
+trigger:
+  - none
+  
+pool:
+  vmImage: ubuntu-latest
+
+# ----------------------------------------------------------------------------------------------------
+parameters:
+  - name: apiUrl
+    type: string
+    default: https://deployname.centralus.azurecontainerapps.io
+  - name: apiKey
+    type: string
+    default: ''
+
+# ----------------------------------------------------------------------------------------------------
+variables:
+  - group: AI.Doc.Review.Keys
+  - template: vars/var-service-connections.yml
+
+jobs:
+- job: CallApiJob
+  displayName: Call ${{ parameters.apiUrl }} API
+  steps:
+  - script: |
+        curl -X POST ${{ parameters.apiUrl }}/api/task/rutzsco-check3 \
+        -H "Content-Type: application/json" \
+        -H "x-api-key: ${{ parameters.apiKey }}" \
+        -d @website/chatui/sampleData/image.data.json
+    displayName: 'Make API Call'

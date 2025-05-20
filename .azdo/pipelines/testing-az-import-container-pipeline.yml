@@ -1,0 +1,60 @@
+# ----------------------------------------------------------------------------------------------------
+# Testing Pipeline to import container image from remote ACR and push to container app
+# ----------------------------------------------------------------------------------------------------
+trigger:
+  - none
+  
+pool:
+  vmImage: ubuntu-latest
+
+# ----------------------------------------------------------------------------------------------------
+parameters:
+  - name: runEnvironment
+    displayName: Run commands in
+    type: string
+    values:
+      - DEV
+      - QA
+  - name: uiImageWithTag
+    displayName: Image with Tag
+    type: string
+    default: 'AI-Landing-Zone/APINAME:TAGNAME'
+
+# ----------------------------------------------------------------------------------------------------
+variables:
+  - group: AI.Doc.Review.Keys
+  - template: vars/var-service-connections.yml
+  # Bring in environment specific variable files
+  - ${{ if eq(lower(parameters.runEnvironment), 'dev') }}:
+      - template: vars/var-dev.yml
+  - ${{ if eq(lower(parameters.runEnvironment), 'qa') }}:
+      - template: vars/var-qa.yml
+  - name: acrName
+    value: XXXlabelcrdev
+  - name: sourceAcrName
+    value: YYYYcrdev
+  - name: uiAppName
+    value: XXXlabel-ca-api-dev
+  - name: resourceGroupName
+    value: rg-ai-docs-dev
+
+jobs:
+- job: ImportJob
+  displayName: Deploy ${{ parameters.runEnvironment }} objects
+  steps:
+  - task: AzureCLI@2
+    displayName: Run import Script
+    inputs:
+      AzureSubscription: $(serviceConnectionDev)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        echo "Running in Resource Group=$(resourceGroupName)"
+        echo "Using Service Connection=$(serviceConnectionDev)"
+
+        echo "##[group]Display All Environment Variables:"
+        printenv | sort
+        echo "##[endgroup]"
+
+        az acr import --name $(acrName) --source $(sourceAcrName).azurecr.io/${{ parameters.uiImageWithTag }} --image ${{ parameters.uiImageWithTag }} --username $(sourceAcrName) --password $(acrSecret)
+        az containerapp update -n $(uiAppName) -g $(resourceGroupName) --container-name app --image $(acrName).azurecr.io/${{ parameters.uiImageWithTag }}

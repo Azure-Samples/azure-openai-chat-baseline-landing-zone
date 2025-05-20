@@ -1,0 +1,130 @@
+# ----------------------------------------------------------------------------------------------------
+# Template to build a Azure Container App Docker image and put it to a container registry
+# ----------------------------------------------------------------------------------------------------
+# This template gets the appName from the variable group: AI.Doc.Review.Keys
+#   and the resource group name from /vars/var-<env>.yml
+# ----------------------------------------------------------------------------------------------------
+parameters:
+  - name: serviceConnectionName
+    type: string
+  - name: environmentName
+    type: string
+    default: 'DEV'
+  - name: acrAppName
+    default: 'myAppName'
+    type: string
+  - name: projectFolderName
+    default: 'app/my.Service.Folder'
+    type: string
+  - name: pushToACR
+    default: true
+    type: boolean
+  - name: updateFirewall
+    default: true
+    type: boolean
+  - name: acrFolderName
+    default: 'appImages'
+    type: string
+
+# ----------------------------------------------------------------------------------------------------
+jobs:
+  - deployment: Build${{ parameters.acrAppName }}${{ parameters.environmentName }}App
+    displayName: Init Build ${{ parameters.acrAppName }} ${{ parameters.environmentName }}
+    environment: ${{ parameters.environmentName }}
+
+  - job: Build${{ parameters.acrAppName }}${{ parameters.environmentName }}Job
+    displayName: Build ${{ parameters.acrAppName }} ${{ parameters.environmentName }}
+    variables:
+      - group: AI.Doc.Review.Keys # need to get the appName from here
+      # Bring in environment specific variable files
+      - ${{ if eq(lower(parameters.environmentName), 'dev') }}:
+          - template: ../../vars/var-dev.yml
+      - ${{ if eq(lower(parameters.environmentName), 'qa') }}:
+          - template: ../../vars/var-qa.yml
+      - ${{ if eq(lower(parameters.environmentName), 'prod') }}:
+          - template: ../../vars/var-prod.yml
+
+    steps:
+      # ----------------------------------------------------------------------------------------------------
+      # Set up the environment variables
+      # ----------------------------------------------------------------------------------------------------
+      - task: PowerShell@2
+        name: createVariables
+        displayName: Create Variables
+        continueOnError: true
+        inputs:
+          targetType: 'inline'
+          script: |
+            $environmentNameLower="${{ parameters.environmentName }}".ToLower()
+            echo "##vso[task.setvariable variable=environmentNameLower]$environmentNameLower"
+            $appNameLower="$(appName)".ToLower()
+            echo "##vso[task.setvariable variable=appNameLower]$appNameLower"
+            $appNameNoDashesLower="$(appName)".ToLower().Replace("-", "")
+            echo "##vso[task.setvariable variable=appNameNoDashesLower]$appNameNoDashesLower"
+
+            $resourceGroupName="$(resourceGroupPrefix)-$environmentNameLower".ToLower()
+            echo "##vso[task.setvariable variable=resourceGroupName]$resourceGroupName"
+            
+            $acrAppNameLower="${{ parameters.acrAppName }}".ToLower()
+            echo "##vso[task.setvariable variable=acrAppNameLower]$acrAppNameLower"
+            $acrFolderNameLower="${{ parameters.acrFolderName }}".ToLower()
+            echo "##vso[task.setvariable variable=acrFolderNameLower]$acrFolderNameLower"
+            $imageName="$($acrFolderNameLower)/$($acrAppNameLower):$(Build.BuildId)"
+            echo "##vso[task.setvariable variable=imageName]$imageName"
+            $imageNameBranch="$($acrFolderNameLower)/$($acrAppNameLower):$(Build.SourceBranchName)"
+            echo "##vso[task.setvariable variable=imageNameBranch]$imageNameBranch"
+            $containerRegistryName="$($appNameNoDashesLower)cr$($environmentNameLower)"
+            echo "##vso[task.setvariable variable=containerRegistryName]$containerRegistryName"
+            $containerRegistryUrl="$($appNameNoDashesLower)cr$($environmentNameLower).azurecr.io"
+            echo "##vso[task.setvariable variable=containerRegistryUrl]$containerRegistryUrl"
+            $agentIpAddress = $(Invoke-WebRequest -Uri "https://api.ipify.org").Content
+            echo "##vso[task.setvariable variable=agentIpAddress]$agentIpAddress"
+
+            echo "appNameLower=$appNameLower"
+            echo "appNameNoDashesLower=$appNameNoDashesLower"
+            echo "resourceGroupName=$resourceGroupName"
+            echo "containerRegistryName=$containerRegistryName"
+            echo "containerRegistryUrl=$containerRegistryUrl"
+            echo "acrAppNameLower=$acrAppNameLower"
+            echo "acrFolderNameLower=$acrFolderNameLower"
+            echo "imageName=$imageName"
+            echo "imageNameBranch=$imageNameBranch"
+            echo "agentIpAddress=$agentIpAddress"
+            echo "workingDirectory=$(System.DefaultWorkingDirectory)/${{ parameters.projectFolderName }}"
+            echo "serviceConnectionName=$(serviceConnectionName)"
+
+            echo "----------------------------------------"
+            echo "##[group]Display All Environment Variables:"
+            printenv | sort
+            echo "##[endgroup]"
+
+            echo "----------------------------------------"
+            echo "##[group]Directory of pipeline workspace:"
+            tree -L 4 $(Pipeline.Workspace)
+            echo "##[endgroup]"
+
+      # ----------------------------------------------------------------------------------------------------
+      # Build the image
+      # ----------------------------------------------------------------------------------------------------
+      - task: CmdLine@2
+        displayName: Docker Build
+        inputs:
+          script: |
+            docker build . -t $(imageName) -t $(imageNameBranch)
+            docker images
+          workingDirectory: '$(System.DefaultWorkingDirectory)/${{ parameters.projectFolderName }}'
+
+      # ----------------------------------------------------------------------------------------------------
+      # ACR Push: Push to ACR, add/remove firewall rules and remove if requested
+      # ----------------------------------------------------------------------------------------------------
+      - ${{ if parameters.pushToACR }}:
+        - template: steps-container-registry-template.yml
+          parameters:
+            action: 'add-login-push-remove'
+            serviceConnectionName: ${{ parameters.serviceConnectionName }}
+            registryName: $(containerRegistryName)
+            registryResourceGroup: $(resourceGroupName)
+            imageName: $(imageName)
+            imageNameLatest: $(imageNameBranch)
+            updateFirewall: ${{ parameters.updateFirewall }}
+            agentIpAddress: $(agentIpAddress)

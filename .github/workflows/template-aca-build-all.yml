@@ -1,0 +1,192 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# Reusable Workflow: Docker Build to a Registry
+# ------------------------------------------------------------------------------------------------------------------------
+name: z_template_docker_build
+run-name: Build Docker Image
+on:
+  workflow_call:
+    inputs:
+      ACR_NAME:
+        required: true
+        type: string
+      RESOURCE_GROUP:
+        required: true
+        type: string
+      ACR_REPO_NAME:
+        required: true
+        type: string
+
+      BUILD_DEPLOY_API:
+        default: true
+        type: boolean
+      UI_APP_PATH:
+        required: true
+        type: string
+      UI_ACR_APP_NAME:
+        required: true
+        type: string
+
+      BUILD_DEPLOY_BATCH:
+        default: false
+        type: boolean
+      BATCH_APP_PATH:
+        required: true
+        type: string
+      BATCH_ACR_APP_NAME:
+        required: true
+        type: string
+
+      PUSH_TO_ACR:
+        required: false
+        type: boolean
+        default: true
+      ACR_FW_UPDATE:
+        required: false
+        type: boolean
+        default: true
+      DOCKER_PUSH_TYPE:
+        required: false
+        type: string
+        default: 'TASK'
+      ENV_CODE:
+        required: true
+        type: string
+        default: 'DEV'
+
+# ------------------------------------------------------------------------------------------------------------------------
+    outputs:
+      IMAGE_VERSION:
+        value: ${{ jobs.build.outputs.IMAGE_VERSION  }}
+      ACR_REPO_NAME:
+        value: ${{ inputs.ACR_REPO_NAME  }}
+      API_IMAGE_NAME:
+        value: ${{ jobs.build.outputs.API_IMAGE_NAME  }}
+      UI_APP_PATH:
+        value: ${{ inputs.UI_APP_PATH  }}
+      UI_ACR_APP_NAME:
+        value: ${{ inputs.UI_ACR_APP_NAME  }}
+      BATCH_IMAGE_NAME:
+        value: ${{ jobs.build.outputs.BATCH_IMAGE_NAME  }}
+      BATCH_APP_PATH:
+        value: ${{ inputs.BATCH_APP_PATH  }}
+      BATCH_ACR_APP_NAME:
+        value: ${{ inputs.BATCH_ACR_APP_NAME  }}
+    
+# ------------------------------------------------------------------------------------------------------------------------
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.ENV_CODE  }}
+    outputs:
+      IMAGE_VERSION: ${{ steps.image-name.outputs.IMAGE_VERSION }}
+      API_IMAGE_NAME: ${{ steps.image-name.outputs.API_IMAGE_NAME }}
+      BATCH_IMAGE_NAME: ${{ steps.image-name.outputs.BATCH_IMAGE_NAME }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.1.1
+
+      - name: Get the current date
+        id: get-date
+        run: echo "TAG=$(date +'%Y%m%d%H%M')" >> $GITHUB_OUTPUT
+
+      - name: Set image name
+        id: image-name
+        run: |
+          echo "IMAGE_VERSION=${{ steps.get-date.outputs.TAG}}" >> $GITHUB_OUTPUT
+          echo "API_IMAGE_NAME=${{ inputs.ACR_REPO_NAME }}/${{ inputs.UI_ACR_APP_NAME }}:${{ steps.get-date.outputs.TAG }}" >> $GITHUB_OUTPUT
+          echo "API_IMAGE_NAME_NO_TAG=${{ inputs.ACR_REPO_NAME }}/${{ inputs.UI_ACR_APP_NAME }}" >> $GITHUB_OUTPUT
+          echo "BATCH_IMAGE_NAME=${{ inputs.ACR_REPO_NAME }}/${{ inputs.BATCH_ACR_APP_NAME }}:${{ steps.get-date.outputs.TAG }}" >> $GITHUB_OUTPUT
+          echo "BATCH_IMAGE_NAME_NO_TAG=${{ inputs.ACR_REPO_NAME }}/${{ inputs.BATCH_ACR_APP_NAME }}" >> $GITHUB_OUTPUT
+
+      - name: Display Variables and Files
+        run: |-
+          echo "inputs.ACR_NAME=${{ inputs.ACR_NAME }}"
+          echo "inputs.ACR_REPO_NAME=${{ inputs.ACR_REPO_NAME }}"
+          echo "inputs.UI_ACR_APP_NAME=${{ inputs.UI_ACR_APP_NAME }}"
+          echo "inputs.UI_APP_PATH=${{ inputs.UI_APP_PATH }}"
+          echo "inputs.BATCH_ACR_APP_NAME=${{ inputs.BATCH_ACR_APP_NAME }}"
+          echo "inputs.BATCH_APP_PATH=${{ inputs.BATCH_APP_PATH }}"
+          echo "steps.image-name.API_IMAGE_VERSION=${{ steps.image-name.outputs.API_IMAGE_VERSION }}"
+          echo "steps.image-name.API_IMAGE_NAME=${{ steps.image-name.outputs.API_IMAGE_NAME }}"
+          echo "steps.image-name.API_IMAGE_NAME_NO_TAG=${{ steps.image-name.outputs.API_IMAGE_NAME_NO_TAG }}"
+          echo "steps.image-name.BATCH_IMAGE_VERSION=${{ steps.image-name.outputs.BATCH_IMAGE_VERSION }}"
+          echo "steps.image-name.BATCH_IMAGE_NAME=${{ steps.image-name.outputs.BATCH_IMAGE_NAME }}"
+          echo "steps.image-name.BATCH_IMAGE_NAME_NO_TAG=${{ steps.image-name.outputs.BATCH_IMAGE_NAME_NO_TAG }}"
+
+          echo "---------------------------------"
+          echo "##[group]All Variables:"
+          echo "Environment:"
+          echo '${{ toJSON(env) }}'
+          echo "Variables:"
+          echo '${{ toJSON(vars) }}'
+          echo "Secrets:"
+          echo '${{ toJSON(secrets) }}'
+          echo "Inputs:"
+          echo '${{ toJSON(inputs) }}'
+          echo "##[endgroup]"
+
+          echo "---------------------------------"
+          echo "##[group]Directory of ${{ github.workspace  }}"
+          tree -R ${{ github.workspace  }}
+          echo "##[endgroup]"
+        continue-on-error: true
+
+      # -- Setup ----------------------------------------------------------------------------------------
+      - name: OIDC Login to Azure
+        if: ${{ inputs.PUSH_TO_ACR }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.CICD_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get Agent IP Address
+        id: get-ip
+        if: ${{ inputs.PUSH_TO_ACR && inputs.ACR_FW_UPDATE }}
+        run: echo "agentIpAddress=`curl -s http://ifconfig.me/ip`" >> $GITHUB_OUTPUT
+        
+      - name: 'ACR: Add Agent to FW'
+        if: ${{ inputs.PUSH_TO_ACR && inputs.ACR_FW_UPDATE }}
+        run: |
+           echo "Executing: az acr network-rule add --name ${{ inputs.ACR_NAME }} --resource-group ${{ inputs.RESOURCE_GROUP }} --ip-address ${{ steps.get-ip.outputs.agentIpAddress }}"
+           az acr network-rule add --name ${{ inputs.ACR_NAME }} --resource-group ${{ inputs.RESOURCE_GROUP }} --ip-address  ${{ steps.get-ip.outputs.agentIpAddress }}
+
+      - name: ACR Login
+        if: ${{ inputs.PUSH_TO_ACR }}
+        run: |
+            az acr login -n ${{ inputs.ACR_NAME }}
+
+      # -- Create MetaData for Images ----------------------------------------------------------------------
+      - name: Get UI metadata
+        uses: docker/metadata-action@v5
+        if: ${{ inputs.PUSH_TO_ACR && inputs.BUILD_DEPLOY_API }}
+        id: meta-ui
+        with:
+          images: ${{ inputs.ACR_NAME }}.azurecr.io/${{ steps.image-name.outputs.API_IMAGE_NAME_NO_TAG }}
+          labels: |
+            org.opencontainers.image.title=AI Chat UI
+            org.opencontainers.image.source=msft-mfg-ai.github.com
+          tags: |
+            type=raw,enable=true,priority=200,prefix=,suffix=,value=${{ steps.get-date.outputs.TAG }}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      # -- Build and Deploy Images ----------------------------------------------------------------------
+      - name: UI Build-Push
+        uses: docker/build-push-action@v6
+        if: ${{ inputs.PUSH_TO_ACR && inputs.BUILD_DEPLOY_API }}
+        with:
+          context: '${{ github.workspace }}/${{ inputs.UI_APP_PATH }}'
+          push: ${{ github.event_name != 'pull_request' }}
+          labels: ${{ steps.meta-ui.outputs.labels }}
+          tags: ${{ steps.meta-ui.outputs.tags }}
+
+      # -- Cleanup ----------------------------------------------------------------------
+      - name: 'ACR: Remove Agent from FW'
+        if: ${{ inputs.PUSH_TO_ACR && inputs.ACR_FW_UPDATE }}
+        run: |
+           echo "Executing: az acr network-rule remove --name ${{ inputs.ACR_NAME }} --resource-group ${{ inputs.RESOURCE_GROUP }} --ip-address  ${{ steps.get-ip.outputs.agentIpAddress }}"
+           az acr network-rule remove --name ${{ inputs.ACR_NAME }} --resource-group ${{ inputs.RESOURCE_GROUP }} --ip-address  ${{ steps.get-ip.outputs.agentIpAddress }}

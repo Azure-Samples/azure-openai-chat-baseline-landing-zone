@@ -1,0 +1,69 @@
+# ----------------------------------------------------------------------------------------------------
+# Pipeline to build and deploy all of the Container App Modules
+# ----------------------------------------------------------------------------------------------------
+# Note: in order to do multiple CA build/deploys, you need to change FW and login ONCE, otherwise
+# it tends to have token refresh issues and fail on the second and third app
+# ----------------------------------------------------------------------------------------------------
+name: $(date:yyyy).$(date:MM).$(date:dd)$(rev:.r)
+pool:
+  vmImage: 'ubuntu-latest'
+# ----------------------------------------------------------------------------------------------------
+trigger: none
+
+# ----------------------------------------------------------------------------------------------------
+parameters:
+- name: apps
+  displayName: Which Apps to build and deploy?
+  type: string
+  values:
+    - UI
+  default: 'UI'
+- name: buildApps
+  displayName: Build Docker Images
+  type: boolean
+  default: true
+- name: pushApps
+  displayName: Push Images to ACR
+  type: boolean
+  default: true
+- name: deployApps
+  displayName: Deploy from ACR to CA
+  type: boolean
+  default: true
+- name: runMSDevSecOpsScan
+  displayName: Run Scan
+  type: boolean
+  default: false
+
+# ----------------------------------------------------------------------------------------------------
+variables:
+  - group: AI.Doc.Review.Keys
+  - template: vars/var-service-connections.yml
+
+# ----------------------------------------------------------------------------------------------------
+stages:
+- ${{ if parameters.runMSDevSecOpsScan }}:
+    - stage: ScanApplication
+      displayName: Scan Application
+      jobs:
+        - template: pipes/templates/scan-code-template.yml
+          parameters:
+            environmentName: 'DEV'
+            runMSDevSecOpsScan: ${{ parameters.runMSDevSecOpsScan }}
+            runGHASScan: false
+
+# ----------------------------------------------------------------------------------------------------
+- template: pipes/aca-build-all-pipe.yml
+  parameters:
+    pushToACR: ${{ parameters.pushApps }}
+    deployUI: ${{ contains(parameters.apps, 'UI') }}
+    apiConfig: 
+      { containerAppName: 'ui',   acrAppName: 'chatui',   projectFolderName: 'website/chatui',       port: '8080' }
+
+# ----------------------------------------------------------------------------------------------------
+- template: pipes/aca-deploy-pipe.yml
+  parameters:
+    apps: [ 
+      { containerAppName: 'ui',   acrAppName: 'chatui',   projectFolderName: 'website/chatui',       port: '8080' }
+    ] 
+

@@ -1,0 +1,100 @@
+# ----------------------------------------------------------------------------------------------------
+# Template to deploy a Docker image to a Container App
+# ----------------------------------------------------------------------------------------------------
+# This template gets the appName from the variable group: AI.Doc.Review.Keys
+#   and the resource group name from /vars/var-<env>.yml
+# ----------------------------------------------------------------------------------------------------
+parameters:
+  - name: serviceConnectionName
+    type: string
+  - name: environmentName
+    default: 'DEV'
+    type: string
+  - name: containerAppName
+    default: ''
+    type: string
+  - name: acrAppName
+    default: ''
+    type: string
+  - name: port
+    default: '8080'
+    type: string
+  - name: acrFolderName
+    default: 'appImages'
+    type: string
+
+# ----------------------------------------------------------------------------------------------------
+jobs:
+  - deployment: InitDeploy${{ parameters.containerAppName }}${{ parameters.environmentName }}
+    displayName: Init Deploy ${{ parameters.containerAppName }} ${{ parameters.environmentName }}
+    environment: ${{ parameters.environmentName }}
+
+  - job: DeployApp${{ parameters.containerAppName }}${{ parameters.environmentName }}Job
+    displayName: Deploy ${{ parameters.containerAppName }} ${{ parameters.environmentName }}
+    variables:
+      - group: AI.Doc.Review.Keys # need to get the appName from here
+      # Bring in environment specific variable files
+      - ${{ if eq(lower(parameters.environmentName), 'dev') }}:
+          - template: ../../vars/var-dev.yml
+      - ${{ if eq(lower(parameters.environmentName), 'qa') }}:
+          - template: ../../vars/var-qa.yml
+      - ${{ if eq(lower(parameters.environmentName), 'prod') }}:
+          - template: ../../vars/var-prod.yml
+
+    steps:
+      # ----------------------------------------------------------------------------------------------------
+      # Set up the environment variables
+      # ----------------------------------------------------------------------------------------------------
+      - task: PowerShell@2
+        name: createVariables
+        displayName: Create Variables
+        continueOnError: true
+        inputs:
+          targetType: 'inline'
+          script: |
+            $appNameNoDashesLower="$(appName)".ToLower().Replace("-", "")
+            $environmentNameLower="${{ parameters.environmentName }}".ToLower()
+            $containerAppNameLower="${{ parameters.containerAppName }}".ToLower()
+            $acrFolderNameLower="${{ parameters.acrFolderName }}".ToLower()
+            $acrAppNameLower="${{ parameters.acrAppName }}".ToLower()
+
+            $resourceGroupName="$(resourceGroupPrefix)-$environmentNameLower".ToLower()
+            echo "##vso[task.setvariable variable=resourceGroupName]$resourceGroupName"
+            
+            $caAppName="$($appNameNoDashesLower)-ca-$($containerAppNameLower)-$($environmentNameLower)"
+            echo "##vso[task.setvariable variable=caAppName]$caAppName"
+            $containerRegistryUrl="$($appNameNoDashesLower)cr$($environmentNameLower).azurecr.io"
+            echo "##vso[task.setvariable variable=containerRegistryUrl]$containerRegistryUrl"
+            $imageName="$($acrFolderNameLower)/$($acrAppNameLower):$(Build.BuildId)"
+            echo "##vso[task.setvariable variable=imageName]$imageName"
+
+            echo "environmentNameLower=$environmentNameLower"
+            echo "appNameNoDashesLower=$appNameNoDashesLower"
+            echo "resourceGroupName=$resourceGroupName"
+            echo "containerAppNameLower=$containerAppNameLower"
+            echo "acrFolderNameLower=$acrFolderNameLower"
+            echo "acrAppNameLower=$acrAppNameLower"
+            echo "caAppName=$caAppName"
+            echo "containerRegistryUrl=$containerRegistryUrl"
+            echo "imageName=$imageName"
+
+            echo "----------------------------------------"
+            echo "##[group]Display All Environment Variables:"
+            printenv | sort
+            echo "##[endgroup]"
+
+      # ----------------------------------------------------------------------------------------------------
+      # Deploy the container app image
+      # ----------------------------------------------------------------------------------------------------
+      - task: AzureCLI@2
+        displayName: Deploy Container App
+        inputs:
+          AzureSubscription: $(serviceConnectionName)
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            az containerapp update \
+              --name $(caAppName) \
+              --resource-group $(resourceGroupName) \
+              --container-name app \
+              --image $(containerRegistryUrl)/$(imageName)

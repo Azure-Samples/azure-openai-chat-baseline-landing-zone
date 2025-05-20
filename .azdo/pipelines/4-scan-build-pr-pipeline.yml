@@ -1,0 +1,37 @@
+# ----------------------------------------------------------------------------------------------------
+# Pipeline to scan/build an app upon Pull Request
+# ----------------------------------------------------------------------------------------------------
+name: $(date:yyyy).$(date:MM).$(date:dd)$(rev:.r)
+pool:
+  vmImage: ubuntu-latest
+
+# ----------------------------------------------------------------------------------------------------
+# FYI - Set a required branch policy to run this on every check to main
+# ----------------------------------------------------------------------------------------------------
+# trigger:
+#   - none
+pr:
+  - main
+
+# ----------------------------------------------------------------------------------------------------
+variables:
+  - group: AI.Doc.Review.Keys
+  - template: vars/var-service-connections.yml
+
+# ----------------------------------------------------------------------------------------------------
+stages:
+  - stage: ScanApplication
+    displayName: Scan Application
+    jobs:
+      - template: pipes/templates/scan-code-template.yml
+        parameters:
+          environmentName: 'DEV'
+          runMSDevSecOpsScan: true
+          runGHASScan: false
+
+  - template: pipes/aca-build-all-pipe.yml
+    parameters:
+      pushToACR: false
+      deployUI: false
+      apiConfig: 
+        { containerAppName: 'ui',   acrAppName: 'chatui',   projectFolderName: 'website/chatui',       port: '8080' }

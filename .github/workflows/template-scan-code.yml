@@ -1,0 +1,69 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# Reusable Workflow: Scan files for security issues
+# ------------------------------------------------------------------------------------------------------------------------
+# NOTE: If you get the error: 'Resource not accessible by integration' on the upload step
+# then you will need to go into the Repository -> Settings -> Actions -> General -> Workflow Permissions
+# and enable the "Read and write permissions" to be able to publish the results
+# ------------------------------------------------------------------------------------------------------------------------
+name: z_template_scan_code
+run-name: Run Scans
+on:
+  workflow_call:
+    inputs:
+      runSecurityScan:
+        required: false
+        default: false
+        type: boolean
+      continueOnScanError:
+        required: false
+        default: true
+        type: boolean
+
+# ------------------------------------------------------------------------------------------------------------------------
+jobs:
+  scanner:
+    # MSDO runs on windows-latest. ubuntu-latest and macos-latest supporting coming soon
+    name: Security Scan
+    runs-on: windows-latest
+    permissions:
+      # required for all workflows
+      security-events: write   # needed to update the security sarif alerts
+      # only required for workflows in private repositories
+      actions: read
+      contents: write
+      checks: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup
+        uses: actions/setup-dotnet@v4
+        if: inputs.runSecurityScan
+        with:
+          dotnet-version: |
+            5.0.x
+            6.0.x
+            8.0.x
+
+      - name: Run Full Infra Scan
+        if: inputs.runSecurityScan
+        continue-on-error: ${{ inputs.continueOnScanError }}
+        uses: microsoft/security-devops-action@release/vNext
+        id: msdo
+        with:
+          tools: templateanalyzer,terrascan,trivy
+
+      - name: Upload MS SecDevOps alerts to Security tab
+        if: inputs.runSecurityScan
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.msdo.outputs.sarifFile }}
+
+      - name: Upload MS SecDevOps alerts to Workflow Artifacts
+        if: inputs.runSecurityScan
+        uses: actions/upload-artifact@v4
+        with:
+          name: alerts
+          path: ${{ steps.msdo.outputs.sarifFile }}

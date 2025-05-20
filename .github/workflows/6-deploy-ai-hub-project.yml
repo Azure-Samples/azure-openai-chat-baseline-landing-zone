@@ -1,0 +1,56 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# Action: Deploy AI Hub Project
+# ------------------------------------------------------------------------------------------------------------------------
+name: 6 - Deploy AI Hub Project
+run-name: 6 - Deploy AI Hub Project to ENV ${{ inputs.deployEnvironment }} by @${{ github.actor }}
+
+on:
+  # push:
+  #   branches:
+  #     - main
+  #   paths:
+  #     - app/**
+  workflow_dispatch:
+    inputs:
+      deployEnvironment:
+        description: 'Environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - qa
+          - prod
+          - lyle
+          - scott
+          - piotr
+          - fernando
+          - preston
+          - chris
+          - matt
+
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: read # This is required for actions/checkout
+
+# ------------------------------------------------------------------------------------------------------------------------
+jobs:
+  # ------------------------------------------------------------------------------------------------------------------------
+  # Deploy a Project inside the AI Foundry Hub
+  # ------------------------------------------------------------------------------------------------------------------------
+  deploy-hub-project:
+    name: Deploy Hub Project ${{ inputs.deployEnvironment }}
+    uses: ./.github/workflows/template-ai-hub-project-deploy.yml
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+      pages: write
+    with:
+      envCode: ${{ inputs.deployEnvironment }}
+      resourceGroupName: ${{ vars.RESOURCEGROUP_PREFIX }}-${{ inputs.deployEnvironment }}
+      templatePath: './infra-as-code/bicep/'
+      templateFile: 'find-ai-hub-id.bicep'
+      parameterFile: 'find-ai-hub-id.gh.bicepparam'
+      parameterFileReplaceTokens: 'true'

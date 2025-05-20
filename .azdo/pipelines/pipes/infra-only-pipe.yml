@@ -1,0 +1,69 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# Pipeline Template to deploy Azure Resources Only
+# ------------------------------------------------------------------------------------------------------------------------
+parameters:
+  - name: environments
+    type: object
+    default: ['DEV']
+  - name: templateFolderName
+    default: 'infra-as-code/bicep'
+  - name: templateFileName
+    default: 'main.bicep'
+  - name: parameterFileName
+    default: 'main.azdo.bicepparam'
+  - name: deploymentMode
+    default: 'Incremental'
+  - name: singleEnvironment
+    default: 'false'
+  - name: createResourceGroup
+    default: true
+  - name: publicAccessEnabled
+    default: true
+  - name: createDnsZones
+    default: true
+  - name: deployAIHub
+    default: true
+  - name: addRoleAssignments
+    default: true
+  - name: runGHASScan
+    default: 'false'
+  - name: runMSDevSecOpsScan
+    default: 'false'
+
+# ----------------------------------------------------------------------------------------------------
+stages:
+  # comment this if statement out if you want to use condition 1 and make the deploy wait for the scan
+  - ${{ if or(eq(lower(parameters.runMSDevSecOpsScan), 'true'), eq(lower(parameters.runGHASScan), 'true')) }}:
+      - stage: ScanApplication
+        displayName: Scan Application
+        jobs:
+          - template: templates/scan-code-template.yml
+            parameters:
+              environmentName: 'DEV'
+              runMSDevSecOpsScan: ${{ parameters.runMSDevSecOpsScan }}
+              runGHASScan: ${{ parameters.runGHASScan }}
+
+  # ----------------------------------------------------------------------------------------------------
+  - ${{ each environmentName in parameters.environments }}:
+      - stage: CreateInfra${{ environmentName }}
+        # # Condition 1: wait for scan, proceed if:
+        # #   a single environment is being deployed and scan is complete,
+        # #   or the environment is 'dev', or if qa/prod, the previous stage (dev->qa or qa->prod) succeeded
+        # condition: or(eq(${{ parameters.singleEnvironment }}, 'true'), and(eq(upper('${{ environmentName }}'), 'DEV'), succeeded('ScanApplication')), and(eq(upper('${{ environmentName }}'), 'QA'), succeeded('CreateInfraDEV')), and(eq(upper('${{ environmentName }}'), 'PROD'), succeeded('CreateInfraQA')))
+        # Condition 2: don't wait for scan, proceed if:
+        #   the environment is 'dev', or if qa/prod, the previous stage (dev->qa or qa->prod) succeeded
+        condition: or(eq(${{ parameters.singleEnvironment }}, 'true'), eq(upper('${{ environmentName }}'), 'DEV'), and(eq(upper('${{ environmentName }}'), 'QA'), succeeded('CreateInfraDEV')), and(eq(upper('${{ environmentName }}'), 'PROD'), succeeded('CreateInfraQA')))
+        displayName: Create ${{ environmentName }} Resources
+        jobs:
+          - template: templates/create-infra-template.yml
+            parameters:
+              environmentName: ${{ environmentName }}
+              templateFolderName: ${{ parameters.templateFolderName }}
+              templateFileName: ${{ parameters.templateFileName }}
+              parameterFileName: ${{ parameters.parameterFileName }}
+              createResourceGroup: ${{ parameters.createResourceGroup }}
+              publicAccessEnabled: ${{ parameters.publicAccessEnabled }}
+              createDnsZones: ${{ parameters.createDnsZones }}
+              deployAIHub: ${{ parameters.deployAIHub }}
+              addRoleAssignments: ${{ parameters.addRoleAssignments }}
+              deploymentMode: ${{ parameters.deploymentMode }}

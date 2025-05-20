@@ -1,0 +1,155 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# Pipeline to deploy Azure Resources Only
+# See readme file for info about the contents of the variable group
+# ------------------------------------------------------------------------------------------------------------------------
+name: $(date:yyyy).$(date:MM).$(date:dd)$(rev:.r)
+pool:
+  vmImage: ubuntu-latest
+
+# ------------------------------------------------------------------------------------------------------------------------
+trigger:
+  # since this repo has both AzDO and GHA pipelines, nothing is run automatically...
+  - none
+  # batch: true
+  # branches:
+  #   include:
+  #     - main
+  # paths:
+  #   include:
+  #     - '**/*.yml'
+  #     - '**/*.yaml'
+  #     - '**/*.bicep'
+
+# ----------------------------------------------------------------------------------------------------
+parameters:
+  - name: deployToEnvironment
+    displayName: Deploy To
+    type: string
+    values:
+      - DEV
+      - QA
+      - PROD
+      - DEV-PROD
+    default: DEV
+  - name: parameterFileName
+    displayName: 'Bicep Parameter File:'
+    type: string
+    default: 'main.azdo.bicepparam'
+  - name: createResourceGroup
+    displayName: Create Resource Group?
+    type: boolean
+    default: true
+  - name: publicAccessEnabled
+    displayName: Public Access Enabled?
+    type: boolean
+    default: true
+  - name: createDnsZones
+    displayName: Create DNS Zones?
+    type: boolean
+    default: true
+  - name: deployAIHub
+    displayName: Deploy AI Hub?
+    type: boolean
+    default: true
+  - name: addRoleAssignments
+    displayName: Add Role Assignments?
+    type: boolean
+    default: true
+  - name: apps
+    displayName: Which Apps to build and deploy?
+    type: string
+    values:
+      - WEBSITE
+    default: 'UI'
+  - name: buildApps
+    displayName: Build Docker Images
+    type: boolean
+    default: true
+  - name: pushApps
+    displayName: Push Images to ACR
+    type: boolean
+    default: true
+  - name: deployApps
+    displayName: Deploy from ACR to CA
+    type: boolean
+    default: true
+  - name: runMSDevSecOpsScan
+    displayName: Run MS DevSecOps Scan?
+    type: boolean
+    default: false
+
+# ----------------------------------------------------------------------------------------------------
+variables:
+  - group: AI.Doc.Review.Keys
+  - template: vars/var-service-connections.yml
+
+# ----------------------------------------------------------------------------------------------------
+stages:
+- stage: ScanApplication
+  displayName: Scan Application
+  jobs:
+    - template: pipes/templates/scan-code-template.yml
+      parameters:
+        environmentName: 'DEV'
+        runMSDevSecOpsScan: ${{ parameters.runMSDevSecOpsScan }}
+        runGHASScan: false
+
+# ----------------------------------------------------------------------------------------------------
+- ${{ if ne(parameters.deployToEnvironment, 'DEV-PROD') }}:
+  - template: pipes/infra-only-pipe.yml
+    parameters:
+      environments: ['${{ parameters.deployToEnvironment }}']
+      templateFolderName: 'infra-as-code/bicep'
+      templateFileName: 'main.bicep'
+      parameterFileName: ${{ parameters.parameterFileName }}
+      singleEnvironment: 'true'
+      createResourceGroup: ${{ parameters.createResourceGroup }}
+      publicAccessEnabled: ${{ parameters.publicAccessEnabled }}
+      createDnsZones: ${{ parameters.createDnsZones }}
+      deployAIHub: ${{ parameters.deployAIHub }}
+      addRoleAssignments: ${{ parameters.addRoleAssignments }}
+      runMSDevSecOpsScan: false
+      runGHASScan: false
+
+- ${{ if eq(parameters.deployToEnvironment, 'DEV-PROD') }}:
+  - template: pipes/infra-only-pipe.yml
+    dependsOn: ScanApplication
+    parameters:
+      environments: ['DEV', 'PROD']
+      templateFolderName: 'infra-as-code/bicep'
+      templateFileName: 'main.bicep'
+      parameterFileName: ${{ parameters.parameterFileName }}
+      createResourceGroup: ${{ parameters.createResourceGroup }}
+      publicAccessEnabled: ${{ parameters.publicAccessEnabled }}
+      createDnsZones: ${{ parameters.createDnsZones }}
+      deployAIHub: ${{ parameters.deployAIHub }}
+      addRoleAssignments: ${{ parameters.addRoleAssignments }}
+      runMSDevSecOpsScan: false
+      runGHASScan: false
+
+# ----------------------------------------------------------------------------------------------------
+- template: pipes/aca-build-all-pipe.yml
+  parameters:
+    pushToACR: ${{ parameters.pushApps }}
+    deployUI: ${{ contains(parameters.apps, 'UI') }}
+    apiConfig: 
+      { containerAppName: 'ui',   acrAppName: 'chatui',   projectFolderName: 'website/chatui',       port: '8080' }
+
+# ----------------------------------------------------------------------------------------------------
+- template: pipes/aca-deploy-pipe.yml
+  parameters:
+    apps: [ 
+      { containerAppName: 'ui',   acrAppName: 'chatui',   projectFolderName: 'website/chatui',       port: '8080' }
+    ] 
+
+
+# ----------------------------------------------------------------------------------------------------
+- ${{ if parameters.deployAIHub }}:
+  - stage: DeployAIHubProject
+    displayName: Deploy AI Hub Project
+    jobs:
+    - template: pipes/templates/ai-foundry-project-deploy.yml
+      parameters:
+        environmentName: '${{ parameters.deployToEnvironment }}'
+        createResourceGroup: ${{ parameters.createResourceGroup }}
+        deployToResourceGroup: ${{ parameters.createResourceGroup }}

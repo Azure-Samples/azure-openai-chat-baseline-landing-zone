@@ -1,0 +1,22 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# Pipeline Template to deploy Azure Resources Only
+# ------------------------------------------------------------------------------------------------------------------------
+parameters:
+  - name: runMSDevSecOpsScan
+    default: 'false'
+  - name: runGHASScan
+    default: 'false'
+  - name: codeSection
+    default: 'app'
+
+# ----------------------------------------------------------------------------------------------------
+stages:
+  - stage: Scan${{parameters.codeSection}}
+    displayName: Scan ${{parameters.codeSection}}
+    jobs:
+      - template: templates/scan-code-template.yml
+        parameters:
+          environmentName: 'DEV'
+          runMSDevSecOpsScan: ${{ parameters.runMSDevSecOpsScan }}
+          runGHASScan: ${{ parameters.runGHASScan }}
+          codeSection: ${{ parameters.codeSection }}

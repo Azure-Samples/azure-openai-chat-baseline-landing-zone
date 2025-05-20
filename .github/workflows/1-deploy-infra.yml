@@ -1,0 +1,86 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# Action: Deploy Azure Resources via Bicep Files
+# ------------------------------------------------------------------------------------------------------------------------
+name: 1 - Deploy Infrastructure
+run-name: 1 - Deploy Infrastructure to ENV ${{ inputs.deployEnvironment }} by @${{ github.actor }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployEnvironment:
+        description: 'Environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - qa
+          - prod
+          - lyle
+          - scott
+          - piotr
+          - fernando
+          - preston
+          - chris
+          - matt
+      deploymentMode:
+        description: 'Bicep Deploy Mode'
+        required: true
+        default: 'Incremental'
+        type: choice
+        options:
+          - Incremental
+          - Validation
+          - Complete
+      parameterFile:
+        description: 'Parameter File'
+        required: true
+        default: 'main.gh.bicepparam'
+      createResourceGroup:
+        description: Create Resource Group?
+        type: boolean
+        default: true
+      publicAccessEnabled:
+        description: Public Access Enabled?
+        type: boolean
+        default: true
+      createDnsZones:
+        description: Create DNS Zones?
+        type: boolean
+        default: true
+      addRoleAssignments:
+        description: Add Role Assignments?
+        type: boolean
+        default: true
+      deployAIHub:
+        description: Deploy AI Hub?
+        type: boolean
+        default: true
+      runBuildDeployAPI:
+        description: 'Build and Deploy API'
+        required: false
+        default: true
+        type: boolean
+          
+jobs:
+  Deploy_Bicep:
+    name: Deploy ${{ inputs.deployEnvironment }} Bicep
+    uses: ./.github/workflows/template-create-infra.yml
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+      pages: write
+    with:
+      envCode: ${{ inputs.deployEnvironment }}
+      templatePath: './infra-as-code/bicep/'
+      templateFile: 'main.bicep'
+      parameterFile: ${{ inputs.parameterFile }}
+      parameterFileReplaceTokens: 'true'
+      deploymentMode: ${{ inputs.deploymentMode }}
+      createResourceGroup: ${{ inputs.createResourceGroup }}
+      publicAccessEnabled: ${{ inputs.publicAccessEnabled }}
+      createDnsZones: ${{ inputs.createDnsZones }}
+      deployAIHub: ${{ inputs.deployAIHub }}
+      addRoleAssignments: ${{ inputs.addRoleAssignments }}

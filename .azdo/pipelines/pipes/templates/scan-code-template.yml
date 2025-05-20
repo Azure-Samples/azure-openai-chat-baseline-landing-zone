@@ -1,0 +1,194 @@
+# ----------------------------------------------------------------------------------------------------
+# Code Scanning Template
+# ----------------------------------------------------------------------------------------------------
+# GitHub Advanced Security For Azure DevOps
+# To enable this, you must enable GHAzDO for this repository in your Azure DevOps Project
+# ----------------------------------------------------------------------------------------------------
+# Microsoft Secure DevOps Scan
+# To enable this, you must add Azure DevOps Extension to your Azure DevOps Organization
+# See https://marketplace.visualstudio.com/items?itemName=ms-securitydevops.microsoft-security-devops-azdevops
+# ----------------------------------------------------------------------------------------------------
+parameters:
+  - name: environmentName
+    default: 'DEV'
+  - name: runGHASScan
+    default: 'false'
+  - name: runMSDevSecOpsScan
+    default: 'false'
+  - name: continueOnScanError
+    default: 'true'
+  - name: codeSection
+    default: 'app'
+
+# ----------------------------------------------------------------------------------------------------
+jobs:
+  - deployment: CodeScanDeployment${{parameters.codeSection}}
+    displayName: Initialize Code Scans ${{parameters.codeSection}}
+    environment: ${{ parameters.environmentName }}
+
+  # ----------------------------------------------------------------------------------------------------
+  - ${{ if and(eq(lower(parameters.runGHASScan), 'false'), eq(lower(parameters.runMSDevSecOpsScan), 'false')) }}:
+      - job: NoScanJob
+        displayName: No Scan Requested
+        steps:
+          - bash: |
+              echo "No MS DevOps or GHAS scan requested!"
+            displayName: 'Stub Step'
+
+  # ----------------------------------------------------------------------------------------------------
+  - ${{ if eq(lower(parameters.runGHASScan), 'true') }}:
+      - job: GHASScanJob${{parameters.codeSection}}
+        displayName: GHAS Scan Job ${{parameters.codeSection}}
+        variables:
+          # Bring in environment common variable file
+          - template: ../../vars/var-common.yml
+          - ${{ if eq(lower(parameters.codeSection), 'app') }}:
+              - template: ../../vars/var-source-location-app.yml
+          - ${{ if eq(lower(parameters.codeSection), 'console') }}:
+              - template: ../../vars/var-source-location-console.yml
+          # Bring in environment specific variable files
+          - ${{ if eq(lower(parameters.environmentName), 'dev') }}:
+              - template: ../../vars/var-dev.yml
+          - ${{ if eq(lower(parameters.environmentName), 'qa') }}:
+              - template: ../../vars/var-qa.yml
+          - ${{ if eq(lower(parameters.environmentName), 'prod') }}:
+              - template: ../../vars/var-prod.yml
+        steps:
+          # Very basic simple example that might work sometimes...
+          # - task: AdvancedSecurity-Codeql-Init@1
+          #   inputs:
+          #     languages: 'csharp'
+          # - task: DotNetCoreCLI@2
+          #   inputs:
+          #     command: 'restore'
+          # - task: AdvancedSecurity-Dependency-Scanning@1
+          # - task: AdvancedSecurity-Codeql-Autobuild@1
+          # - task: AdvancedSecurity-Codeql-Analyze@1
+          # - task: AdvancedSecurity-Publish@1
+
+          - task: CmdLine@2
+            displayName: 'Display Variables and Tree'
+            inputs:
+              script: |
+                echo "parameters.continueOnScanError=${{ parameters.continueOnScanError }}"
+                echo "parameters.codeSection=${{ parameters.codeSection }}"
+                echo "appFolderName=$(appFolderName)"
+                echo "appSolutionName=$(appSolutionName)"
+                echo "appProjectName=$(appProjectName)"
+                echo "appProjectFolderName=$(appProjectFolderName)"
+                echo "workingDirectoryInfra=$(workingDirectoryInfra)"
+                echo "workingDirectoryIgnore=$(workingDirectoryIgnore)"
+                echo "Project Path: $(Build.SourcesDirectory)/$(appProjectFolderName)/*.$(appProjectExtension)"
+                echo "Build.SourcesDirectory=$(Build.SourcesDirectory)"
+                echo "----------------------------------------"
+                echo "##[group]Display All Environment Variables:"
+                printenv | sort
+                echo "##[endgroup]"
+                echo "------------------------------------------------"
+                echo "##[group]Directory of Project Files: $(Build.SourcesDirectory)/$(appProjectFolderName)"
+                tree -L 4 $(Build.SourcesDirectory)/$(appProjectFolderName)
+                echo "##[endgroup]"
+                echo "------------------------------------------------"
+                echo "##[group]Directory of Full Staging Directory: $(Build.SourcesDirectory)"
+                tree -L 4 $(Build.SourcesDirectory)
+                echo "##[endgroup]"
+            continueOnError: true
+
+          - task: AdvancedSecurity-Codeql-Init@1
+            displayName: GHAS Init
+            inputs:
+              languages: 'csharp'
+              querysuite: security-extended
+            #   sourcesfolder: $(appProjectFolderName)
+            #   codeqlpathstoinclude: $(appProjectFolderName)
+            #   codeqlpathstoignore: $(workingDirectoryIgnore)
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Restore project'
+            inputs:
+              command: 'restore'
+              projects: '$(Build.SourcesDirectory)/$(appProjectFolderName)/*.$(appProjectExtension)'
+
+          - ${{ if eq(lower(variables.appProjectExtension), 'csproj') }}:
+              - task: DotNetCoreCLI@2
+                displayName: Build CS Project
+                inputs:
+                  projects: '$(Build.SourcesDirectory)/$(appProjectFolderName)/*.$(appProjectExtension)'
+                  arguments: '--output publish_output --configuration Release'
+
+          - ${{ if eq(lower(variables.appProjectExtension), 'sqlproj') }}:
+              - task: VSBuild@1
+                displayName: Build DacPac Project
+                inputs:
+                  solution: '$(appFolderName)/$(appSolutionName).sln'
+                  platform: 'Any CPU'
+                  configuration: 'Release'
+
+          - task: AdvancedSecurity-Dependency-Scanning@1
+            displayName: GHAS Dependency Scanning
+            continueOnError: ${{ eq(parameters.continueOnScanError, 'true') }}
+
+            # If AutoBuild has failed, review the following troubleshooting steps.
+            # 1.  Verify that the language is set properly.
+            # 2.  Ensure that any configuration or dependencies are installed prior to the AutoBuild task.
+            # 3.  AutoBuild may not be suitable for your project. Replace the AutoBuild task in your pipeline with the normal build tasks
+            #     to build your project. This will give you more control over the build steps.
+            # I already built this in one of the previous steps, so I'm skipping this step.
+            # - ${{ if eq(lower(variables.appProjectExtension), 'csproj') }}:
+            #   - task: AdvancedSecurity-Codeql-Autobuild@1
+            #     displayName: GHAS AutoBuild
+            #     continueOnError: ${{ eq(parameters.continueOnScanError, 'true') }}
+
+          - task: AdvancedSecurity-Codeql-Analyze@1
+            displayName: GHAS Analyze
+            continueOnError: ${{ eq(parameters.continueOnScanError, 'true') }}
+
+          - task: AdvancedSecurity-Publish@1
+            displayName: GHAS Publish
+            continueOnError: ${{ eq(parameters.continueOnScanError, 'true') }}
+
+  # ----------------------------------------------------------------------------------------------------
+  - ${{ if eq(lower(parameters.runMSDevSecOpsScan), 'true') }}:
+      - job: DevSecOpsScanJob${{parameters.codeSection}}
+        displayName: DevSecOps Scan Job ${{parameters.codeSection}}
+        variables:
+          # Bring in environment common variable file
+          - template: ../../vars/var-common.yml
+          - ${{ if eq(lower(parameters.codeSection), 'app') }}:
+              - template: ../../vars/var-source-location-app.yml
+          - ${{ if eq(lower(parameters.codeSection), 'console') }}:
+              - template: ../../vars/var-source-location-console.yml
+          # Bring in environment specific variable files
+          - ${{ if eq(lower(parameters.environmentName), 'dev') }}:
+              - template: ../../vars/var-dev.yml
+          - ${{ if eq(lower(parameters.environmentName), 'qa') }}:
+              - template: ../../vars/var-qa.yml
+          - ${{ if eq(lower(parameters.environmentName), 'prod') }}:
+              - template: ../../vars/var-prod.yml
+        steps:
+          - bash: |
+              echo "parameters.runMSDevSecOpsScan=${{parameters.runMSDevSecOpsScan}}"
+              echo "parameters.continueOnScanError=${{parameters.continueOnScanError}}"
+              echo "sourceVariableFile=$(sourceVariableFile)"
+              echo "appProjectFolderName=$(appProjectFolderName)"
+              echo "workingDirectoryInfra=$(workingDirectoryInfra)"
+              echo "workingDirectoryIgnore=$(workingDirectoryIgnore)"
+              echo "----------------------------------------"
+              echo "##[group]Display All Environment Variables:"
+              printenv | sort
+              echo "##[endgroup]"
+              echo "----------------------------------------"
+              echo "##[group]Directory Listing for $(Pipeline.Workspace)"
+              tree -L 4 $(Pipeline.Workspace)
+              echo "##[endgroup]"
+            displayName: 'Display Variables'
+            continueOnError: true
+
+          - task: UseDotNet@2
+            displayName: 'Use dotnet 8.0'
+            inputs:
+              version: 8.0.x
+
+          - task: MicrosoftSecurityDevOps@1
+            displayName: 'Run Microsoft Security DevOps'
+            continueOnError: true

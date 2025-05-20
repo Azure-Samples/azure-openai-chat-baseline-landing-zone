@@ -1,0 +1,35 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# Pipeline to Run Security Scan
+# ------------------------------------------------------------------------------------------------------------------------
+name: $(date:yyyy).$(date:MM).$(date:dd)$(rev:.r)
+pool:
+  vmImage: ubuntu-latest
+
+# ------------------------------------------------------------------------------------------------------------------------
+trigger:
+  - none
+
+schedules:
+  - cron: '0 12 * * 3'
+    displayName: Scan Every Wednesday
+    branches:
+      include:
+        - main
+
+# ----------------------------------------------------------------------------------------------------
+parameters:
+  - name: runGHASScan
+    displayName: Run GHAS Scan
+    type: boolean
+    default: true
+  - name: runMSDevSecOpsScan
+    displayName: Run MS DevSecOps Scan
+    type: boolean
+    default: false
+
+# ----------------------------------------------------------------------------------------------------
+stages:
+  - template: pipes/scan-code-pipe.yml
+    parameters:
+      runGHASScan: ${{ parameters.runGHASScan }}
+      runMSDevSecOpsScan: ${{ parameters.runMSDevSecOpsScan }}

@@ -1,0 +1,105 @@
+# ----------------------------------------------------------------------------------------------------
+# Testing Pipeline to cleanup old things out of the subscription if you don't have rights to do it
+# ----------------------------------------------------------------------------------------------------
+trigger:
+  - none
+  
+pool:
+  vmImage: ubuntu-latest
+
+# ----------------------------------------------------------------------------------------------------
+parameters:
+  - name: runEnvironment
+    displayName: Run commands in
+    type: string
+    values:
+      - DEV
+      - QA
+
+# ----------------------------------------------------------------------------------------------------
+variables:
+  - group: AI.Doc.Review.Keys
+  - template: vars/var-service-connections.yml
+  - name: resourceGroupName
+    value: rg-ai-docs-dev
+
+  # Bring in environment specific variable files
+  - ${{ if eq(lower(parameters.runEnvironment), 'dev') }}:
+      - template: vars/var-dev.yml
+  - ${{ if eq(lower(parameters.runEnvironment), 'qa') }}:
+      - template: vars/var-qa.yml
+
+jobs:
+- job: CleanupJob
+  displayName: Cleanup ${{ parameters.runEnvironment }} objects
+  steps:
+  - task: AzureCLI@2
+    displayName: Run Cleanup Script
+    enabled: false
+    inputs:
+      AzureSubscription: $(serviceConnectionName)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        echo "Running in Resource Group=$(resourceGroupName)"
+        echo "Using Service Connection=$(serviceConnectionName)"
+
+        echo "##[group]Display All Environment Variables:"
+        printenv | sort
+        echo "##[endgroup]"
+
+        objectName=xxxlabelstdev
+          echo "Executing: az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'microsoft.storage/storageaccounts'"
+          az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'microsoft.storage/storageaccounts'
+
+# ----------------------------------------------------------------------------------------------------
+# Other Sample Commands
+# ----------------------------------------------------------------------------------------------------
+# objectName=xxxlabel-app-id 
+#   echo "Executing: az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'Microsoft.ManagedIdentity/userAssignedIdentities'"
+#   az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'Microsoft.ManagedIdentity/userAssignedIdentities'
+# objectName=xxxlabel-kv-id-dev
+#   echo "Executing: az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'Microsoft.ManagedIdentity/userAssignedIdentities'"
+#   az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'Microsoft.ManagedIdentity/userAssignedIdentities'
+# objectName=xxxlabel-appi-dev
+#   echo "Executing: az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'microsoft.insights/components'"
+#   az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'microsoft.insights/components'
+# objectName=xxxlabel-log-dev
+#   echo "Executing: az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'microsoft.insights/components'"
+#   az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'microsoft.insights/components'
+# objectName=xxxlabel-srch-dev
+#   echo "Executing: az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'microsoft.insights/components'"
+#   az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'microsoft.insights/components'
+# objectName=xxxlabelcrdev
+#   echo "Executing: az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'microsoft.containerregistry/registries'"
+#   az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'microsoft.containerregistry/registries'
+# objectName=xxxlabelkvdev
+#   echo "Executing: az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'microsoft.containerregistry/registries'"
+#   az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'microsoft.containerregistry/registries'
+# az network private-dns link vnet delete --resource-group $(resourceGroupName) --zone-name privatelink.azurecr.io --name XXXXXXXXX --yes
+# az network private-dns link vnet delete --resource-group $(resourceGroupName) --zone-name privatelink.openai.azure.com --name XXXXXXXXX --yes
+# az network private-dns link vnet delete --resource-group $(resourceGroupName) --zone-name privatelink.search.windows.net --name XXXXXXXXX --yes
+# az network private-dns link vnet delete --resource-group $(resourceGroupName) --zone-name privatelink.vaultcore.azure.net --name XXXXXXXXX --yes
+# az network private-dns zone delete --resource-group $(resourceGroupName) --name privatelink.azurecr.io --yes
+# az network private-dns zone delete --resource-group $(resourceGroupName) --name privatelink.openai.azure.com --yes
+# az network private-dns zone delete --resource-group $(resourceGroupName) --name privatelink.search.windows.net --yes
+# az network private-dns zone delete --resource-group $(resourceGroupName) --name privatelink.vaultcore.azure.net --yes
+# objectName=xxxlabel-vnet-dev
+#   echo "Executing: az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'microsoft.network/virtualnetworks'"
+#   az resource delete --resource-group $(resourceGroupName) --name $objectName --resource-type 'microsoft.network/virtualnetworks'
+
+  - task: AzureCLI@2
+    displayName: Run Nslookup
+    inputs:
+      AzureSubscription: $(serviceConnectionName)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        echo "Running in Resource Group=$(resourceGroupName)"
+        echo "Using Service Connection=$(serviceConnectionName)"
+
+        nslookup XXXlabel-ca-api-dev.DEPLOYNAME.centralus.azurecontainerapps.io
+        nslookup XXXlabelkvdev.vault.azure.net
+
+        curl -v https://XXXlabel-ca-api-dev.DEPLOYNAME.centralus.azurecontainerapps.io/health
+        

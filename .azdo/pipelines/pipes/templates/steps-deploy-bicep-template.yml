@@ -1,0 +1,84 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# Pipeline Steps Template -- steps to build and deploy Azure Resources via Bicep File
+# ------------------------------------------------------------------------------------------------------------------------
+parameters:
+  - name: serviceConnectionName
+    default: ''
+  - name: deploymentMode
+    default: 'Incremental' # 'Incremental' | 'Complete' | 'Validation'
+  - name: createResourceGroup
+    default: true
+  - name: deployToResourceGroup
+    default: true
+  - name: resourceGroupName
+    default: ''
+  - name: parseBicepOutputs
+    default: false
+
+# ------------------------------------------------------------------------------------------------------------------------
+steps:
+  - ${{ if parameters.deployToResourceGroup }}:
+    - ${{ if parameters.createResourceGroup }}:
+      - task: AzureCLI@2
+        displayName: 'Create $(environmentName) Resource Group'
+        inputs:
+          azureSubscription: ${{ parameters.serviceConnectionName }}
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: az group create --name ${{ parameters.resourceGroupName }} --location $(location) --tags LastDeployed=$(runDateTime) Application=$(appName) Environment=$(environmentName)
+
+    - task: AzureResourceManagerTemplateDeployment@3
+      displayName: 'Publish $(environmentName) Bicep Resources (RG)'
+      name: deployBicepRG
+      inputs:
+        csmFile: $(templateFile)
+        csmParametersFile: $(parameterFile)
+        deploymentScope: 'Resource Group'
+        resourceGroupName: ${{ parameters.resourceGroupName }}
+        azureResourceManagerConnection: ${{ parameters.serviceConnectionName }}
+        action: 'Create Or Update Resource Group'
+        location: $(location)
+        templateLocation: 'Linked artifact'
+        deploymentMode: ${{ parameters.deploymentMode }}
+        deploymentOutputs: bicepOutputs
+
+  - ${{ if ne(parameters.deployToResourceGroup, true) }}:
+      - task: AzureResourceManagerTemplateDeployment@3
+        displayName: 'Publish $(environmentName) Bicep Resources (Sub)'
+        name: deployBicepSub
+        inputs:
+          csmFile: $(templateFile)
+          csmParametersFile: $(parameterFile)
+          deploymentScope: 'Subscription'
+          azureResourceManagerConnection: ${{ parameters.serviceConnectionName }}
+          action: 'Create Or Update Resource Group'
+          location: $(location)
+          templateLocation: 'Linked artifact'
+          deploymentMode: ${{ parameters.deploymentMode }}
+          deploymentOutputs: bicepOutputs
+
+  # ------------------------------------------------------------------------------------------------------------------------
+  # If set, this task will parse the output variables from the Bicep deployment and set them as pipeline variables
+  # and the name of each NEW pipeline variable will be "bicepOutputs-<outputVariableName>"
+  # See: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-resource-manager-template-deployment-v3
+  # And: https://stackoverflow.com/questions/76236059/how-to-access-deploymentoutputs-from-azureresourcemanagertemplatedeployment
+  # ------------------------------------------------------------------------------------------------------------------------
+  - ${{ if parameters.parseBicepOutputs }}:
+    - task: PowerShell@2
+      displayName: 'Parse Bicep Output'
+      name: SetDeploymentOutputVariables
+      continueOnError: true
+      inputs:
+        targetType: inline
+        pwsh: true  # This task uses PowerShell Core for Linux agents and Windows PowerShell for Windows agents. On Windows agents, set the pwsh parm to true to use PowerShell Core instead.
+        script: |
+          Write-Output "input variable data: $(bicepOutputs)"
+          $armOutputObj = '$(bicepOutputs)' | ConvertFrom-Json
+          $armOutputObj.PSObject.Properties | ForEach-Object {
+            $keyname = "bicepOutputs-" + $_.Name
+            $value = $_.Value.value
+            # Creates a standard pipeline variable
+            Write-Output "##vso[task.setvariable variable=$keyName;issecret=false]$value"
+            # Display keys in pipeline
+            Write-Output "found output variable: $keyName"
+          }

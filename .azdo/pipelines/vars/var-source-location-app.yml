@@ -1,0 +1,15 @@
+# ----------------------------------------------------------------------------------------------------
+# Variables for location of source for application and ACA configuration settings for each app
+# ----------------------------------------------------------------------------------------------------
+variables:
+  - name: ACR_REPO_NAME
+    value: 'aiapps'
+
+  - name: UI_CONTAINER_APP_NAME
+    value: 'ui'
+  - name: API_PROJECT_FOLDER_NAME
+    value: 'app/Assistant.Hub.UI'
+  - name: UI_ACR_APP_NAME
+    value: 'assistantui'
+  - name: UI_PORT
+    value: '8080'

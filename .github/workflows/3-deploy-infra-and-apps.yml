@@ -1,0 +1,264 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# Action: Build and deploy all container app modules
+# ----------------------------------------------------------------------------------------------------
+# Note: in order to do multiple CA build/deploys, you need to change FW and login ONCE, otherwise
+# it tends to have token refresh issues and fail on the second and third app
+# ------------------------------------------------------------------------------------------------------------------------
+name: 3 - Deploy Infra, Build, Deploy All Apps
+run-name: 3 - Deploy Infra, Build, Deploy to ENV ${{ inputs.deployEnvironment }} by @${{ github.actor }}
+on:
+  # push:
+  #   branches:
+  #     - main
+  #   paths:
+  #     - app/**
+  workflow_dispatch:
+    inputs:
+      deployEnvironment:
+        description: 'Environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - qa
+          - prod
+          - lyle
+          - scott
+          - piotr
+          - fernando
+          - preston
+          - chris
+          - matt
+      parameterFile:
+        description: 'Parameter File'
+        required: true
+        default: 'main.gh.bicepparam'
+      createResourceGroup:
+        description: Create Resource Group?
+        type: boolean
+        default: true
+      publicAccessEnabled:
+        description: Public Access Enabled?
+        type: boolean
+        default: true
+      createDnsZones:
+        description: Create DNS Zones?
+        type: boolean
+        default: true
+      addRoleAssignments:
+        description: Add Role Assignments?
+        type: boolean
+        default: true
+      deployAIHub:
+        description: Deploy AI Hub?
+        type: boolean
+        default: true
+      runBuildDeployAPI:
+        description: 'Build and Deploy API'
+        required: false
+        default: true
+        type: boolean
+      runBuildDeployBatch:
+        description: 'Build and Deploy Batch'
+        required: false
+        default: false
+        type: boolean
+      runSecurityScan:
+        description: 'Run Security Scan'
+        required: false
+        default: false
+        type: boolean
+      # runSmokeTest:
+      #   description: 'Run Smoke Tests'
+      #   required: false
+      #   default: false
+      #   type: boolean
+
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: read # This is required for actions/checkout
+
+# ------------------------------------------------------------------------------------------------------------------------
+env:
+  # these are defined by the project itself, so they can stay here...
+  ACR_REPO_NAME: 'aiapps'
+
+  UI_APP_PATH: 'website/chatui'
+  UI_ACR_APP_NAME: 'chatui'
+  UI_PORT: '8080'
+
+# ------------------------------------------------------------------------------------------------------------------------
+jobs:
+  template-env:
+    # You can't pass environment variables to templates, so put them in outputs here that you CAN pass
+    name: Template Env Variables
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.deployEnvironment }}
+    outputs:
+      PROJECT_ROOT: ${{ github.workspace }}
+      ENV_CODE: ${{ inputs.deployEnvironment }}
+      APP_NAME: ${{ vars.APP_NAME }}
+      APP_NAME_NO_DASHES: ${{ vars.APP_NAME_NO_DASHES }}
+      RESOURCE_GROUP_NAME: '${{ vars.RESOURCEGROUP_PREFIX }}-${{ inputs.deployEnvironment }}'
+
+      ACR_NAME: '${{ vars.APP_NAME_NO_DASHES }}cr${{ inputs.deployEnvironment }}'
+      ACR_REPO_NAME: ${{ env.ACR_REPO_NAME }}
+      CONTAINER_APP_ENV_NAME: '${{ vars.APP_NAME_NO_DASHES }}-cae-${{ inputs.deployEnvironment }}'
+
+      UI_CONTAINER_APP_NAME: '${{ vars.APP_NAME_NO_DASHES }}-ca-api-${{ inputs.deployEnvironment }}'
+      UI_APP_PATH: ${{ env.UI_APP_PATH }}
+      UI_ACR_APP_NAME: ${{ env.UI_ACR_APP_NAME }}
+      UI_PORT: ${{ env.UI_PORT }}
+
+    steps:
+      - name: Set common environment variables
+        id: set-env
+        run: |
+          echo "PROJECT_ROOT: ${{ github.workspace }}"
+          echo "inputs.ENV_CODE: ${{ inputs.deployEnvironment }}"
+          echo "vars.APP_NAME: ${{ vars.APP_NAME }}"
+          echo "vars.APP_NAME_NO_DASHES: ${{ vars.APP_NAME_NO_DASHES }}"
+          echo "AZURE_RESOURCE_GROUP: ${{ vars.RESOURCEGROUP_PREFIX }}-${{ inputs.deployEnvironment }}"
+
+          echo "ACR_REPO_NAME: ${{ env.ACR_REPO_NAME }}"
+
+          echo "UI_APP_PATH: ${{ env.UI_APP_PATH }}"
+          echo "UI_ACR_APP_NAME: ${{ env.UI_ACR_APP_NAME }}"
+          echo "UI_PORT: ${{ env.UI_PORT }}"
+
+          echo "BATCH_APP_PATH: ${{ env.BATCH_APP_PATH }}"
+          echo "BATCH_ACR_APP_NAME: ${{ env.BATCH_ACR_APP_NAME }}"
+          echo "BATCH_PORT: ${{ env.BATCH_PORT }}"
+
+  # ------------------------------------------------------------------------------------------------------------------------
+  scan-code:
+    name: Scan Code
+    uses: ./.github/workflows/template-scan-code.yml
+    if: inputs.runSecurityScan
+    secrets: inherit
+    permissions:
+      actions: read
+      contents: write
+      checks: write
+      security-events: write
+
+  # ------------------------------------------------------------------------------------------------------------------------
+  deploy-bicep:
+    name: Deploy ${{ inputs.deployEnvironment }} Bicep
+    uses: ./.github/workflows/template-create-infra.yml
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+      pages: write
+    with:
+      envCode: ${{ inputs.deployEnvironment }}
+      templatePath: './infra-as-code/bicep/'
+      templateFile: 'main.bicep'
+      parameterFile: ${{ inputs.parameterFile }}
+      parameterFileReplaceTokens: 'true'
+      createResourceGroup: ${{ inputs.createResourceGroup }}
+      publicAccessEnabled: ${{ inputs.publicAccessEnabled }}
+      createDnsZones: ${{ inputs.createDnsZones }}
+      deployAIHub: ${{ inputs.deployAIHub }}
+      deployBatchApp: ${{ inputs.runBuildDeployBatch }}
+      addRoleAssignments: ${{ inputs.addRoleAssignments }}
+
+  # ------------------------------------------------------------------------------------------------------------------------
+  build-all:
+    name: Build All Apps
+    uses: ./.github/workflows/template-aca-build-all.yml
+    needs:
+      - template-env
+      - deploy-bicep
+    secrets: inherit
+    with:
+      ENV_CODE: ${{ inputs.deployEnvironment }}
+      ACR_NAME: ${{ needs.template-env.outputs.ACR_NAME }}
+      RESOURCE_GROUP: ${{ needs.template-env.outputs.RESOURCE_GROUP_NAME }}
+      ACR_REPO_NAME: ${{ needs.template-env.outputs.ACR_REPO_NAME }}
+
+      BUILD_DEPLOY_API: ${{ inputs.runBuildDeployAPI }}
+      UI_APP_PATH: ${{ needs.template-env.outputs.UI_APP_PATH }}
+      UI_ACR_APP_NAME: ${{ needs.template-env.outputs.UI_ACR_APP_NAME }}
+
+      BUILD_DEPLOY_BATCH: ${{ inputs.runBuildDeployBATCH }}
+      BATCH_APP_PATH: ${{ needs.template-env.outputs.BATCH_APP_PATH }}
+      BATCH_ACR_APP_NAME: ${{ needs.template-env.outputs.BATCH_ACR_APP_NAME }}
+
+  # ------------------------------------------------------------------------------------------------------------------------
+  deploy-api:
+    name: Deploy API ${{ inputs.deployEnvironment }} ${{ inputs.deployType }}
+    uses: ./.github/workflows/template-aca-deploy.yml
+    if: inputs.runBuildDeployAPI
+    needs:
+      - build-all
+      - template-env
+    secrets: inherit
+    with:
+      ENV_CODE: ${{ needs.template-env.outputs.ENV_CODE }}
+      RESOURCE_GROUP: ${{ needs.template-env.outputs.RESOURCE_GROUP_NAME }}
+      CONTAINER_APP_ENV_NAME: ${{ needs.build-all.outputs.UI_APP_PATH }}
+      CONTAINER_NAME: ${{ needs.template-env.outputs.UI_CONTAINER_APP_NAME }}
+      ACR_NAME: ${{ needs.template-env.outputs.ACR_NAME }}
+      IMAGE_NAME: ${{ needs.build-all.outputs.API_IMAGE_NAME }}
+      PORT: ${{ needs.template-env.outputs.UI_PORT }}
+
+  # ------------------------------------------------------------------------------------------------------------------------
+  deploy-batch:
+    name: Deploy Batch ${{ inputs.deployEnvironment }} ${{ inputs.deployType }}
+    uses: ./.github/workflows/template-aca-deploy.yml
+    if: inputs.runBuildDeployBatch
+    needs:
+      - build-all
+      - template-env
+    secrets: inherit
+    with:
+      ENV_CODE: ${{ needs.template-env.outputs.ENV_CODE }}
+      RESOURCE_GROUP: ${{ needs.template-env.outputs.RESOURCE_GROUP_NAME }}
+      CONTAINER_APP_ENV_NAME: ${{ needs.build-all.outputs.BATCH_APP_PATH }}
+      CONTAINER_NAME: ${{ needs.template-env.outputs.BATCH_CONTAINER_APP_NAME }}
+      ACR_NAME: ${{ needs.template-env.outputs.ACR_NAME }}
+      IMAGE_NAME: ${{ needs.build-all.outputs.BATCH_IMAGE_NAME }}
+      PORT: ${{ needs.template-env.outputs.BATCH_PORT }}
+
+  # ------------------------------------------------------------------------------------------------------------------------
+  # Deploy a Project inside the AI Foundry Hub
+  # ------------------------------------------------------------------------------------------------------------------------
+  deploy-hub-project:
+    name: Deploy Hub Project ${{ inputs.deployEnvironment }}
+    uses: ./.github/workflows/template-ai-hub-project-deploy.yml
+    if: inputs.deployAIHub
+    needs:
+      - deploy-bicep
+      - template-env
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+      pages: write
+    with:
+      envCode: ${{ inputs.deployEnvironment }}
+      resourceGroupName: ${{ needs.template-env.outputs.RESOURCE_GROUP_NAME }}
+
+  # # ------------------------------------------------------------------------------------------------------------------------
+  # # Future use...!
+  # # ------------------------------------------------------------------------------------------------------------------------
+  # smoke-test:
+  #   name: Smoke Test
+  #   uses: ./.github/workflows/template-smoke-test.yml
+  #   if: inputs.runSmokeTest
+  #   needs: deploy-ui
+  #   secrets: inherit
+  #   permissions:
+  #     contents: write
+  #     issues: read
+  #     checks: write
+  #     pull-requests: read
+  #   with:
+  #     envCode: ${{ inputs.deployEnvironment }}
+  #     testPath: 'playwright/ui-tests'
+  #     testType: 'ui'
