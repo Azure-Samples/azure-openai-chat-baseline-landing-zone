@@ -106,6 +106,34 @@ resource hubVirtualNetwork 'Microsoft.Network/virtualNetworks@2024-05-01' = {
           routeTable: { id: egressRouteTable.id }
         }
       }
+      {
+        name: 'snet-dnsResolverInbound'
+        properties: {
+          addressPrefix: dnsResolverInboundSubnetPrefix
+          delegations: [
+            {
+              name: 'Microsoft.Network/dnsResolvers'
+              properties: { serviceName: 'Microsoft.Network/dnsResolvers' }
+            }
+          ]
+          privateEndpointNetworkPolicies: 'Disabled'
+          privateLinkServiceNetworkPolicies: 'Enabled'
+        }
+      }
+      {
+        name: 'snet-dnsResolverOutbound'
+        properties: {
+          addressPrefix: dnsResolverOutboundSubnetPrefix
+          delegations: [
+            {
+              name: 'Microsoft.Network/dnsResolvers'
+              properties: { serviceName: 'Microsoft.Network/dnsResolvers' }
+            }
+          ]
+          privateEndpointNetworkPolicies: 'Disabled'
+          privateLinkServiceNetworkPolicies: 'Enabled'
+        }
+      }
     ]
   }
 }

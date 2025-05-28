@@ -11,16 +11,13 @@ param spokeBaseName string = 'spoke'
 @description('Hub VNet resource ID for peering')
 param hubVirtualNetworkId string
 
-@description('Hub VNet name for peering')
-param hubVirtualNetworkName string
+@description('Hub DNS Resolver inbound endpoint IP')
+param hubDnsResolverIp string = '10.0.3.4'
 
-@description('Route table resource ID from hub for egress routing')
-param egressRouteTableId string
+@description('Hub firewall private IP for routing')
+param hubFirewallPrivateIp string = '10.0.1.4'
 
-@description('Private DNS zone resource IDs from hub')
-param privateDnsZoneIds object
-
-// Spoke VNet configuration (192.168.x.x required for AI Agent Services)
+// Spoke VNet configuration (using 192.168.x.x as required for AI Agent Service)
 var spokeVirtualNetworkAddressPrefix = '192.168.0.0/16'
 var appGatewaySubnetPrefix = '192.168.1.0/24'
 var appServicesSubnetPrefix = '192.168.0.0/24'
@@ -30,9 +27,34 @@ var aiAgentsEgressSubnetPrefix = '192.168.3.0/24'
 
 var spokeVirtualNetworkName = 'vnet-${spokeBaseName}'
 
+// Route Table for spoke traffic through hub firewall
+resource spokeRouteTable 'Microsoft.Network/routeTables@2024-05-01' = {
+  name: 'udr-spoke-to-firewall'
+  location: location
+  properties: {
+    routes: [
+      {
+        name: 'internet-to-hub-firewall'
+        properties: {
+          addressPrefix: '0.0.0.0/0'
+          nextHopType: 'VirtualAppliance'
+          nextHopIpAddress: hubFirewallPrivateIp
+        }
+      }
+      {
+        name: 'hub-vnet-direct'
+        properties: {
+          addressPrefix: '10.0.0.0/16'
+          nextHopType: 'VnetLocal'
+        }
+      }
+    ]
+  }
+}
+
 // NSG for AI Agents Egress Subnet
-resource azureAiAgentServiceSubnetNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
-  name: 'nsg-agentsEgressSubnet'
+resource aiAgentsEgressNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
+  name: 'nsg-aiAgentsEgress'
   location: location
   properties: {
     securityRules: [
@@ -95,13 +117,49 @@ resource azureAiAgentServiceSubnetNsg 'Microsoft.Network/networkSecurityGroups@2
   }
 }
 
+// NSG for Private Endpoints Subnet
+resource privateEndpointsNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
+  name: 'nsg-privateEndpoints'
+  location: location
+  properties: {
+    securityRules: [
+      {
+        name: 'AllowVnetInBound'
+        properties: {
+          protocol: '*'
+          sourcePortRange: '*'
+          destinationPortRange: '*'
+          sourceAddressPrefix: 'VirtualNetwork'
+          destinationAddressPrefix: 'VirtualNetwork'
+          access: 'Allow'
+          priority: 100
+          direction: 'Inbound'
+        }
+      }
+      {
+        name: 'DenyAllInBound'
+        properties: {
+          protocol: '*'
+          sourcePortRange: '*'
+          sourceAddressPrefix: '*'
+          destinationPortRange: '*'
+          destinationAddressPrefix: '*'
+          access: 'Deny'
+          priority: 1000
+          direction: 'Inbound'
+        }
+      }
+    ]
+  }
+}
+
 // Spoke Virtual Network
 resource spokeVirtualNetwork 'Microsoft.Network/virtualNetworks@2024-05-01' = {
   name: spokeVirtualNetworkName
   location: location
   properties: {
     addressSpace: { addressPrefixes: [spokeVirtualNetworkAddressPrefix] }
-    dhcpOptions: { dnsServers: ['10.0.1.4'] } // Points to hub firewall for DNS
+    dhcpOptions: { dnsServers: [hubDnsResolverIp] } // Points to hub DNS Resolver
     subnets: [
       {
         name: 'snet-appGateway'
@@ -110,7 +168,7 @@ resource spokeVirtualNetwork 'Microsoft.Network/virtualNetworks@2024-05-01' = {
           delegations: []
           privateEndpointNetworkPolicies: 'Disabled'
           privateLinkServiceNetworkPolicies: 'Enabled'
-          routeTable: { id: egressRouteTableId }
+          routeTable: { id: spokeRouteTable.id }
         }
       }
       {
@@ -125,7 +183,7 @@ resource spokeVirtualNetwork 'Microsoft.Network/virtualNetworks@2024-05-01' = {
           ]
           privateEndpointNetworkPolicies: 'Disabled'
           privateLinkServiceNetworkPolicies: 'Enabled'
-          routeTable: { id: egressRouteTableId }
+          routeTable: { id: spokeRouteTable.id }
         }
       }
       {
@@ -135,7 +193,8 @@ resource spokeVirtualNetwork 'Microsoft.Network/virtualNetworks@2024-05-01' = {
           delegations: []
           privateEndpointNetworkPolicies: 'Disabled'
           privateLinkServiceNetworkPolicies: 'Enabled'
-          routeTable: { id: egressRouteTableId }
+          networkSecurityGroup: { id: privateEndpointsNsg.id }
+          routeTable: { id: spokeRouteTable.id }
         }
       }
       {
@@ -145,11 +204,11 @@ resource spokeVirtualNetwork 'Microsoft.Network/virtualNetworks@2024-05-01' = {
           delegations: []
           privateEndpointNetworkPolicies: 'Disabled'
           privateLinkServiceNetworkPolicies: 'Enabled'
-          routeTable: { id: egressRouteTableId }
+          routeTable: { id: spokeRouteTable.id }
         }
       }
       {
-        name: 'snet-agentsEgress'
+        name: 'snet-aiAgentsEgress'
         properties: {
           addressPrefix: aiAgentsEgressSubnetPrefix
           delegations: [
@@ -158,11 +217,11 @@ resource spokeVirtualNetwork 'Microsoft.Network/virtualNetworks@2024-05-01' = {
               properties: { serviceName: 'Microsoft.App/environments' }
             }
           ]
-          networkSecurityGroup: { id: azureAiAgentServiceSubnetNsg.id }
+          networkSecurityGroup: { id: aiAgentsEgressNsg.id }
           privateEndpointNetworkPolicies: 'Disabled'
           privateLinkServiceNetworkPolicies: 'Enabled'
           defaultOutboundAccess: false
-          routeTable: { id: egressRouteTableId }
+          routeTable: { id: spokeRouteTable.id }
         }
       }
     ]
@@ -171,7 +230,7 @@ resource spokeVirtualNetwork 'Microsoft.Network/virtualNetworks@2024-05-01' = {
 
 // VNet Peering: Spoke to Hub
 resource spokeToHubPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2024-05-01' = {
-  name: 'peer-to-${hubVirtualNetworkName}'
+  name: 'peer-to-hub'
   parent: spokeVirtualNetwork
   properties: {
     allowVirtualNetworkAccess: true
@@ -182,88 +241,11 @@ resource spokeToHubPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeer
   }
 }
 
-// VNet Peering: Hub to Spoke (deployed in hub resource group)
-resource hubToSpokePeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2024-05-01' = {
-  name: '${hubVirtualNetworkName}/peer-to-${spokeVirtualNetworkName}'
-  properties: {
-    allowVirtualNetworkAccess: true
-    allowForwardedTraffic: true
-    allowGatewayTransit: true
-    useRemoteGateways: false
-    remoteVirtualNetwork: { id: spokeVirtualNetwork.id }
-  }
-}
-
-// Link private DNS zones from hub to spoke VNet
-resource privateDnsZoneVnetLinkCognitiveServices 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
-  name: 'privatelink.cognitiveservices.azure.com/link-to-${spokeVirtualNetworkName}'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: { id: spokeVirtualNetwork.id }
-  }
-}
-
-resource privateDnsZoneVnetLinkAiServices 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
-  name: 'privatelink.services.ai.azure.com/link-to-${spokeVirtualNetworkName}'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: { id: spokeVirtualNetwork.id }
-  }
-}
-
-resource privateDnsZoneVnetLinkOpenAi 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
-  name: 'privatelink.openai.azure.com/link-to-${spokeVirtualNetworkName}'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: { id: spokeVirtualNetwork.id }
-  }
-}
-
-resource privateDnsZoneVnetLinkSearch 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
-  name: 'privatelink.search.windows.net/link-to-${spokeVirtualNetworkName}'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: { id: spokeVirtualNetwork.id }
-  }
-}
-
-resource privateDnsZoneVnetLinkBlob 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
-  name: 'privatelink.blob.core.windows.net/link-to-${spokeVirtualNetworkName}'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: { id: spokeVirtualNetwork.id }
-  }
-}
-
-resource privateDnsZoneVnetLinkCosmosDb 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
-  name: 'privatelink.documents.azure.com/link-to-${spokeVirtualNetworkName}'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: { id: spokeVirtualNetwork.id }
-  }
-}
-
-resource privateDnsZoneVnetLinkKeyVault 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
-  name: 'privatelink.vaultcore.azure.net/link-to-${spokeVirtualNetworkName}'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: { id: spokeVirtualNetwork.id }
-  }
-}
-
-resource privateDnsZoneVnetLinkWebsites 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
-  name: 'privatelink.azurewebsites.net/link-to-${spokeVirtualNetworkName}'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: { id: spokeVirtualNetwork.id }
-  }
-}
-
 // Outputs
 output spokeVirtualNetworkName string = spokeVirtualNetwork.name
 output spokeVirtualNetworkId string = spokeVirtualNetwork.id
-output appGatewaySubnetResourceId string = '${spokeVirtualNetwork.id}/subnets/snet-appGateway'
 output appServicesSubnetResourceId string = '${spokeVirtualNetwork.id}/subnets/snet-appServices'
 output privateEndpointsSubnetResourceId string = '${spokeVirtualNetwork.id}/subnets/snet-privateEndpoints'
 output buildAgentsSubnetResourceId string = '${spokeVirtualNetwork.id}/subnets/snet-buildAgents'
-output agentsEgressSubnetResourceId string = '${spokeVirtualNetwork.id}/subnets/snet-agentsEgress' 
+output aiAgentsEgressSubnetResourceId string = '${spokeVirtualNetwork.id}/subnets/snet-aiAgentsEgress'
+output appGatewaySubnetResourceId string = '${spokeVirtualNetwork.id}/subnets/snet-appGateway' 
