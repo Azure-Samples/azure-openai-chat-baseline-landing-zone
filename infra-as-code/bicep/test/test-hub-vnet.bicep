@@ -28,6 +28,8 @@ var azureFirewallSubnetPrefix = '10.0.1.0/26'
 var azureFirewallManagementSubnetPrefix = '10.0.1.64/26'
 var bastionSubnetPrefix = '10.0.2.0/26'
 var jumpBoxSubnetPrefix = '10.0.2.64/27'
+var dnsResolverInboundSubnetPrefix = '10.0.3.0/28'
+var dnsResolverOutboundSubnetPrefix = '10.0.3.16/28'
 
 var hubVirtualNetworkName = 'vnet-${hubBaseName}'
 
@@ -615,6 +617,75 @@ resource updateRouteTableWithFirewallIp 'Microsoft.Resources/deployments@2024-03
   dependsOn: [azureFirewall]
 }
 
+// Private DNS Resolver
+resource privateDnsResolver 'Microsoft.Network/dnsResolvers@2022-07-01' = {
+  name: 'dnsresolver-${hubBaseName}'
+  location: location
+  properties: {
+    virtualNetwork: { id: hubVirtualNetwork.id }
+  }
+}
+
+resource dnsResolverInboundEndpoint 'Microsoft.Network/dnsResolvers/inboundEndpoints@2022-07-01' = {
+  name: 'inbound-endpoint'
+  parent: privateDnsResolver
+  location: location
+  properties: {
+    ipConfigurations: [{
+      privateIpAllocationMethod: 'Static'
+      privateIpAddress: '10.0.3.4'
+      subnet: { id: '${hubVirtualNetwork.id}/subnets/snet-dnsResolverInbound' }
+    }]
+  }
+}
+
+resource dnsResolverOutboundEndpoint 'Microsoft.Network/dnsResolvers/outboundEndpoints@2022-07-01' = {
+  name: 'outbound-endpoint'
+  parent: privateDnsResolver
+  location: location
+  properties: {
+    subnet: { id: '${hubVirtualNetwork.id}/subnets/snet-dnsResolverOutbound' }
+  }
+}
+
+resource dnsForwardingRuleset 'Microsoft.Network/dnsForwardingRulesets@2022-07-01' = {
+  name: 'ruleset-${hubBaseName}'
+  location: location
+  properties: {
+    dnsResolverOutboundEndpoints: [
+      { id: dnsResolverOutboundEndpoint.id }
+    ]
+  }
+}
+
+// Update VNet DNS settings to point to DNS Resolver after it's deployed
+resource updateVnetDnsSettings 'Microsoft.Resources/deployments@2024-03-01' = {
+  name: 'updateVnetDnsSettings'
+  properties: {
+    mode: 'Incremental'
+    template: {
+      '$schema': 'https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#'
+      contentVersion: '1.0.0.0'
+      resources: [
+        {
+          type: 'Microsoft.Network/virtualNetworks'
+          apiVersion: '2024-05-01'
+          name: hubVirtualNetwork.name
+          location: location
+          properties: {
+            addressSpace: { addressPrefixes: ['10.0.0.0/16'] }
+            dhcpOptions: {
+              dnsServers: [dnsResolverInboundEndpoint.properties.ipConfigurations[0].privateIpAddress]
+            }
+            subnets: hubVirtualNetwork.properties.subnets
+          }
+        }
+      ]
+    }
+  }
+  dependsOn: [dnsResolverInboundEndpoint]
+}
+
 // Outputs
 output hubVirtualNetworkName string = hubVirtualNetwork.name
 output hubVirtualNetworkId string = hubVirtualNetwork.id
@@ -630,5 +701,6 @@ output privateDnsZoneIds object = {
   cosmosdb: privateDnsZone[5].id
   keyvault: privateDnsZone[6].id
   websites: privateDnsZone[7].id
-} 
+}
+output dnsResolverInboundEndpointIp string = dnsResolverInboundEndpoint.properties.ipConfigurations[0].privateIpAddress 
 
