@@ -152,6 +152,13 @@ resource egressRouteTable 'Microsoft.Network/routeTables@2024-05-01' = {
           nextHopIpAddress: '10.0.1.4' // Placeholder, will be updated
         }
       }
+      {
+        name: 'spoke-vnet-direct'
+        properties: {
+          addressPrefix: '192.168.0.0/16'
+          nextHopType: 'VnetLocal'
+        }
+      }
     ]
   }
 }
@@ -634,6 +641,13 @@ resource updateRouteTableWithFirewallIp 'Microsoft.Resources/deployments@2024-03
                   addressPrefix: '0.0.0.0/0'
                   nextHopType: 'VirtualAppliance'
                   nextHopIpAddress: azureFirewall.properties.ipConfigurations[0].properties.privateIPAddress
+                }
+              }
+              {
+                name: 'spoke-vnet-direct'
+                properties: {
+                  addressPrefix: '192.168.0.0/16'
+                  nextHopType: 'VnetLocal'
                 }
               }
             ]
