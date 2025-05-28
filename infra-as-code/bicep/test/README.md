@@ -1,4 +1,4 @@
-# Azure AI Agent Service Mini Landing Zone - Test Environment
+# Azure AI Agent Service Mini Azure Platform Landing Zone - Test Environment
 
 This test environment provides a complete **Hub-Spoke architecture** ready for Azure AI Agent Service deployment. It demonstrates the network infrastructure patterns required for the full Azure AI Agent Service migration.
 
@@ -130,11 +130,25 @@ az network vnet peering list --resource-group rg-spoke-test --vnet-name vnet-spo
 # Both should show "Connected" and "FullyInSync"
 ```
 
-### **3. Test Firewall Routing**
+### **3. Test Hub-to-Spoke Connectivity**
+```bash
+# From jump box, test connectivity to spoke VNet
+# This should work directly (not through firewall) due to VnetLocal route
+ping 192.168.0.1  # Should reach spoke VNet directly
+tracert 192.168.0.1  # Should show direct path, not via firewall
+```
+
+### **4. Test Firewall Routing**
 ```bash
 # Check effective routes on spoke subnets
 az network nic show-effective-route-table --resource-group rg-spoke-test --name <nic-name>
 # Should show 0.0.0.0/0 -> 10.0.1.4 (firewall IP)
+# Should show 10.0.0.0/16 -> VnetLocal (direct to hub)
+
+# Check effective routes on hub subnets
+az network nic show-effective-route-table --resource-group rg-hub-test --name nic-jumpbox
+# Should show 0.0.0.0/0 -> 10.0.1.4 (firewall IP)
+# Should show 192.168.0.0/16 -> VnetLocal (direct to spoke)
 ```
 
 ## 📁 File Structure
@@ -227,4 +241,35 @@ az network bastion ssh --name bastion-hub --resource-group rg-hub-test --target-
 - [Azure AI Agent Service Documentation](https://docs.microsoft.com/azure/ai-services/agents/)
 - [Azure Private DNS Resolver](https://docs.microsoft.com/azure/dns/dns-private-resolver-overview)
 - [Azure Firewall Basic](https://docs.microsoft.com/azure/firewall/basic-features)
-- [VNet Peering](https://docs.microsoft.com/azure/virtual-network/virtual-network-peering-overview) 
+- [VNet Peering](https://docs.microsoft.com/azure/virtual-network/virtual-network-peering-overview)
+
+## 🎉 DEPLOYMENT COMPLETED SUCCESSFULLY!
+═══════════════════════════════════════════════════════════════════════════════
+
+📦 Resource Groups Created:
+   • rg-hub-test (Hub infrastructure)
+   • rg-spoke-test (Spoke infrastructure)
+
+🌐 Network Configuration:
+   • Hub VNet: $($HubOutputs.VNetName) (10.0.0.0/16)
+   • Spoke VNet: $($SpokeOutputs.VNetName) (192.168.0.0/16)
+   • VNet Peering: ✅ Connected
+
+🔧 Key Infrastructure Components:
+   • Azure Firewall Private IP: $($HubOutputs.FirewallPrivateIp)
+   • DNS Resolver Inbound IP: $($HubOutputs.DnsResolverIp)
+   • Azure Bastion: bastion-$HubBaseName
+   • Jump Box VM: vm-jumpbox-$HubBaseName
+
+🧪 Testing Your Environment:
+   1. Connect to jump box via Azure Bastion
+   2. Test DNS resolution: nslookup privatelink.cognitiveservices.azure.com
+   3. Verify internet access through firewall
+
+🔄 Next Steps:
+   1. Deploy Azure AI Foundry in the spoke VNet
+   2. Create private endpoints in snet-privateEndpoints
+   3. Deploy AI Agent Service in snet-aiAgentsEgress
+
+🧹 Cleanup:
+   Run .\cleanup.ps1 to remove all resources when done 

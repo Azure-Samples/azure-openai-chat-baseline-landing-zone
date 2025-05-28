@@ -135,53 +135,61 @@ module keyVaultModule 'keyvault.bicep' = {
   }
 }
 
-// Deploy Azure Container Registry with private endpoint and private DNS zone
-module acrModule 'acr.bicep' = {
-  name: 'acrDeploy'
-  scope: rgWorkload
-  params: {
-    location: rgWorkload.location
-    baseName: baseName
-    vnetName: networkModule.outputs.vnetName
-    virtualNetworkResourceGroupName: rgSpoke.name
-    privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
-    buildAgentSubnetName: networkModule.outputs.agentSubnetName
-    logWorkspaceName: monitoringModule.outputs.logWorkspaceName
-  }
-}
-
-// Deploy Azure OpenAI service with private endpoint
-module openaiModule 'openai.bicep' = {
-  name: 'openaiDeploy'
-  scope: rgWorkload
-  params: {
-    location: rgWorkload.location
-    baseName: baseName
-    vnetName: networkModule.outputs.vnetName
-    virtualNetworkResourceGroupName: rgSpoke.name
-    privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
-    logWorkspaceName: monitoringModule.outputs.logWorkspaceName
-  }
-}
-
-// Deploy Azure Azure AI Foundry with private networking
-module aiFoundryModule 'machinelearning.bicep' = {
+// Deploy Azure AI Foundry with Azure AI Agent capability
+module aiFoundryModule 'ai-foundry.bicep' = {
   name: 'aiFoundryDeploy'
   scope: rgWorkload
   params: {
     location: rgWorkload.location
     baseName: baseName
-    vnetName: networkModule.outputs.vnetName
-    virtualNetworkResourceGroupName: rgSpoke.name
-    privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
-    applicationInsightsName: monitoringModule.outputs.applicationInsightsName
-    keyVaultName: keyVaultModule.outputs.keyVaultName
-    aiFoundryStorageAccountName: storageModule.outputs.mlDeployStorageName
-    containerRegistryName: 'cr${baseName}'
-    logWorkspaceName: monitoringModule.outputs.logWorkspaceName
-    openAiResourceName: openaiModule.outputs.openAiResourceName
+    logAnalyticsWorkspaceName: monitoringModule.outputs.logWorkspaceName
+    privateEndpointSubnetResourceId: '${rgSpoke.id}/providers/Microsoft.Network/virtualNetworks/${networkModule.outputs.vnetName}/subnets/${networkModule.outputs.privateEndpointsSubnetName}'
     yourPrincipalId: yourPrincipalId
+    hubResourceGroupName: rgSpoke.name
   }
+}
+
+// Deploy Azure AI Agent Service dependencies
+module aiAgentDependenciesModule 'ai-agent-service-dependencies.bicep' = {
+  name: 'aiAgentDependenciesDeploy'
+  scope: rgWorkload
+  params: {
+    location: rgWorkload.location
+    baseName: baseName
+    logAnalyticsWorkspaceName: monitoringModule.outputs.logWorkspaceName
+    debugUserPrincipalId: yourPrincipalId
+    privateEndpointSubnetResourceId: '${rgSpoke.id}/providers/Microsoft.Network/virtualNetworks/${networkModule.outputs.vnetName}/subnets/${networkModule.outputs.privateEndpointsSubnetName}'
+    hubResourceGroupName: rgSpoke.name
+  }
+}
+
+// Deploy Bing account for Internet grounding
+module bingModule 'bing-grounding.bicep' = {
+  name: 'bingDeploy'
+  scope: rgWorkload
+}
+
+// Deploy Azure AI Foundry project
+module aiFoundryProjectModule 'ai-foundry-project.bicep' = {
+  name: 'aiFoundryProjectDeploy'
+  scope: rgWorkload
+  params: {
+    location: rgWorkload.location
+    existingAiFoundryName: aiFoundryModule.outputs.aiFoundryName
+    existingAISearchAccountName: aiAgentDependenciesModule.outputs.aiSearchName
+    existingCosmosDbAccountName: aiAgentDependenciesModule.outputs.cosmosDbAccountName
+    existingStorageAccountName: aiAgentDependenciesModule.outputs.storageAccountName
+    existingBingAccountName: bingModule.outputs.bingAccountName
+    existingApplicationInsightsName: monitoringModule.outputs.applicationInsightsName
+    existingKeyVaultName: keyVaultModule.outputs.keyVaultName
+  }
+  dependsOn: [
+    aiFoundryModule
+    aiAgentDependenciesModule
+    bingModule
+    monitoringModule
+    keyVaultModule
+  ]
 }
 
 //Deploy an Azure Application Gateway with WAF v2 and a custom domain name.
@@ -209,10 +217,9 @@ module webappModule 'webapp.bicep' = {
   params: {
     location: rgWorkload.location
     baseName: baseName
-    managedOnlineEndpointResourceId: aiFoundryModule.outputs.managedOnlineEndpointResourceId
-    acrName: acrModule.outputs.acrName
+    managedOnlineEndpointResourceId: aiFoundryProjectModule.outputs.managedOnlineEndpointResourceId
     publishFileName: publishFileName
-    openAIName: openaiModule.outputs.openAiResourceName
+    openAIName: aiFoundryModule.outputs.openAiResourceName
     keyVaultName: keyVaultModule.outputs.keyVaultName
     storageName: storageModule.outputs.appDeployStorageName
     vnetName: networkModule.outputs.vnetName
