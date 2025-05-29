@@ -39,7 +39,7 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2025-02
 }
 
 // Cosmos DB
-resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15-preview' = {
+resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-12-01-preview' = {
   name: cosmosDbAccountName
   location: location
   kind: 'GlobalDocumentDB'
@@ -55,7 +55,7 @@ resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15-previ
     networkAclBypassResourceIds: []
     ipRules: []
     virtualNetworkRules: []
-    capacityMode: 'Serverless'
+    capabilities: [{ name: 'EnableServerless' }]
     backupPolicy: {
       type: 'Periodic'
       periodicModeProperties: {

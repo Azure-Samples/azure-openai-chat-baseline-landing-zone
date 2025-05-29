@@ -42,6 +42,9 @@ param existingPrivateEndpointsSubnetName string
 @description('Name of the existing build agents subnet')
 param existingBuildAgentsSubnetName string
 
+@description('Name of the existing AI agents egress subnet')
+param existingAiAgentsEgressSubnetName string
+
 @description('Resource ID of the existing route table for build agents subnet')
 param existingBuildAgentsSubnetUdrResourceId string
 
@@ -59,16 +62,22 @@ resource rgSpoke 'Microsoft.Resources/resourceGroups@2024-03-01' existing = {
   name: existingSpokeVirtualNetworkResourceGroupName
 }
 
-// Reference existing Application Insights instead of deploying new one
-resource existingAppInsights 'Microsoft.Insights/components@2020-02-02' existing = {
-  name: existingWebApplicationInsightsResourceName
-  scope: rgSpoke
-}
-
 // We'll get the Log Analytics workspace from the hub resource group
 resource existingLogAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
   name: 'log-hub'
   scope: resourceGroup(hubResourceGroupName)
+}
+
+// Deploy Application Insights in the spoke resource group
+module deployApplicationInsights 'applicationinsights.bicep' = {
+  name: 'applicationInsightsDeploy'
+  scope: rgSpoke
+  params: {
+    location: rgSpoke.location
+    baseName: baseName
+    logAnalyticsWorkspaceName: existingLogAnalytics.name
+    hubResourceGroupName: hubResourceGroupName
+  }
 }
 
 // Deploy Key Vault in the spoke resource group
@@ -109,7 +118,8 @@ module deployAzureAIFoundry 'ai-foundry.bicep' = {
     location: rgSpoke.location
     baseName: baseName
     logAnalyticsWorkspaceName: existingLogAnalytics.name
-    agentSubnetResourceId: '${existingResourceIdForSpokeVirtualNetwork}/subnets/${existingBuildAgentsSubnetName}'
+    hubResourceGroupName: hubResourceGroupName
+    agentSubnetResourceId: '${existingResourceIdForSpokeVirtualNetwork}/subnets/${existingAiAgentsEgressSubnetName}'
     privateEndpointSubnetResourceId: '${existingResourceIdForSpokeVirtualNetwork}/subnets/${existingPrivateEndpointsSubnetName}'
     aiFoundryPortalUserPrincipalId: yourPrincipalId
   }
@@ -132,12 +142,13 @@ module deployAzureAiFoundryProject 'ai-foundry-project.bicep' = {
     existingCosmosDbAccountName: deployAIAgentServiceDependencies.outputs.cosmosDbAccountName
     existingStorageAccountName: deployAIAgentServiceDependencies.outputs.storageAccountName
     existingBingAccountName: deployBingAccount.outputs.bingAccountName
-    existingWebApplicationInsightsResourceName: existingWebApplicationInsightsResourceName
+    existingWebApplicationInsightsResourceName: deployApplicationInsights.outputs.applicationInsightsName
   }
   dependsOn: [
     deployAzureAIFoundry
     deployAIAgentServiceDependencies
     deployBingAccount
+    deployApplicationInsights
   ]
 }
 
@@ -176,7 +187,7 @@ module deployWebApp 'webapp.bicep' = {
     appServicesSubnetName: existingAppServicesSubnetName
     privateEndpointsSubnetName: existingPrivateEndpointsSubnetName
     existingWebAppDeploymentStorageAccountName: deployAIAgentServiceDependencies.outputs.storageAccountName
-    existingWebApplicationInsightsResourceName: existingWebApplicationInsightsResourceName
+    existingWebApplicationInsightsResourceName: deployApplicationInsights.outputs.applicationInsightsName
     existingAzureAiFoundryResourceName: deployAzureAIFoundry.outputs.aiFoundryName
     bingSearchConnectionId: deployAzureAiFoundryProject.outputs.bingSearchConnectionId
   }
@@ -185,5 +196,6 @@ module deployWebApp 'webapp.bicep' = {
     deployAIAgentServiceDependencies
     deployAzureAIFoundry
     deployAzureAiFoundryProject
+    deployApplicationInsights
   ]
 }
