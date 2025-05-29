@@ -21,218 +21,167 @@ param publishFileName string = 'chatui.zip'
 
 // ---- Platform and application landing zone specific parameters ----
 
-@description('The resource ID of the subscription vending provided spoke in your application landging zone subscription. For example, /subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg-app-networking/providers/Microsoft.Network/virtualNetworks/vnet-app000-spoke0')
-@minLength(114)
+@description('Resource ID of the existing spoke virtual network')
 param existingResourceIdForSpokeVirtualNetwork string
 
-@description('The resource ID of the subscription vending provided Internet UDR in your application landging zone subscription. Leave blank if platform team performs Internet routing another way. For example, /subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg-app-networking/providers/Microsoft.Network/routeTables/udr-to-hub')
-param existingResourceIdForUdrForInternetTraffic string = ''
+@description('Name of the existing spoke virtual network')
+param existingSpokeVirtualNetworkName string
 
-@description('The IP range of the hub-provided Azure Bastion subnet range. Needed for workload to limit access in NSGs. For example, 10.0.1.0/26')
-@minLength(9)
-param bastionSubnetAddresses string
+@description('Name of the existing spoke virtual network resource group')
+param existingSpokeVirtualNetworkResourceGroupName string
 
-@description('Address space within the existing spoke\'s available address space to be used for Azure App Services.')
-@minLength(9)
-param appServicesSubnetAddressPrefix string
+@description('Name of the existing app gateway subnet')
+param existingAppGatewaySubnetName string
 
-@description('Address space within the existing spoke\'s available address space to be used for Azure Azure Application Gateway.')
-@minLength(9)
-param appGatewaySubnetAddressPrefix string
+@description('Name of the existing app services subnet')
+param existingAppServicesSubnetName string
 
-@description('Address space within the existing spoke\'s available address space to be used for the workload\'s private endpoints.')
-@minLength(9)
-param privateEndpointsSubnetAddressPrefix string
+@description('Name of the existing private endpoints subnet')
+param existingPrivateEndpointsSubnetName string
 
-@description('Address space within the existing spoke\'s available address space to be used for build agents.')
-@minLength(9)
-param agentsSubnetAddressPrefix string
+@description('Name of the existing build agents subnet')
+param existingBuildAgentsSubnetName string
 
-@description('Address space within the existing spoke\'s available address space to be used for jump boxes.')
-@minLength(9)
-param jumpBoxSubnetAddressPrefix string
+@description('Resource ID of the existing route table for build agents subnet')
+param existingBuildAgentsSubnetUdrResourceId string
 
-@description('Assign your user some roles to support fluid access when working in the AI Foundry portal.')
-@maxLength(37)
-@minLength(36)
+@description('Hub resource group name for private DNS zones')
+param hubResourceGroupName string
+
+@description('Your principal ID for role assignments')
 param yourPrincipalId string
 
-@description('Set to true to opt-out of deployment telemetry.')
-param telemetryOptOut bool = false
-
-// ---- Parameters required to set to make it non availability zone compliant ----
-
-var existingResourceGroupNameForSpokeVirtualNetwork = split(existingResourceIdForSpokeVirtualNetwork, '/')[4]
-var existingSpokeVirtualNetworkName = split(existingResourceIdForSpokeVirtualNetwork, '/')[8]
-var existingUdrForInternetTrafficName = split(existingResourceIdForUdrForInternetTraffic, '/')[8]
-var varCuaid = '58c6a07c-0380-404b-9642-1daaddeca33e' // Customer Usage Attribution Id
-
-
-// ---- Target Resource Groups ----
-
-resource rgWorkload 'Microsoft.Resources/resourceGroups@2023-07-01' existing = {
-  name: workloadResourceGroupName
+// Use the spoke resource group directly - no separate workload resource group
+resource rgSpoke 'Microsoft.Resources/resourceGroups@2024-03-01' existing = {
+  name: existingSpokeVirtualNetworkResourceGroupName
 }
 
-resource rgSpoke 'Microsoft.Resources/resourceGroups@2023-07-01' existing = {
-  name: existingResourceGroupNameForSpokeVirtualNetwork
-}
-
-// Deploy Log Analytics workspace
-module monitoringModule 'applicationinsignts.bicep' = {
-  name: 'workloadMonitoring'
-  scope: rgWorkload
-  params: {
-    location: rgWorkload.location
-    baseName: baseName
-  }
-}
-
-// Deploy subnets and NSGs
-module networkModule 'network.bicep' = {
-  name: 'networkDeploy'
+// Deploy Log Analytics in the spoke resource group
+module deployLogAnalytics 'applicationinsignts.bicep' = {
+  name: 'logAnalyticsDeploy'
   scope: rgSpoke
   params: {
     location: rgSpoke.location
-    existingSpokeVirtualNetworkName: existingSpokeVirtualNetworkName
-    existingUdrForInternetTrafficName: existingUdrForInternetTrafficName
-    bastionSubnetAddresses: bastionSubnetAddresses
-    appServicesSubnetAddressPrefix: appServicesSubnetAddressPrefix
-    appGatewaySubnetAddressPrefix: appGatewaySubnetAddressPrefix
-    privateEndpointsSubnetAddressPrefix: privateEndpointsSubnetAddressPrefix
-    agentsSubnetAddressPrefix: agentsSubnetAddressPrefix
-    jumpBoxSubnetAddressPrefix: jumpBoxSubnetAddressPrefix
-  }
-}
-
-// Deploy Azure Storage account with private endpoint and private DNS zone
-module storageModule 'storage.bicep' = {
-  name: 'storageDeploy'
-  scope: rgWorkload
-  params: {
-    location: rgWorkload.location
     baseName: baseName
-    vnetName: networkModule.outputs.vnetName
-    virtualNetworkResourceGroupName: rgSpoke.name
-    privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
-    logWorkspaceName: monitoringModule.outputs.logWorkspaceName
-    yourPrincipalId: yourPrincipalId
   }
 }
 
-// Deploy Azure Key Vault with private endpoint and private DNS zone
-module keyVaultModule 'keyvault.bicep' = {
+// Deploy Key Vault in the spoke resource group
+module deployKeyVault 'keyvault.bicep' = {
   name: 'keyVaultDeploy'
-  scope: rgWorkload
+  scope: rgSpoke
   params: {
-    location: rgWorkload.location
+    location: rgSpoke.location
     baseName: baseName
-    vnetName: networkModule.outputs.vnetName
+    vnetName: existingSpokeVirtualNetworkName
     virtualNetworkResourceGroupName: rgSpoke.name
-    privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
+    privateEndpointsSubnetName: existingPrivateEndpointsSubnetName
     appGatewayListenerCertificate: appGatewayListenerCertificate
-    logWorkspaceName: monitoringModule.outputs.logWorkspaceName
+    logWorkspaceName: deployLogAnalytics.outputs.logWorkspaceName
+    hubResourceGroupName: hubResourceGroupName
   }
 }
 
-// Deploy Azure AI Foundry with Azure AI Agent capability
-module aiFoundryModule 'ai-foundry.bicep' = {
-  name: 'aiFoundryDeploy'
-  scope: rgWorkload
+// Deploy AI Agent Service Dependencies in the spoke resource group
+module deployAIAgentServiceDependencies 'ai-agent-service-dependencies.bicep' = {
+  name: 'aiAgentServiceDependenciesDeploy'
+  scope: rgSpoke
   params: {
-    location: rgWorkload.location
+    location: rgSpoke.location
     baseName: baseName
-    logAnalyticsWorkspaceName: monitoringModule.outputs.logWorkspaceName
-    privateEndpointSubnetResourceId: '${rgSpoke.id}/providers/Microsoft.Network/virtualNetworks/${networkModule.outputs.vnetName}/subnets/${networkModule.outputs.privateEndpointsSubnetName}'
-    yourPrincipalId: yourPrincipalId
-    hubResourceGroupName: rgSpoke.name
-  }
-}
-
-// Deploy Azure AI Agent Service dependencies
-module aiAgentDependenciesModule 'ai-agent-service-dependencies.bicep' = {
-  name: 'aiAgentDependenciesDeploy'
-  scope: rgWorkload
-  params: {
-    location: rgWorkload.location
-    baseName: baseName
-    logAnalyticsWorkspaceName: monitoringModule.outputs.logWorkspaceName
     debugUserPrincipalId: yourPrincipalId
-    privateEndpointSubnetResourceId: '${rgSpoke.id}/providers/Microsoft.Network/virtualNetworks/${networkModule.outputs.vnetName}/subnets/${networkModule.outputs.privateEndpointsSubnetName}'
-    hubResourceGroupName: rgSpoke.name
+    logAnalyticsWorkspaceName: deployLogAnalytics.outputs.logWorkspaceName
+    privateEndpointSubnetResourceId: '${existingResourceIdForSpokeVirtualNetwork}/subnets/${existingPrivateEndpointsSubnetName}'
+    hubResourceGroupName: hubResourceGroupName
   }
 }
 
-// Deploy Bing account for Internet grounding
-module bingModule 'bing-grounding.bicep' = {
-  name: 'bingDeploy'
-  scope: rgWorkload
+// Deploy AI Foundry in the spoke resource group
+module deployAzureAIFoundry 'ai-foundry.bicep' = {
+  name: 'aiFoundryDeploy'
+  scope: rgSpoke
+  params: {
+    location: rgSpoke.location
+    baseName: baseName
+    logAnalyticsWorkspaceName: deployLogAnalytics.outputs.logWorkspaceName
+    privateEndpointSubnetResourceId: '${existingResourceIdForSpokeVirtualNetwork}/subnets/${existingPrivateEndpointsSubnetName}'
+    yourPrincipalId: yourPrincipalId
+    hubResourceGroupName: hubResourceGroupName
+  }
 }
 
-// Deploy Azure AI Foundry project
-module aiFoundryProjectModule 'ai-foundry-project.bicep' = {
+// Deploy Bing Search in the spoke resource group
+module deployBingAccount 'bing-grounding.bicep' = {
+  name: 'bingDeploy'
+  scope: rgSpoke
+}
+
+// Deploy AI Foundry Project in the spoke resource group
+module deployAzureAiFoundryProject 'ai-foundry-project.bicep' = {
   name: 'aiFoundryProjectDeploy'
-  scope: rgWorkload
+  scope: rgSpoke
   params: {
-    location: rgWorkload.location
-    existingAiFoundryName: aiFoundryModule.outputs.aiFoundryName
-    existingAISearchAccountName: aiAgentDependenciesModule.outputs.aiSearchName
-    existingCosmosDbAccountName: aiAgentDependenciesModule.outputs.cosmosDbAccountName
-    existingStorageAccountName: aiAgentDependenciesModule.outputs.storageAccountName
-    existingBingAccountName: bingModule.outputs.bingAccountName
-    existingApplicationInsightsName: monitoringModule.outputs.applicationInsightsName
-    existingKeyVaultName: keyVaultModule.outputs.keyVaultName
+    location: rgSpoke.location
+    existingAiFoundryName: deployAzureAIFoundry.outputs.aiFoundryName
+    existingAISearchAccountName: deployAIAgentServiceDependencies.outputs.aiSearchName
+    existingCosmosDbAccountName: deployAIAgentServiceDependencies.outputs.cosmosDbAccountName
+    existingStorageAccountName: deployAIAgentServiceDependencies.outputs.storageAccountName
+    existingBingAccountName: deployBingAccount.outputs.bingAccountName
+    existingApplicationInsightsName: deployLogAnalytics.outputs.applicationInsightsName
   }
   dependsOn: [
-    aiFoundryModule
-    aiAgentDependenciesModule
-    bingModule
-    monitoringModule
-    keyVaultModule
+    deployAzureAIFoundry
+    deployAIAgentServiceDependencies
+    deployBingAccount
+    deployLogAnalytics
   ]
 }
 
-//Deploy an Azure Application Gateway with WAF v2 and a custom domain name.
-module gatewayModule 'gateway.bicep' = {
-  name: 'gatewayDeploy'
-  scope: rgWorkload
+// Deploy Application Gateway in the spoke resource group
+module deployApplicationGateway 'gateway.bicep' = {
+  name: 'applicationGatewayDeploy'
+  scope: rgSpoke
   params: {
-    location: rgWorkload.location
+    location: rgSpoke.location
     baseName: baseName
     customDomainName: customDomainName
-    appName: webappModule.outputs.appName
-    vnetName: networkModule.outputs.vnetName
+    vnetName: existingSpokeVirtualNetworkName
     virtualNetworkResourceGroupName: rgSpoke.name
-    appGatewaySubnetName: networkModule.outputs.appGatewaySubnetName
-    keyVaultName: keyVaultModule.outputs.keyVaultName
-    gatewayCertSecretKey: keyVaultModule.outputs.gatewayCertSecretKey
-    logWorkspaceName: monitoringModule.outputs.logWorkspaceName
+    appGatewaySubnetName: existingAppGatewaySubnetName
+    appName: deployWebApp.outputs.appName
+    keyVaultName: deployKeyVault.outputs.keyVaultName
+    gatewayCertSecretKey: 'gateway-certificate'
+    logWorkspaceName: deployLogAnalytics.outputs.logWorkspaceName
   }
+  dependsOn: [
+    deployWebApp
+    deployKeyVault
+    deployLogAnalytics
+  ]
 }
 
-// Deploy the web apps for the front end demo UI and the containerised promptflow endpoint
-module webappModule 'webapp.bicep' = {
-  name: 'webappDeploy'
-  scope: rgWorkload
+// Deploy Web App in the spoke resource group
+module deployWebApp 'webapp.bicep' = {
+  name: 'webAppDeploy'
+  scope: rgSpoke
   params: {
-    location: rgWorkload.location
+    location: rgSpoke.location
     baseName: baseName
-    managedOnlineEndpointResourceId: aiFoundryProjectModule.outputs.managedOnlineEndpointResourceId
     publishFileName: publishFileName
-    openAIName: aiFoundryModule.outputs.openAiResourceName
-    keyVaultName: keyVaultModule.outputs.keyVaultName
-    storageName: storageModule.outputs.appDeployStorageName
-    vnetName: networkModule.outputs.vnetName
+    vnetName: existingSpokeVirtualNetworkName
     virtualNetworkResourceGroupName: rgSpoke.name
-    appServicesSubnetName: networkModule.outputs.appServicesSubnetName
-    privateEndpointsSubnetName: networkModule.outputs.privateEndpointsSubnetName
-    logWorkspaceName: monitoringModule.outputs.logWorkspaceName
+    appServicesSubnetName: existingAppServicesSubnetName
+    privateEndpointsSubnetName: existingPrivateEndpointsSubnetName
+    logWorkspaceName: deployLogAnalytics.outputs.logWorkspaceName
+    storageName: deployAIAgentServiceDependencies.outputs.storageAccountName
+    keyVaultName: deployKeyVault.outputs.keyVaultName
+    openAIName: deployAzureAIFoundry.outputs.aiFoundryName
+    managedOnlineEndpointResourceId: '/subscriptions/${subscription().subscriptionId}/resourceGroups/${rgSpoke.name}/providers/Microsoft.MachineLearningServices/workspaces/placeholder/onlineEndpoints/placeholder'
   }
-}
-
-// Optional Deployment for Customer Usage Attribution
-module customerUsageAttributionModule 'customerUsageAttribution/cuaIdSubscription.bicep' = if (!telemetryOptOut) {
-  #disable-next-line no-loc-expr-outside-params // Only to ensure telemetry data is stored in same location as deployment. See https://github.com/Azure/ALZ-Bicep/wiki/FAQ#why-are-some-linter-rules-disabled-via-the-disable-next-line-bicep-function for more information
-  name: 'pid-${varCuaid}-${uniqueString(deployment().location)}'
-  params: {}
+  dependsOn: [
+    deployLogAnalytics
+    deployAIAgentServiceDependencies
+    deployKeyVault
+    deployAzureAIFoundry
+  ]
 }

@@ -11,18 +11,18 @@ param baseName string
 @description('Log Analytics workspace name')
 param logAnalyticsWorkspaceName string
 
+@description('Debug user principal ID')
+param debugUserPrincipalId string
+
 @description('Private endpoint subnet resource ID')
 param privateEndpointSubnetResourceId string
 
-@description('User principal ID')
-param yourPrincipalId string
-
-@description('Hub resource group name where private DNS zones are located')
+@description('Hub resource group name for private DNS zones')
 param hubResourceGroupName string
 
 var cosmosDbAccountName = 'cosmos${baseName}'
 
-// Existing resources - reference centralized private DNS zones in hub
+// Existing resources
 resource cosmosDbLinkedPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' existing = {
   name: 'privatelink.documents.azure.com'
   scope: resourceGroup(hubResourceGroupName)
@@ -71,13 +71,13 @@ resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-12-01-previ
   }
 }
 
-// Role assignment for user access
+// Role assignment
 resource cosmosDbAccountReaderAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(cosmosDbAccount.id, cosmosDbAccountReaderRole.id, yourPrincipalId)
+  name: guid(cosmosDbAccount.id, cosmosDbAccountReaderRole.id, debugUserPrincipalId)
   scope: cosmosDbAccount
   properties: {
     roleDefinitionId: cosmosDbAccountReaderRole.id
-    principalId: yourPrincipalId
+    principalId: debugUserPrincipalId
     principalType: 'User'
   }
 }
@@ -127,4 +127,3 @@ resource azureDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-prev
 }
 
 output cosmosDbAccountName string = cosmosDbAccount.name
-output cosmosDbEndpoint string = cosmosDbAccount.properties.documentEndpoint 

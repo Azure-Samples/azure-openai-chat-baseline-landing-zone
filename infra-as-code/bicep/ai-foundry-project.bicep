@@ -21,14 +21,12 @@ param existingBingAccountName string
 @description('Existing Application Insights name')
 param existingApplicationInsightsName string
 
-@description('Existing Key Vault name')
-param existingKeyVaultName string
-
 var aiFoundryProjectName = 'aifp-workload'
 
 // Existing resources
 resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = {
   name: existingAiFoundryName
+  scope: resourceGroup()
 }
 
 resource aiSearch 'Microsoft.Search/searchServices@2025-02-01-preview' existing = {
@@ -52,10 +50,6 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' existing
   name: existingApplicationInsightsName
 }
 
-resource keyVault 'Microsoft.KeyVault/vaults@2025-02-01-preview' existing = {
-  name: existingKeyVaultName
-}
-
 // AI Foundry Project
 resource aiFoundryProject 'Microsoft.MachineLearningServices/workspaces@2025-04-01-preview' = {
   name: aiFoundryProjectName
@@ -66,8 +60,6 @@ resource aiFoundryProject 'Microsoft.MachineLearningServices/workspaces@2025-04-
     description: 'Azure AI Foundry project for the workload'
     hubResourceId: aiFoundry.id
     applicationInsights: applicationInsights.id
-    storageAccount: storageAccount.id
-    keyVault: keyVault.id
   }
   kind: 'project'
 

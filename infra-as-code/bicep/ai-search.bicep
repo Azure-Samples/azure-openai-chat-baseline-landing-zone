@@ -11,18 +11,18 @@ param baseName string
 @description('Log Analytics workspace name')
 param logAnalyticsWorkspaceName string
 
+@description('Debug user principal ID')
+param debugUserPrincipalId string
+
 @description('Private endpoint subnet resource ID')
 param privateEndpointSubnetResourceId string
 
-@description('User principal ID')
-param yourPrincipalId string
-
-@description('Hub resource group name where private DNS zones are located')
+@description('Hub resource group name for private DNS zones')
 param hubResourceGroupName string
 
 var aiSearchName = 'srch${baseName}'
 
-// Existing resources - reference centralized private DNS zones in hub
+// Existing resources
 resource aiSearchLinkedPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' existing = {
   name: 'privatelink.search.windows.net'
   scope: resourceGroup(hubResourceGroupName)
@@ -56,30 +56,27 @@ resource aiSearch 'Microsoft.Search/searchServices@2025-02-01-preview' = {
     networkRuleSet: { ipRules: [] }
     encryptionWithCmk: { enforcement: 'Unspecified' }
     disableLocalAuth: true
-    authOptions: {
-      aadOrApiKey: { aadAuthFailureMode: 'http401WithBearerChallenge' }
-    }
     semanticSearch: 'standard'
   }
 }
 
-// Role assignments for user access
+// Role assignments
 resource searchServiceContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(aiSearch.id, searchServiceContributorRole.id, yourPrincipalId)
+  name: guid(aiSearch.id, searchServiceContributorRole.id, debugUserPrincipalId)
   scope: aiSearch
   properties: {
     roleDefinitionId: searchServiceContributorRole.id
-    principalId: yourPrincipalId
+    principalId: debugUserPrincipalId
     principalType: 'User'
   }
 }
 
 resource searchIndexDataContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(aiSearch.id, searchIndexDataContributorRole.id, yourPrincipalId)
+  name: guid(aiSearch.id, searchIndexDataContributorRole.id, debugUserPrincipalId)
   scope: aiSearch
   properties: {
     roleDefinitionId: searchIndexDataContributorRole.id
-    principalId: yourPrincipalId
+    principalId: debugUserPrincipalId
     principalType: 'User'
   }
 }
@@ -103,10 +100,9 @@ resource aiSearchPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01'
   resource dnsGroup 'privateDnsZoneGroups' = {
     name: 'aisearch'
     properties: {
-      privateDnsZoneConfigs: [{
-        name: 'aisearch'
-        properties: { privateDnsZoneId: aiSearchLinkedPrivateDnsZone.id }
-      }]
+      privateDnsZoneConfigs: [
+        { name: 'aisearch', properties: { privateDnsZoneId: aiSearchLinkedPrivateDnsZone.id } }
+      ]
     }
   }
 }

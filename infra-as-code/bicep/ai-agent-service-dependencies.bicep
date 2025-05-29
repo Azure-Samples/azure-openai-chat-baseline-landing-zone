@@ -29,13 +29,13 @@ param hubResourceGroupName string
 
 @description('Deploy Azure Storage account for the Azure AI Agent Service (dependency). This is used for binaries uploaded within threads or as "knowledge" uploaded as part of an agent.')
 module deployAgentStorageAccount 'ai-agent-blob-storage.bicep' = {
-  name: 'deployAgentStorageAccount'
+  name: 'agentStorageDeploy'
   scope: resourceGroup()
   params: {
     location: location
     baseName: baseName
     logAnalyticsWorkspaceName: logAnalyticsWorkspaceName
-    yourPrincipalId: debugUserPrincipalId
+    debugUserPrincipalId: debugUserPrincipalId
     privateEndpointSubnetResourceId: privateEndpointSubnetResourceId
     hubResourceGroupName: hubResourceGroupName
   }
@@ -43,13 +43,13 @@ module deployAgentStorageAccount 'ai-agent-blob-storage.bicep' = {
 
 @description('Deploy Azure Cosmos DB account for the Azure AI Agent Service (dependency). This is used for storing agent definitions and threads.')
 module deployCosmosDbThreadStorageAccount 'cosmos-db.bicep' = {
-  name: 'deployCosmosDbThreadStorageAccount'
+  name: 'cosmosDbDeploy'
   scope: resourceGroup()
   params: {
     location: location
     baseName: baseName
     logAnalyticsWorkspaceName: logAnalyticsWorkspaceName
-    yourPrincipalId: debugUserPrincipalId
+    debugUserPrincipalId: debugUserPrincipalId
     privateEndpointSubnetResourceId: privateEndpointSubnetResourceId
     hubResourceGroupName: hubResourceGroupName
   }
@@ -57,13 +57,13 @@ module deployCosmosDbThreadStorageAccount 'cosmos-db.bicep' = {
 
 @description('Deploy Azure AI Search instance for the Azure AI Agent Service (dependency). This is used when a user uploads a file to the agent, and the agent needs to search for information in that file.')
 module deployAzureAISearchService 'ai-search.bicep' = {
-  name: 'deployAzureAISearchService'
+  name: 'aiSearchDeploy'
   scope: resourceGroup()
   params: {
     location: location
     baseName: baseName
     logAnalyticsWorkspaceName: logAnalyticsWorkspaceName
-    yourPrincipalId: debugUserPrincipalId
+    debugUserPrincipalId: debugUserPrincipalId
     privateEndpointSubnetResourceId: privateEndpointSubnetResourceId
     hubResourceGroupName: hubResourceGroupName
   }

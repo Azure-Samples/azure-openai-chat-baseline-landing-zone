@@ -11,18 +11,18 @@ param baseName string
 @description('Log Analytics workspace name')
 param logAnalyticsWorkspaceName string
 
+@description('Debug user principal ID')
+param debugUserPrincipalId string
+
 @description('Private endpoint subnet resource ID')
 param privateEndpointSubnetResourceId string
 
-@description('User principal ID')
-param yourPrincipalId string
-
-@description('Hub resource group name where private DNS zones are located')
+@description('Hub resource group name for private DNS zones')
 param hubResourceGroupName string
 
-var storageAccountName = 'stagent${baseName}'
+var storageAccountName = 'st${baseName}${uniqueString(resourceGroup().id, baseName)}'
 
-// Existing resources - reference centralized private DNS zones in hub
+// Existing resources
 resource storageLinkedPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' existing = {
   name: 'privatelink.blob.core.windows.net'
   scope: resourceGroup(hubResourceGroupName)
@@ -85,11 +85,11 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2025-01-01' = {
 
 // Role assignment
 resource storageBlobDataContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccount.id, storageBlobDataContributorRole.id, yourPrincipalId)
+  name: guid(storageAccount.id, storageBlobDataContributorRole.id, debugUserPrincipalId)
   scope: storageAccount
   properties: {
     roleDefinitionId: storageBlobDataContributorRole.id
-    principalId: yourPrincipalId
+    principalId: debugUserPrincipalId
     principalType: 'User'
   }
 }

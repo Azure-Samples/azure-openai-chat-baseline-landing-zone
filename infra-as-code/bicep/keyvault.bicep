@@ -28,6 +28,9 @@ param privateEndpointsSubnetName string
 @description('The name of the workload\'s existing Log Analytics workspace.')
 param logWorkspaceName string
 
+@description('Hub resource group name for private DNS zones')
+param hubResourceGroupName string
+
 //variables
 var keyVaultName = 'kv-${baseName}'
 var keyVaultPrivateEndpointName = 'pep-${keyVaultName}'
@@ -47,6 +50,12 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
 
 resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
   name: logWorkspaceName
+}
+
+// Reference existing private DNS zone in hub
+resource keyVaultDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' existing = {
+  name: keyVaultDnsZoneName
+  scope: resourceGroup(hubResourceGroupName)
 }
 
 resource keyVault 'Microsoft.KeyVault/vaults@2024-11-01' = {
@@ -134,23 +143,6 @@ resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-01-01'
         }
       }
     ]
-  }
-}
-
-resource keyVaultDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
-  name: keyVaultDnsZoneName
-  location: 'global'
-  properties: {}
-
-  resource keyVaultDnsZoneLink 'virtualNetworkLinks' = {
-    name: '${keyVaultDnsZoneName}-link'
-    location: 'global'
-    properties: {
-      registrationEnabled: false
-      virtualNetwork: {
-        id: vnet.id
-      }
-    }
   }
 }
 

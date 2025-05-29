@@ -125,18 +125,18 @@ resource blobDataReaderRoleAssignment 'Microsoft.Authorization/roleAssignments@2
 }
 
 //App service plan
-resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
-  name: 'asp-${appName}${uniqueString(subscription().subscriptionId)}'
+resource appServicePlan 'Microsoft.Web/serverfarms@2022-09-01' = {
+  name: 'asp-${baseName}'
   location: location
-    kind: 'linux'
-    sku: {
-      name: 'P1v3'
-      tier: 'PremiumV3'
-      capacity: 3
-    }
+  sku: {
+    name: 'S1'
+    tier: 'Standard'
+    size: 'S1'
+    family: 'S'
+    capacity: 1
+  }
   properties: {
-    zoneRedundant: true
-    reserved: true
+    reserved: false
   }
 }
 

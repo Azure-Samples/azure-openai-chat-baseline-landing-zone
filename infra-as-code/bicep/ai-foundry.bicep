@@ -17,12 +17,12 @@ param privateEndpointSubnetResourceId string
 @description('User principal ID for portal access')
 param yourPrincipalId string
 
-@description('Hub resource group name where private DNS zones are located')
+@description('Hub resource group name for private DNS zones')
 param hubResourceGroupName string
 
 var aiFoundryName = 'aif${baseName}'
 
-// Existing resources - reference centralized private DNS zones in hub
+// Existing resources
 resource cognitiveServicesLinkedPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' existing = {
   name: 'privatelink.cognitiveservices.azure.com'
   scope: resourceGroup(hubResourceGroupName)
@@ -33,7 +33,7 @@ resource aiFoundryLinkedPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-0
   scope: resourceGroup(hubResourceGroupName)
 }
 
-resource openaiLinkedPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' existing = {
+resource azureOpenAiLinkedPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' existing = {
   name: 'privatelink.openai.azure.com'
   scope: resourceGroup(hubResourceGroupName)
 }
@@ -77,7 +77,7 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
   }
 }
 
-// Role assignment for user access
+// Role assignment
 resource cognitiveServicesUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(aiFoundry.id, cognitiveServicesUserRole.id, yourPrincipalId)
   scope: aiFoundry
@@ -109,7 +109,7 @@ resource aiFoundryPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01
     properties: {
       privateDnsZoneConfigs: [
         { name: 'aifoundry', properties: { privateDnsZoneId: aiFoundryLinkedPrivateDnsZone.id } }
-        { name: 'openai', properties: { privateDnsZoneId: openaiLinkedPrivateDnsZone.id } }
+        { name: 'azureopenai', properties: { privateDnsZoneId: azureOpenAiLinkedPrivateDnsZone.id } }
         { name: 'cognitiveservices', properties: { privateDnsZoneId: cognitiveServicesLinkedPrivateDnsZone.id } }
       ]
     }
