@@ -35,10 +35,11 @@ resource cosmosDbAccountReaderRole 'Microsoft.Authorization/roleDefinitions@2022
 
 resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2025-02-01' existing = {
   name: logAnalyticsWorkspaceName
+  scope: resourceGroup(hubResourceGroupName)
 }
 
 // Cosmos DB
-resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-12-01-preview' = {
+resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15-preview' = {
   name: cosmosDbAccountName
   location: location
   kind: 'GlobalDocumentDB'
@@ -54,7 +55,7 @@ resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-12-01-previ
     networkAclBypassResourceIds: []
     ipRules: []
     virtualNetworkRules: []
-    capabilities: [{ name: 'EnableServerless' }]
+    capacityMode: 'Serverless'
     backupPolicy: {
       type: 'Periodic'
       periodicModeProperties: {

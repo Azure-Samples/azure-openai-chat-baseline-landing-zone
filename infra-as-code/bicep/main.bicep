@@ -51,19 +51,24 @@ param hubResourceGroupName string
 @description('Your principal ID for role assignments')
 param yourPrincipalId string
 
+@description('Existing Application Insights resource name')
+param existingWebApplicationInsightsResourceName string
+
 // Use the spoke resource group directly - no separate workload resource group
 resource rgSpoke 'Microsoft.Resources/resourceGroups@2024-03-01' existing = {
   name: existingSpokeVirtualNetworkResourceGroupName
 }
 
-// Deploy Log Analytics in the spoke resource group
-module deployLogAnalytics 'applicationinsignts.bicep' = {
-  name: 'logAnalyticsDeploy'
+// Reference existing Application Insights instead of deploying new one
+resource existingAppInsights 'Microsoft.Insights/components@2020-02-02' existing = {
+  name: existingWebApplicationInsightsResourceName
   scope: rgSpoke
-  params: {
-    location: rgSpoke.location
-    baseName: baseName
-  }
+}
+
+// We'll get the Log Analytics workspace from the hub resource group
+resource existingLogAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
+  name: 'log-hub'
+  scope: resourceGroup(hubResourceGroupName)
 }
 
 // Deploy Key Vault in the spoke resource group
@@ -77,46 +82,46 @@ module deployKeyVault 'keyvault.bicep' = {
     virtualNetworkResourceGroupName: rgSpoke.name
     privateEndpointsSubnetName: existingPrivateEndpointsSubnetName
     appGatewayListenerCertificate: appGatewayListenerCertificate
-    logWorkspaceName: deployLogAnalytics.outputs.logWorkspaceName
+    logWorkspaceName: existingLogAnalytics.name
     hubResourceGroupName: hubResourceGroupName
   }
 }
 
 // Deploy AI Agent Service Dependencies in the spoke resource group
 module deployAIAgentServiceDependencies 'ai-agent-service-dependencies.bicep' = {
-  name: 'aiAgentServiceDependenciesDeploy'
+  name: 'aiAgentDependenciesDeploy'
   scope: rgSpoke
   params: {
     location: rgSpoke.location
     baseName: baseName
     debugUserPrincipalId: yourPrincipalId
-    logAnalyticsWorkspaceName: deployLogAnalytics.outputs.logWorkspaceName
+    logAnalyticsWorkspaceName: existingLogAnalytics.name
     privateEndpointSubnetResourceId: '${existingResourceIdForSpokeVirtualNetwork}/subnets/${existingPrivateEndpointsSubnetName}'
     hubResourceGroupName: hubResourceGroupName
   }
 }
 
-// Deploy AI Foundry in the spoke resource group
+// Deploy Azure AI Foundry in the spoke resource group
 module deployAzureAIFoundry 'ai-foundry.bicep' = {
   name: 'aiFoundryDeploy'
   scope: rgSpoke
   params: {
     location: rgSpoke.location
     baseName: baseName
-    logAnalyticsWorkspaceName: deployLogAnalytics.outputs.logWorkspaceName
+    logAnalyticsWorkspaceName: existingLogAnalytics.name
+    agentSubnetResourceId: '${existingResourceIdForSpokeVirtualNetwork}/subnets/${existingBuildAgentsSubnetName}'
     privateEndpointSubnetResourceId: '${existingResourceIdForSpokeVirtualNetwork}/subnets/${existingPrivateEndpointsSubnetName}'
-    yourPrincipalId: yourPrincipalId
-    hubResourceGroupName: hubResourceGroupName
+    aiFoundryPortalUserPrincipalId: yourPrincipalId
   }
 }
 
-// Deploy Bing Search in the spoke resource group
+// Deploy Bing grounding
 module deployBingAccount 'bing-grounding.bicep' = {
-  name: 'bingDeploy'
+  name: 'bingGroundingDeploy'
   scope: rgSpoke
 }
 
-// Deploy AI Foundry Project in the spoke resource group
+// Deploy AI Foundry Project
 module deployAzureAiFoundryProject 'ai-foundry-project.bicep' = {
   name: 'aiFoundryProjectDeploy'
   scope: rgSpoke
@@ -127,13 +132,12 @@ module deployAzureAiFoundryProject 'ai-foundry-project.bicep' = {
     existingCosmosDbAccountName: deployAIAgentServiceDependencies.outputs.cosmosDbAccountName
     existingStorageAccountName: deployAIAgentServiceDependencies.outputs.storageAccountName
     existingBingAccountName: deployBingAccount.outputs.bingAccountName
-    existingApplicationInsightsName: deployLogAnalytics.outputs.applicationInsightsName
+    existingWebApplicationInsightsResourceName: existingWebApplicationInsightsResourceName
   }
   dependsOn: [
     deployAzureAIFoundry
     deployAIAgentServiceDependencies
     deployBingAccount
-    deployLogAnalytics
   ]
 }
 
@@ -151,12 +155,11 @@ module deployApplicationGateway 'gateway.bicep' = {
     appName: deployWebApp.outputs.appName
     keyVaultName: deployKeyVault.outputs.keyVaultName
     gatewayCertSecretKey: 'gateway-certificate'
-    logWorkspaceName: deployLogAnalytics.outputs.logWorkspaceName
+    logWorkspaceName: existingLogAnalytics.name
   }
   dependsOn: [
     deployWebApp
     deployKeyVault
-    deployLogAnalytics
   ]
 }
 
@@ -167,21 +170,20 @@ module deployWebApp 'webapp.bicep' = {
   params: {
     location: rgSpoke.location
     baseName: baseName
+    logAnalyticsWorkspaceName: existingLogAnalytics.name
     publishFileName: publishFileName
-    vnetName: existingSpokeVirtualNetworkName
-    virtualNetworkResourceGroupName: rgSpoke.name
+    virtualNetworkName: existingSpokeVirtualNetworkName
     appServicesSubnetName: existingAppServicesSubnetName
     privateEndpointsSubnetName: existingPrivateEndpointsSubnetName
-    logWorkspaceName: deployLogAnalytics.outputs.logWorkspaceName
-    storageName: deployAIAgentServiceDependencies.outputs.storageAccountName
-    keyVaultName: deployKeyVault.outputs.keyVaultName
-    openAIName: deployAzureAIFoundry.outputs.aiFoundryName
-    managedOnlineEndpointResourceId: '/subscriptions/${subscription().subscriptionId}/resourceGroups/${rgSpoke.name}/providers/Microsoft.MachineLearningServices/workspaces/placeholder/onlineEndpoints/placeholder'
+    existingWebAppDeploymentStorageAccountName: deployAIAgentServiceDependencies.outputs.storageAccountName
+    existingWebApplicationInsightsResourceName: existingWebApplicationInsightsResourceName
+    existingAzureAiFoundryResourceName: deployAzureAIFoundry.outputs.aiFoundryName
+    bingSearchConnectionId: deployAzureAiFoundryProject.outputs.bingSearchConnectionId
   }
   dependsOn: [
-    deployLogAnalytics
+    existingLogAnalytics
     deployAIAgentServiceDependencies
-    deployKeyVault
     deployAzureAIFoundry
+    deployAzureAiFoundryProject
   ]
 }

@@ -9,45 +9,58 @@ targetScope = 'resourceGroup'
 @maxLength(8)
 param baseName string
 
-@description('The resource group location')
+@description('The region in which this architecture is deployed. Should match the region of the resource group.')
+@minLength(1)
 param location string = resourceGroup().location
 
-@minLength(1)
+@description('The name of the workload\'s existing Log Analytics workspace.')
+@minLength(4)
+param logAnalyticsWorkspaceName string
+
+@description('The name of the web deploy file. The file should reside in a deploy container in the Azure Storage account. E.g. chatui.zip.')
+@minLength(5)
 param publishFileName string
 
-// existing resource name params
-param vnetName string
-
-@description('The name of the resource group containing the spoke virtual network.')
+@description('The name of the existing virtual network that this Web App instance will be deployed into for egress and a private endpoint for ingress.')
 @minLength(1)
-param virtualNetworkResourceGroupName string
+param virtualNetworkName string
 
-@description('The resource ID of the existing managed online endpoint. Used to retrieve the scoring URI.')
-@minLength(40)
-param managedOnlineEndpointResourceId string
-
-@description('The name of the existing Azure OpenAI instance that will be used from the prompt flow code.')
-@minLength(6)
-param openAIName string
-
+@description('The name of the existing subnet in the virtual network that is where this web app will have its egress point.')
+@minLength(1)
 param appServicesSubnetName string
-param privateEndpointsSubnetName string
-param storageName string
-param keyVaultName string
 
-@description('The name of the workload\'s existing Log Analytics workspace.')
-param logWorkspaceName string
+@description('The name of the subnet that private endpoints in the workload should surface in.')
+@minLength(1)
+param privateEndpointsSubnetName string
+
+@description('The name of the existing Azure Storage account that the Azure Web App will be pulling code deployments from.')
+@minLength(3)
+param existingWebAppDeploymentStorageAccountName string
+
+@description('The name of the existing Azure Application Insights instance that the Azure Web App will be using.')
+@minLength(1)
+param existingWebApplicationInsightsResourceName string
+
+@description('The name of the existing Azure AI Foundry instance that the the Azure Web App code will be calling for Azure AI Agent Service agents.')
+@minLength(2)
+param existingAzureAiFoundryResourceName string
+
+@description('The name of the existing Azure AI Foundry project connection for Bing grounding searches.')
+@minLength(2)
+param bingSearchConnectionId string
 
 // variables
 var appName = 'app-${baseName}'
-var appServicePrivateEndpointName = 'pep-${appName}'
-var appServicePfPrivateEndpointName = 'pep-${appName}-pf'
-var chatApiKey = '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/chatApiKey)'
 
 // ---- Existing resources ----
-resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
-  name: vnetName
-  scope: resourceGroup(virtualNetworkResourceGroupName)
+
+@description('Existing Application Insights instance. Logs from the web app will be sent here.')
+resource applicationInsights 'Microsoft.Insights/components@2020-02-02' existing = {
+  name: existingWebApplicationInsightsResourceName
+}
+
+resource virtualNetwork 'Microsoft.Network/virtualNetworks@2024-05-01' existing = {
+  name: virtualNetworkName
 
   resource appServicesSubnet 'subnets' existing = {
     name: appServicesSubnetName
@@ -57,66 +70,48 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
   }
 }
 
-resource azureOpenAI 'Microsoft.CognitiveServices/accounts@2024-06-01-preview' existing = {
-  name: openAIName
+@description('Existing Azure Storage account. This is where the web app code is deployed from.')
+resource webAppDeploymentStorageAccount 'Microsoft.Storage/storageAccounts@2024-01-01' existing = {
+  name: existingWebAppDeploymentStorageAccountName
 }
 
-resource chatProj 'Microsoft.MachineLearningServices/workspaces@2024-04-01' existing = {
-  name: split(managedOnlineEndpointResourceId, '/')[8]
-
-  resource onlineEndpoint 'onlineEndpoints' existing = {
-    name: split(managedOnlineEndpointResourceId, '/')[10]
-  }
+resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2025-02-01' existing = {
+  name: logAnalyticsWorkspaceName
 }
 
-resource storage 'Microsoft.Storage/storageAccounts@2024-01-01' existing = {
-  name: storageName
-}
-
-resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
-  name: logWorkspaceName
-}
-
-// Built-in Azure RBAC role that is applied to a Key Vault to grant secrets content read permissions.
-resource keyVaultSecretsUserRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
-  name: '4633458b-17de-408a-b874-0445c86b69e6'
-  scope: subscription()
-}
-
-// Built-in Azure RBAC role that is applied to a Key storage to grant data reader permissions.
+@description('Built-in Role: [Storage Blob Data Reader](https://learn.microsoft.com/azure/role-based-access-control/built-in-roles#storage-blob-data-reader)')
 resource blobDataReaderRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
   name: '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1'
   scope: subscription()
 }
 
-@description('Built-in Role: [Cognitive Services OpenAI User](https://learn.microsoft.com/azure/role-based-access-control/built-in-roles#cognitive-services-openai-user)')
-resource cognitiveServicesOpenAiUserRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+@description('Built-in Role: [Azure AI User](https://learn.microsoft.com/azure/ai-foundry/concepts/rbac-azure-ai-foundry?pivots=fdp-project#azure-ai-user)')
+resource azureAiUserRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
   name: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
   scope: subscription()
 }
 
-// ---- Web App resources ----
+resource appServiceExistingPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' existing = {
+  name: 'privatelink.azurewebsites.net'
+}
 
-// Managed Identity for App Service
-resource appServiceManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+@description('Existing Azure AI Foundry account. This account is where the agents hosted in Azure AI Agent Service will be deployed. The web app code calls to these agents.')
+resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = {
+  name: existingAzureAiFoundryResourceName
+}
+
+// ---- New resources ----
+
+@description('Managed Identity for App Service')
+resource appServiceManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' = {
   name: 'id-${appName}'
   location: location
 }
 
-// Grant the App Service managed identity Key Vault secrets role permissions
-module appServiceSecretsUserRoleAssignmentModule './modules/keyvaultRoleAssignment.bicep' = {
-  name: 'appServiceSecretsUserRoleAssignmentDeploy'
-  params: {
-    roleDefinitionId: keyVaultSecretsUserRole.id
-    principalId: appServiceManagedIdentity.properties.principalId
-    keyVaultName: keyVaultName
-  }
-}
-
-// Grant the App Service managed identity storage data reader role permissions
+@description('Grant the App Service managed identity storage data reader role permissions')
 resource blobDataReaderRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  scope: storage
-  name: guid(resourceGroup().id, appServiceManagedIdentity.name, blobDataReaderRole.id)
+  scope: webAppDeploymentStorageAccount
+  name: guid(webAppDeploymentStorageAccount.id, appServiceManagedIdentity.id, blobDataReaderRole.id)
   properties: {
     roleDefinitionId: blobDataReaderRole.id
     principalType: 'ServicePrincipal'
@@ -124,27 +119,36 @@ resource blobDataReaderRoleAssignment 'Microsoft.Authorization/roleAssignments@2
   }
 }
 
-//App service plan
-resource appServicePlan 'Microsoft.Web/serverfarms@2022-09-01' = {
-  name: 'asp-${baseName}'
-  location: location
-  sku: {
-    name: 'S1'
-    tier: 'Standard'
-    size: 'S1'
-    family: 'S'
-    capacity: 1
-  }
+@description('Grant the App Service managed identity Azure AI user role permission so it can call into the Azure AI Foundry-hosted agent.')
+resource azureAiUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: aiFoundry
+  name: guid(aiFoundry.id, appServiceManagedIdentity.id, azureAiUserRole.id)
   properties: {
-    reserved: false
+    roleDefinitionId: azureAiUserRole.id
+    principalType: 'ServicePrincipal'
+    principalId: appServiceManagedIdentity.properties.principalId
   }
 }
 
-@description('This is the web app that contains the UI application.')
-resource webApp 'Microsoft.Web/sites@2023-12-01' = {
+@description('Linux, Standard App Service Plan to host the chat web application.')
+resource appServicePlan 'Microsoft.Web/serverfarms@2024-04-01' = {
+  name: 'asp-${appName}${uniqueString(subscription().subscriptionId)}'
+  location: location
+  kind: 'linux'
+  sku: {
+    name: 'S1'
+    capacity: 3
+  }
+  properties: {
+    reserved: true
+  }
+}
+
+@description('This is the web app that contains the chat UI application.')
+resource webApp 'Microsoft.Web/sites@2024-04-01' = {
   name: appName
   location: location
-  kind: 'app'
+  kind: 'app,linux'
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: {
@@ -152,49 +156,71 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
     }
   }
   properties: {
+    enabled: true
     serverFarmId: appServicePlan.id
-    virtualNetworkSubnetId: vnet::appServicesSubnet.id
+    virtualNetworkSubnetId: virtualNetwork::appServicesSubnet.id
     httpsOnly: true
+    sshEnabled: false
+    autoGeneratedDomainNameLabelScope: 'SubscriptionReuse'
     vnetContentShareEnabled: true
     vnetImagePullEnabled: true
     publicNetworkAccess: 'Disabled'
     keyVaultReferenceIdentity: appServiceManagedIdentity.id
+    endToEndEncryptionEnabled: true
     vnetRouteAllEnabled: true
     hostNamesDisabled: false
+    clientAffinityEnabled: false
     siteConfig: {
+      ftpsState: 'Disabled'
       vnetRouteAllEnabled: true
-      http20Enabled: true
+      http20Enabled: false
       publicNetworkAccess: 'Disabled'
       alwaysOn: true
-      linuxFxVersion: 'DOTNETCORE|7.0'
+      linuxFxVersion: 'DOTNETCORE|8.0'
       netFrameworkVersion: null
       windowsFxVersion: null
+      minTlsCipherSuite: 'TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256'
     }
   }
   dependsOn: [
-    appServiceSecretsUserRoleAssignmentModule
     blobDataReaderRoleAssignment
   ]
 
+  @description('Default configuration for the web app.')
   resource appsettings 'config' = {
     name: 'appsettings'
     properties: {
-      WEBSITE_RUN_FROM_PACKAGE: '${storage.properties.primaryEndpoints.blob}deploy/${publishFileName}'
+      WEBSITE_RUN_FROM_PACKAGE: '${webAppDeploymentStorageAccount.properties.primaryEndpoints.blob}deploy/${publishFileName}'
       WEBSITE_RUN_FROM_PACKAGE_BLOB_MI_RESOURCE_ID: appServiceManagedIdentity.id
-      APPINSIGHTS_INSTRUMENTATIONKEY: appInsights.properties.InstrumentationKey
-      APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
-      ApplicationInsightsAgent_EXTENSION_VERSION: '~2'
-      chatApiKey: chatApiKey
-      chatApiEndpoint: chatProj::onlineEndpoint.properties.scoringUri
-      chatInputName: 'question'
-      chatOutputName: 'answer'
+      APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString
+      AZURE_CLIENT_ID: appServiceManagedIdentity.properties.clientId
+      ApplicationInsightsAgent_EXTENSION_VERSION: '~3'
+      aiAgentEndpoint: '${aiFoundry.properties.endpoints['AI Foundry API']}api/projects/projchat'
+      bingSearchConnectionId: bingSearchConnectionId
+      aiAgentId: 'TBD'
+      XDT_MicrosoftApplicationInsights_Mode: 'Recommended'
+    }
+  }
+
+  @description('Disable SCM publishing integration.')
+  resource scm 'basicPublishingCredentialsPolicies' = {
+    name: 'scm'
+    properties: {
+      allow: false
+    }
+  }
+
+  @description('Disable FTP publishing integration.')
+  resource ftp 'basicPublishingCredentialsPolicies' = {
+    name: 'ftp'
+    properties: {
+      allow: false
     }
   }
 }
 
-
-// Web App diagnostic settings
-resource webAppDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+@description('Enable App Service Azure Diagnostic')
+resource azureDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
   name: 'default'
   scope: webApp
   properties: {
@@ -202,44 +228,47 @@ resource webAppDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-pr
     logs: [
       {
         category: 'AppServiceHTTPLogs'
-        categoryGroup: null
         enabled: true
       }
       {
         category: 'AppServiceConsoleLogs'
-        categoryGroup: null
         enabled: true
       }
       {
         category: 'AppServiceAppLogs'
-        categoryGroup: null
         enabled: true
       }
       {
         category: 'AppServicePlatformLogs'
-        categoryGroup: null
         enabled: true
       }
-    ]
-    metrics: [
       {
-        category: 'AllMetrics'
+        category: 'AppServiceAuditLogs'
+        enabled: true
+      }
+      {
+        category: 'AppServiceIPSecAuditLogs'
+        enabled: true
+      }
+      {
+        category: 'AppServiceAuthenticationLogs'
         enabled: true
       }
     ]
   }
 }
 
-resource appServicePrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-01' = {
-  name: appServicePrivateEndpointName
+resource appServicePrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
+  name: 'pe-front-end-web-app'
   location: location
   properties: {
     subnet: {
-      id: vnet::privateEndpointsSubnet.id
+      id: virtualNetwork::privateEndpointsSubnet.id
     }
+    customNetworkInterfaceName: 'nic-front-end-web-app'
     privateLinkServiceConnections: [
       {
-        name: appServicePrivateEndpointName
+        name: 'front-end-web-app'
         properties: {
           privateLinkServiceId: webApp.id
           groupIds: [
@@ -248,6 +277,20 @@ resource appServicePrivateEndpoint 'Microsoft.Network/privateEndpoints@2022-11-0
         }
       }
     ]
+  }
+
+  resource appServiceDnsZoneGroup 'privateDnsZoneGroups' = {
+    name: 'front-end-web-app'
+    properties: {
+      privateDnsZoneConfigs: [
+        {
+          name: 'web-app'
+          properties: {
+            privateDnsZoneId: appServiceExistingPrivateDnsZone.id
+          }
+        }
+      ]
+    }
   }
 }
 
@@ -295,137 +338,7 @@ resource appServicePlanAutoScaleSettings 'Microsoft.Insights/autoscalesettings@2
   ]
 }
 
-// create application insights resource
-resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: 'appinsights-${appName}'
-  location: location
-  kind: 'web'
-  properties: {
-    Application_Type: 'web'
-    WorkspaceResourceId: logWorkspace.id
-    RetentionInDays: 90
-    IngestionMode: 'LogAnalytics'
-    publicNetworkAccessForIngestion: 'Enabled'
-    publicNetworkAccessForQuery: 'Enabled'
-  }
-}
-
-/*Promptflow app service*/
-// Web App
-resource webAppPf 'Microsoft.Web/sites@2023-12-01' = {
-  name: '${appName}-pf'
-  location: location
-  kind: 'linux'
-  identity: {
-    type: 'SystemAssigned, UserAssigned'
-    userAssignedIdentities: {
-      '${appServiceManagedIdentity.id}': {}
-    }
-  }
-  properties: {
-    serverFarmId: appServicePlan.id
-    virtualNetworkSubnetId: vnet::appServicesSubnet.id
-    httpsOnly: true
-    keyVaultReferenceIdentity: appServiceManagedIdentity.id
-    hostNamesDisabled: false
-    vnetImagePullEnabled: true
-    publicNetworkAccess: 'Disabled'
-    vnetRouteAllEnabled: true
-    vnetContentShareEnabled: true
-    siteConfig: {
-      linuxFxVersion: 'DOCKER|mcr.microsoft.com/appsvc/staticsite:latest'
-      vnetRouteAllEnabled: true
-      http20Enabled: true
-      publicNetworkAccess: 'Disabled'
-      alwaysOn: true
-    }
-  }
-  dependsOn: [
-    appServiceSecretsUserRoleAssignmentModule
-    blobDataReaderRoleAssignment
-  ]
-
-  resource appsettingsPf 'config' = {
-    name: 'appsettings'
-    properties: {
-      APPINSIGHTS_INSTRUMENTATIONKEY: appInsights.properties.InstrumentationKey
-      APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
-      ApplicationInsightsAgent_EXTENSION_VERSION: '~2'
-      WEBSITES_CONTAINER_START_TIME_LIMIT: '1800'
-      OPENAICONNECTION_API_BASE: azureOpenAI.properties.endpoint
-      WEBSITES_PORT: '8080'
-    }
-  }
-}
-
-// Prompt flow Web App diagnostic settings
-resource webAppPfDiagSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: 'default'
-  scope: webAppPf
-  properties: {
-    workspaceId: logWorkspace.id
-    logs: [
-      {
-        category: 'AppServiceHTTPLogs'
-        categoryGroup: null
-        enabled: true
-      }
-      {
-        category: 'AppServiceConsoleLogs'
-        categoryGroup: null
-        enabled: true
-      }
-      {
-        category: 'AppServiceAppLogs'
-        categoryGroup: null
-        enabled: true
-      }
-      {
-        category: 'AppServicePlatformLogs'
-        categoryGroup: null
-        enabled: true
-      }
-    ]
-    metrics: [
-      {
-        category: 'AllMetrics'
-        enabled: true
-      }
-    ]
-  }
-}
-
-resource appServicePrivateEndpointPf 'Microsoft.Network/privateEndpoints@2024-01-01' = {
-  name: appServicePfPrivateEndpointName
-  location: location
-  properties: {
-    subnet: {
-      id: vnet::privateEndpointsSubnet.id
-    }
-    privateLinkServiceConnections: [
-      {
-        name: appServicePfPrivateEndpointName
-        properties: {
-          privateLinkServiceId: webAppPf.id
-          groupIds: [
-            'sites'
-          ]
-        }
-      }
-    ]
-  }
-}
-
-@description('Allow the prompt flow web app to call into Azure OpenAI.')
-resource azureOpenAiUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(azureOpenAI.id, webAppPf.id, cognitiveServicesOpenAiUserRole.id)
-  scope: azureOpenAI
-  properties: {
-    roleDefinitionId: cognitiveServicesOpenAiUserRole.id
-    principalType: 'ServicePrincipal'
-    principalId: webAppPf.identity.principalId
-  }
-}
+// ---- Outputs ----
 
 @description('The name of the app service plan.')
 output appServicePlanName string = appServicePlan.name

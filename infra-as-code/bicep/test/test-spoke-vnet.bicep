@@ -21,8 +21,8 @@ param hubFirewallPrivateIp string = '10.0.1.4'
 var spokeVirtualNetworkAddressPrefix = '192.168.0.0/16'
 var appGatewaySubnetPrefix = '192.168.1.0/24'
 var appServicesSubnetPrefix = '192.168.0.0/24'
-var privateEndpointsSubnetPrefix = '192.168.2.0/27'
-var buildAgentsSubnetPrefix = '192.168.2.32/27'
+var privateEndpointsSubnetPrefix = '192.168.2.0/25'  // Expanded from /27 to /25 (128 IPs instead of 32)
+var buildAgentsSubnetPrefix = '192.168.2.128/27'    // Moved to avoid overlap with expanded private endpoints subnet
 var aiAgentsEgressSubnetPrefix = '192.168.3.0/24'
 
 var spokeVirtualNetworkName = 'vnet-${spokeBaseName}'

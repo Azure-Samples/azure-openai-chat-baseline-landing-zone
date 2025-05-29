@@ -40,6 +40,7 @@ resource searchIndexDataContributorRole 'Microsoft.Authorization/roleDefinitions
 
 resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2025-02-01' existing = {
   name: logAnalyticsWorkspaceName
+  scope: resourceGroup(hubResourceGroupName)
 }
 
 // AI Search

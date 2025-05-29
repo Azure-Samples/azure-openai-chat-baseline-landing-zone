@@ -50,6 +50,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-11-01' existing = {
 
 resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
   name: logWorkspaceName
+  scope: resourceGroup(hubResourceGroupName)
 }
 
 // Reference existing private DNS zone in hub
