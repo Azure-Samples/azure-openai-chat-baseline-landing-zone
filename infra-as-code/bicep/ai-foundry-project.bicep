@@ -231,18 +231,20 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' exi
       ]
     }
 
-    
-    @description('Create the Azure AI Agent service.')
-    resource aiAgentService 'capabilityHosts' = {
+    @description('Create the Azure AI Agent service capability host.')
+    resource aiAgentService 'capabilityHosts@2025-04-01-preview' = {
       name: 'projectagents'
       properties: {
         capabilityHostKind: 'Agents'
-        vectorStoreConnections: ['${aiSearchConnection.name}']
-        storageConnections: ['${storageConnection.name}']
-        threadStorageConnections: ['${threadStorageConnection.name}']
+        vectorStoreConnections: [aiSearchConnection.name]
+        storageConnections: [storageConnection.name]
+        threadStorageConnections: [threadStorageConnection.name]
       }
       dependsOn: [
-        applicationInsightsConnection  // Single thread changes to the project, else conflict errors tend to happen
+        applicationInsightsConnection  // Ensure all connections are established first
+        projectDbCosmosDbOperatorAssignment
+        projectBlobDataContributorAssignment
+        projectAISearchContributorAssignment
       ]
     }
 
@@ -265,7 +267,7 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' exi
         isSharedToAll: false
       }
       dependsOn: [
-        aiAgentService  // Deploy after the Azure AI Agent service is provisioned, not a dependency.
+        aiAgentService  // Deploy after the Azure AI Agent service is provisioned
       ]
     }
   }
