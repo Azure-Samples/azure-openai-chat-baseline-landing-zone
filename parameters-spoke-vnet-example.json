@@ -1,0 +1,15 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "hubVNetResourceId": {
+      "value": "/subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/rg-hub-test/providers/Microsoft.Network/virtualNetworks/vnet-hub"
+    },
+    "firewallPrivateIpAddress": {
+      "value": "10.0.1.4"
+    },
+    "dnsResolverInboundPrivateIpAddress": {
+      "value": "10.0.3.4"
+    }
+  }
+} 

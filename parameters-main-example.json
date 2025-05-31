@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "baseName": {
+      "value": "aiagt04"
+    },
+    "hubResourceGroupName": {
+      "value": "rg-hub-test"
+    },
+    "logAnalyticsWorkspaceName": {
+      "value": "log-hub"
+    },
+    "yourPrincipalId": {
+      "value": "YOUR_AZURE_AD_PRINCIPAL_ID_HERE"
+    },
+    "existingAiAgentsEgressSubnetName": {
+      "value": "snet-aiAgentsEgress"
+    }
+  }
+} 

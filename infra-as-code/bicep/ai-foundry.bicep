@@ -84,19 +84,6 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
       versionUpgradeOption: 'NoAutoUpgrade'
     }
   }
-
-  @description('Create hub-level capability host to enable AI Agent service at the hub level.')
-  resource hubCapabilityHost 'capabilityHosts@2025-04-01-preview' = {
-    name: 'hubagents'
-    properties: {
-      capabilityHostKind: 'Agents'
-      customerSubnet: agentSubnetResourceId
-      description: 'Hub-level capability host for AI Agents'
-    }
-    dependsOn: [
-      model  // Ensure the model is deployed first
-    ]
-  }
 }
 
 // Role assignment
@@ -156,4 +143,3 @@ resource azureDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-prev
 // ---- Outputs ----
 
 output aiFoundryName string = aiFoundry.name
-output hubCapabilityHostName string = aiFoundry::hubCapabilityHost.name

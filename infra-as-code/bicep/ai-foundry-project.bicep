@@ -56,9 +56,6 @@ resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-12-01-previ
       principalId: aiFoundry::project.identity.principalId
       scope: scopeUserContainerId
     }
-    dependsOn: [
-      aiFoundry::project::aiAgentService
-    ]
   }
 
   @description('Assign the project\'s managed identity the ability to read and write data in this collection within enterprise_memory database.')
@@ -71,7 +68,6 @@ resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-12-01-previ
     }
     dependsOn: [
       cosmosDbAccount::projectUserThreadContainerWriter // Single thread applying these permissions.
-      aiFoundry::project::aiAgentService
     ]
   }
 
@@ -85,7 +81,6 @@ resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-12-01-previ
     }
     dependsOn: [
       cosmosDbAccount::projectSystemThreadContainerWriter // Single thread applying these permissions.
-      aiFoundry::project::aiAgentService
     ]
   }
 }
@@ -140,7 +135,7 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' existing
 resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing  = {
   name: existingAiFoundryName
 
-  resource project 'projects' = {
+  resource project 'projects@2025-04-01-preview' = {
     name: 'projchat'
     location: location
     identity: {
@@ -152,7 +147,7 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' exi
     }
 
     @description('Create project connection to CosmosDB (thread storage); dependency for Azure AI Agent service.')
-    resource threadStorageConnection 'connections' = {
+    resource threadStorageConnection 'connections@2025-04-01-preview' = {
       name: cosmosDbAccount.name
       properties: {
         authType: 'AAD'
@@ -170,7 +165,7 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' exi
     }
 
     @description('Create project connection to the Azure Storage account; dependency for Azure AI Agent service.')
-    resource storageConnection 'connections' = {
+    resource storageConnection 'connections@2025-04-01-preview' = {
       name: agentStorageAccount.name
       properties: {
         authType: 'AAD'
@@ -190,7 +185,7 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' exi
     }
 
     @description('Create project connection to Azure AI Search; dependency for Azure AI Agent service.')
-    resource aiSearchConnection 'connections' = {
+    resource aiSearchConnection 'connections@2025-04-01-preview' = {
       name: azureAISearchService.name
       properties: {
         category: 'CognitiveSearch'
@@ -210,7 +205,7 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' exi
     }
 
     @description('Connect this project to application insights for visualization of token usage.')
-    resource applicationInsightsConnection 'connections' = {
+    resource applicationInsightsConnection 'connections@2025-04-01-preview' = {
       name:'appInsights-connection'
       properties: {
         authType: 'ApiKey'
@@ -231,25 +226,8 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' exi
       ]
     }
 
-    @description('Create the Azure AI Agent service capability host.')
-    resource aiAgentService 'capabilityHosts@2025-04-01-preview' = {
-      name: 'projectagents'
-      properties: {
-        capabilityHostKind: 'Agents'
-        vectorStoreConnections: [aiSearchConnection.name]
-        storageConnections: [storageConnection.name]
-        threadStorageConnections: [threadStorageConnection.name]
-      }
-      dependsOn: [
-        applicationInsightsConnection  // Ensure all connections are established first
-        projectDbCosmosDbOperatorAssignment
-        projectBlobDataContributorAssignment
-        projectAISearchContributorAssignment
-      ]
-    }
-
     @description('Create project connection to Bing grounding data. Useful for future agents that get created.')
-    resource bingGroundingConnection 'connections' = {
+    resource bingGroundingConnection 'connections@2025-04-01-preview' = {
       name: replace(existingBingAccountName, '-', '')
       properties: {
         authType: 'ApiKey'
@@ -267,7 +245,7 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' exi
         isSharedToAll: false
       }
       dependsOn: [
-        aiAgentService  // Deploy after the Azure AI Agent service is provisioned
+        applicationInsightsConnection  // Deploy after application insights connection is configured
       ]
     }
   }
