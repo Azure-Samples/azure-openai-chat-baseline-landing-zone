@@ -19,6 +19,9 @@ The key differences when integrating the Azure AI Foundry Agent service chat bas
 
 - **DNS forwarding**: Rather than using local DNS settings, the application's virtual network likely will be configured to use central DNS servers, such as Azure Firewall DNS Proxy or Azure Private DNS Resolver, for DNS forwarding. This centralizes DNS management and ensures consistency across the landscape.
 
+  > [!IMPORTANT]
+  > While a centralized DNS architecture is the recommended approach, Azure AI Foundry will require to inject specific rules for its dependencies to be resolved by the Azure Private DNS resolver. This result into a configuration that is not fully centralized, but rather a hybrid approach that resolves some dns queries using a cenralized dhcp configuration at the vnet level, and other queries using a distributed DNS resolver architecture.
+
 - **Bastion host**: Instead of deploying an Azure Bastion host within the application's landing zone, a centralized bastion service already provisioned within the platform landing zone subscriptions is used. This means all remote administrative traffic is routed through a common, secure access point, adhering to the principle of least privilege and centralized auditing.
 
 - **Private DNS Zones**: Private endpoints within the application need to be integrated with centralized private DNS zones that are managed at the platform landing zone level. Such DNS zones might be shared across multiple applications or environments, simplifying the DNS management and providing an organized approach to name resolution.
@@ -29,48 +32,61 @@ The key differences when integrating the Azure AI Foundry Agent service chat bas
 
 ### Integration with existing platform services
 
-Most of the configuration for this scenario is in the **parameters.alz.json** file, which specifies the integration points for existing Azure services such as the spoke virtual network, the UDR to route internet traffic. It also includes an external DNS server address and the IP address of an existing Network Virtual Appliance (NVA) for routing configuration.
+Partial configuration for this scenario is in the **parameters.alz.json** file, currently specifies the subnet address prefixes for the following subnets:
+
+- `snet-appGateway`: The subnet for the Azure Application Gateway.
+- `snet-appServicePlan`: The subnet for the Azure App Service.
+- `snet-privateEndpoints`: The subnet for the Azure Private Endpoint.
+- `snet-agents`: The subnet for the Azure AI Foundry Agent Service.
 
 ## Architecture
 
 Just like the baseline reference implementation, this implementation covers the same following three scenarios:
 
-1. Authoring a flow - Authoring a flow using prompt flow in the Azure AI Foundry portal
-1. Deploying a flow to managed compute behind an Azure Machine Learning endpoint - The deployment of the executable flow created in Azure AI Foundry to managed online endpoint. The client UI that is hosted in Azure App Service accesses the deployed flow.
-1. Deploying a flow to Azure App Service (Self-hosted option) - The deployment of an executable flow as a container to Azure App Service. The client UI that accesses the flow is also hosted in Azure App Service.
+1. Setting up Azure AI Foundry to host agents
+1. Deploying an agent into Azure AI Foundry Agent Service
+1. Invoking the agent from .NET code hosted in an Azure Web App
 
-### Authoring a flow
+### Setting up Azure AI Foundry to host agents
+
+Azure AI Foundry hosts Azure AI Foundry Agent Service as a capability. Foundry Agent service's REST APIs are exposed as an AI Foundry private endpoint within the network, and the agents' all egress through a delegated subnet which is routed through Azure Firewall for any internet traffic. This architecture deploys the Foundry Agent Service with its dependencies hosted within your own Azure Application landing zone subscription. As such, this architecture includes an Azure Storage account, Azure AI Search instance, and an Azure Cosmos DB account specifically for the Foundry Agent Service to manage.
 
 ![Diagram of the authoring architecture using Azure AI Foundry. It demonstrates key architecture components and flow when using the Azure AI Foundry portal as an authoring environment.](docs/media/azure-openai-baseline-landing-zone-networking.png)
 
-The authoring architecture diagram illustrates how flow authors [connect to Azure AI Foundry through a private endpoint](https://learn.microsoft.com/azure/ai-studio/how-to/configure-private-link) in a virtual network. In this case, the author connects to the virtual network through routing established by the platform team that supports workstation-based connectivity.
+### Deploying an agent into Azure AI Foundry Agent service
 
-The diagram further illustrates how AI Foundry is configured for [managed virtual network isolation](https://learn.microsoft.com/azure/ai-studio/how-to/configure-managed-network). With this configuration, a managed virtual network is created, along with managed private endpoints enabling connectivity to private resources such as the project's Azure Storage and Azure Container Registry. You can also create user-defined connections like private endpoints to connect to resources like Azure OpenAI service and Azure AI Search.
+Agents can be created via the Azure AI Foundry portal, Azure AI Persistent Agents client library, or the REST API. The creation and invocation of agents are a data plane operation. Since the data plane to Azure AI Foundry is private, all three of those are restricted to being executed from within a private network connected to the private endpoint of Azure AI Foundry.
 
-### Deploying a flow to Azure Machine Learning managed online endpoint
+Ideally agents should be source-controlled and a versioned asset. You then can deploy agents in a coordinated way with the rest of your workload's code. In this deployment guide, you'll create an agent from the jump box to simulate a deployment pipeline which could have created the agent.
+
+If using the Azure AI Foundry portal is desired, then the web browser experience must be performed from a VM within the network or from a workstation that has VPN access to the private network and can properly resolve private DNS records.
 
 ![Diagram of the deploying a flow to managed online endpoint. The diagram illustrates the Azure services' relationships for an AI Foundry environment with a managed online endpoint. This diagram also demonstrates the private endpoints used to ensure private connectivity for the managed private endpoint in Azure AI Foundry.](docs/media/azure-openai-baseline-landing-zone.png)
 
-The Azure AI Foundry deployment architecture diagram illustrates how a front-end web application, deployed into a [network-secured App Service](https://github.com/Azure-Samples/app-service-baseline-implementation), [connects to a managed online endpoint through a private endpoint](https://learn.microsoft.com/azure/ai-studio/how-to/configure-private-link) in a virtual network. Like the authoring flow, the diagram illustrates how the AI Foundry project is configured for [managed virtual network isolation](https://learn.microsoft.com/azure/ai-studio/how-to/configure-managed-network). The deployed flow connects to required resources such as Azure OpenAI and Azure AI Search through managed private endpoints.
+### Invoking the agent from .NET code hosted in an Azure Web App
 
-### Deploying a flow to Azure App Service (alternative)
+A chat UI application is deployed into a private Azure App Service. The UI is accessed through Application Gateway (WAF). The .NET code uses the Azure AI Persistent Agents client library to connect to the workload's agent. The endpoint for the agent is exposed exclusively through the Azure AI Foundry private endpoint.
 
 ![Diagram of the deploying a flow to Azure App Service. This drawing emphasizes how AI Foundry compute and endpoints are bypassed, and Azure App Service and its virtual network become responsible for connecting to the private endpoints for dependencies.](docs/media/azure-openai-chat-baseline-appservices.png)
-
-The Azure App Service deployment architecture diagram illustrates how the same prompt flow is containerized and deployed to Azure App Service alongside the same front-end web application from the prior architecture. This solution is a completely self-hosted, externalized alternative to an Azure AI Foundry managed online endpoint.
-
-The flow is still authored in a network-isolated Azure AI Foundry project. To deploy an App Service in this architecture, the flows need to be containerized and pushed to the Azure Container Registry that is accessible through private endpoints by the App Service.
 
 ## Deployment guide
 
 Follow these instructions to deploy this example to your application landing zone subscription, try out what you've deployed, and learn how to clean up those resources.
 
 > [!WARNING]
-> The deployment steps assume you have an application landing zone already provisioned through your subscription vending process. This deployment will not work unless you have permission to manage subnets on an existing virtual network and means to ensure private endpoint DNS configuration (such as platform provided DINE Azure Policy). It also requires your platform team to have required NVA allowances on the hub's egress firewall.
+> The deployment steps assume you have an application landing zone already provisioned through your subscription vending process. This deployment will not work unless you have permission to manage subnets on an existing virtual network and means to ensure private endpoint DNS configuration (such as platform provided DINE Azure Policy). It also requires your platform team to have required NVA allowances on the hub's egress firewall and configured Azure DNS Forwarding rulesets targeting the Azure Private DNS resolver input IP address for the following Azure AI Foundry capability host domain dependencies.
 
 ### Prerequisites
 
 - You have an application landing zone subscription ready for this deployment that contains the following platform-provided resources:
+
+  - One virtual network (hub)
+    - Azure Bastion
+    - Azure Jumbox VM with connectivity to your Azure application landing zone subscription
+    - DNS Forwarding ruleset configuration targeting the Azure Private DNS resolver inbound endpoint ip address for the specific Azure AI Foundry capability host domain depdencies as listed below:
+      - `documents.azure.com`
+      - `search.windows.net`
+      - `blob.core.windows.net`
 
   - One virtual network (spoke)
     - Must be at least a `/22`
