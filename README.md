@@ -43,15 +43,17 @@ Partial configuration for this scenario is in the **parameters.alz.json** file, 
 
 Just like the baseline reference implementation, this implementation covers the same following three scenarios:
 
-1. Setting up Azure AI Foundry to host agents
-1. Deploying an agent into Azure AI Foundry Agent Service
-1. Invoking the agent from .NET code hosted in an Azure Web App
+- [Setting up Azure AI Foundry to host agents](#setting-up-azure-ai-foundry-to-host-agents)
+- [Deploying an agent into Azure AI Foundry Agent Service](#deploying-an-agent-into-azure-ai-agent-service)
+- [Invoking the agent from .NET code hosted in an Azure Web App](#invoking-the-agent-from-net-code-hosted-in-an-azure-web-app)
+
+![Diagram of the Architecture diagram of the workload, including select platform subscription resources.](docs/media/baseline-azure-ai-foundry-landing-zone.svg)
+
+*Download a [Visio file](docs/media/baseline-azure-ai-foundry-landing-zone.vsdx) of this architecture.*
 
 ### Setting up Azure AI Foundry to host agents
 
 Azure AI Foundry hosts Azure AI Foundry Agent Service as a capability. Foundry Agent service's REST APIs are exposed as an AI Foundry private endpoint within the network, and the agents' all egress through a delegated subnet which is routed through Azure Firewall for any internet traffic. This architecture deploys the Foundry Agent Service with its dependencies hosted within your own Azure Application landing zone subscription. As such, this architecture includes an Azure Storage account, Azure AI Search instance, and an Azure Cosmos DB account specifically for the Foundry Agent Service to manage.
-
-![Diagram of the authoring architecture using Azure AI Foundry. It demonstrates key architecture components and flow when using the Azure AI Foundry portal as an authoring environment.](docs/media/azure-openai-baseline-landing-zone-networking.png)
 
 ### Deploying an agent into Azure AI Foundry Agent service
 
@@ -61,13 +63,9 @@ Ideally agents should be source-controlled and a versioned asset. You then can d
 
 If using the Azure AI Foundry portal is desired, then the web browser experience must be performed from a VM within the network or from a workstation that has VPN access to the private network and can properly resolve private DNS records.
 
-![Diagram of the deploying a flow to managed online endpoint. The diagram illustrates the Azure services' relationships for an AI Foundry environment with a managed online endpoint. This diagram also demonstrates the private endpoints used to ensure private connectivity for the managed private endpoint in Azure AI Foundry.](docs/media/azure-openai-baseline-landing-zone.png)
-
 ### Invoking the agent from .NET code hosted in an Azure Web App
 
 A chat UI application is deployed into a private Azure App Service. The UI is accessed through Application Gateway (WAF). The .NET code uses the Azure AI Persistent Agents client library to connect to the workload's agent. The endpoint for the agent is exposed exclusively through the Azure AI Foundry private endpoint.
-
-![Diagram of the deploying a flow to Azure App Service. This drawing emphasizes how AI Foundry compute and endpoints are bypassed, and Azure App Service and its virtual network become responsible for connecting to the private endpoints for dependencies.](docs/media/azure-openai-chat-baseline-appservices.png)
 
 ## Deployment guide
 
@@ -75,6 +73,10 @@ Follow these instructions to deploy this example to your application landing zon
 
 > [!WARNING]
 > The deployment steps assume you have an application landing zone already provisioned through your subscription vending process. This deployment will not work unless you have permission to manage subnets on an existing virtual network and means to ensure private endpoint DNS configuration (such as platform provided DINE Azure Policy). It also requires your platform team to have required NVA allowances on the hub's egress firewall and configured Azure DNS Forwarding rulesets targeting the Azure Private DNS resolver input IP address for the following Azure AI Foundry capability host domain dependencies.
+
+![Architecture diagram that focuses mostly on network ingress flows.](docs/media/baseline-landing-zone-networking.svg)
+
+*Download a [Visio file](docs/media/baseline-landing-zone-networking.vsdx) of this architecture.*
 
 ### Prerequisites
 
