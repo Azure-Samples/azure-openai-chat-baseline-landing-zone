@@ -2,6 +2,9 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
+    "bastionSubnetAddressPrefix": {
+      "value": "10.0.2.0/26"
+    },
     "appServicesSubnetAddressPrefix": {
       "value": "192.168.0.0/24"
     },
@@ -11,8 +14,14 @@
     "privateEndpointsSubnetAddressPrefix": {
       "value": "192.168.2.0/25"
     },
+    "buildAgentsSubnetAddressPrefix": {
+      "value": "192.168.2.32/27"
+    },
     "agentsSubnetAddressPrefix": {
       "value": "192.168.3.0/24"
+    },
+    "jumpBoxSubnetAddressPrefix": {
+      "value": "192.168.2.128/28"
     }
   }
 }

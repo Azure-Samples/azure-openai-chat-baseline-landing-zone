@@ -38,6 +38,8 @@ Partial configuration for this scenario is in the **parameters.alz.json** file, 
 - `snet-appServicePlan`: The subnet for the Azure App Service.
 - `snet-privateEndpoints`: The subnet for the Azure Private Endpoint.
 - `snet-agents`: The subnet for the Azure AI Foundry Agent Service.
+- `snet-jumpbox`: The subnet for the jumboxes.
+- `snet-buildagents`: The subnet for the build agents.
 
 ## Architecture
 
@@ -246,6 +248,28 @@ The following steps are required to deploy the infrastructure from the command l
 To test this scenario, you'll be deploying an AI agent included in this repository. The agent uses a GPT model combined with a Bing search for grounding data. Deploying an AI agent requires data plane access to Azure AI Foundry. In this architecture, a network perimeter is established, and you must interact with the Azure AI Foundry portal and its resources from within the network.
 
 The AI agent definition would likely be deployed from your application's pipeline running from a build agent in your workload's network or it could be deployed via singleton code in your web application. In this deployment, you'll create the agent from the jump box, which most closely simulates pipeline-based creation.
+
+1. Deploy jump box, if necessary. Skip this if your platform team has provided workstation based access or another method.
+
+   If you need to deploy a jump box into your application landing zone, this deployment guide has a simple one that you can use. You will be prompted for an admin password for the jump box; it must satisfy the [complexity requirements for Windows VM in Azure](https://learn.microsoft.com/azure/virtual-machines/windows/faq#what-are-the-password-requirements-when-creating-a-vm-). You'll need to identify your landing zone virtual network as well in **infra-as-code/bicep/jumpbox/parameters.json**. This is the same value you used in **infra-as-code/bicep/parameters.alz.json**.
+
+   *There is an optional tracking ID on this deployment. To opt out of the deployment tracking, add the following parameter to the deployment code below: `-p telemetryOptOut true`.*
+
+   ```bash
+   az deployment group create -f ./infra-as-code/bicep/jumpbox/jumpbox.bicep \
+      -g $RESOURCE_GROUP \
+      -p @./infra-as-code/bicep/jumpbox/parameters.json \
+      -p baseName=$BASE_NAME
+   ```
+
+   The username for the Windows jump box deployed in this solution is `vmadmin`.
+
+   Your hub's egress firewall will need various application rule allowances to support this use case. Below are some key destinations that need to be opened from your jump box's subnet:
+
+   - `ai.azure.com:443`
+   - `login.microsoftonline.com:443`
+   - `login.live.com:443`
+   - and many more...
 
 1. Connect to the virtual network via the deployed [Azure Bastion and the jump box](https://learn.microsoft.com/azure/bastion/bastion-connect-vm-rdp-windows#rdp). Alternatively, you can connect through a force-tunneled VPN or virtual network peering that you manually configure apart from these instructions.
 

@@ -31,6 +31,10 @@ param existingResourceIdForSpokeVirtualNetwork string
 @description('The resource ID of the subscription vending provided Internet UDR in your application landging zone subscription. Leave blank if platform team performs Internet routing another way. For example, /subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg-app-networking/providers/Microsoft.Network/routeTables/udr-to-hub')
 param existingResourceIdForUdrForInternetTraffic string = ''
 
+@description('Address space within the existing hub\'s available address space to be used for Jumboxes NSG ALLOW rules.')
+@minLength(9)
+param bastionSubnetAddressPrefix string
+
 @description('Address space within the existing spoke\'s available address space to be used for Azure App Services.')
 @minLength(9)
 param appServicesSubnetAddressPrefix string
@@ -45,7 +49,15 @@ param privateEndpointsSubnetAddressPrefix string
 
 @description('Address space within the existing spoke\'s available address space to be used for build agents.')
 @minLength(9)
+param buildAgentsSubnetAddressPrefix string
+
+@description('Address space within the existing spoke\'s available address space to be used for ai agents.')
+@minLength(9)
 param agentsSubnetAddressPrefix string
+
+@description('Address space within the existing spoke\'s available address space to be used for jump boxes.')
+@minLength(9)
+param jumpBoxSubnetAddressPrefix string
 
 @description('Assign your user some roles to support fluid access when working in the AI Foundry portal.')
 @maxLength(36)
@@ -80,10 +92,13 @@ module networkModule 'network.bicep' = {
     spokeResourceGroupName: rgSpoke.name
     existingSpokeVirtualNetworkName: existingSpokeVirtualNetworkName
     existingUdrForInternetTrafficName: existingUdrForInternetTrafficName
+    bastionSubnetAddressPrefix: bastionSubnetAddressPrefix
     appServicesSubnetAddressPrefix: appServicesSubnetAddressPrefix
     appGatewaySubnetAddressPrefix: appGatewaySubnetAddressPrefix
     privateEndpointsSubnetAddressPrefix: privateEndpointsSubnetAddressPrefix
+    buildAgentsSubnetAddressPrefix: buildAgentsSubnetAddressPrefix
     agentsSubnetAddressPrefix: agentsSubnetAddressPrefix
+    jumpBoxSubnetAddressPrefix: jumpBoxSubnetAddressPrefix
   }
 }
 

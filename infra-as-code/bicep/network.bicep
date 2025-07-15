@@ -16,6 +16,10 @@ param existingSpokeVirtualNetworkName string
 @description('Name of the existing Internet UDR in this resource group. This should be blank for VWAN deployments.')
 param existingUdrForInternetTrafficName string = ''
 
+@description('The IP range of the hub-provided Azure Bastion subnet range. Needed for workload to limit access in NSGs. For example, 10.0.1.0/26')
+@minLength(9)
+param bastionSubnetAddressPrefix string
+
 @description('Address space within the existing spoke\'s available address space to be used for Azure App Services.')
 @minLength(9)
 param appServicesSubnetAddressPrefix string
@@ -30,7 +34,16 @@ param privateEndpointsSubnetAddressPrefix string
 
 @description('Address space within the existing spoke\'s available address space to be used for build agents.')
 @minLength(9)
+param buildAgentsSubnetAddressPrefix string
+
+@description('Address space within the existing spoke\'s available address space to be used for agents.')
+@minLength(9)
 param agentsSubnetAddressPrefix string
+
+@description('Address space within the existing spoke\'s available address space to be used for jumb boxes.')
+@minLength(9)
+param jumpBoxSubnetAddressPrefix string
+
 
 //--- Routing ----
 
@@ -122,6 +135,26 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
     }
     dependsOn: [
       privateEnpointsSubnet // Single thread these
+    ]
+  }
+
+  resource jumpBoxSubnet 'subnets' = {
+    name: 'snet-jumpbox'
+    properties: {
+      addressPrefix: jumpBoxSubnetAddressPrefix
+      networkSecurityGroup: {
+        id: jumpBoxSubnetNsg.id
+      }
+      privateEndpointNetworkPolicies: 'Disabled'
+      privateLinkServiceNetworkPolicies: 'Enabled'
+      routeTable: hubFirewallUdr != null
+        ? {
+            id: hubFirewallUdr.id
+          }
+        : null
+    }
+    dependsOn: [
+      agentsSubnet // Single thread these
     ]
   }
 }
@@ -281,6 +314,30 @@ resource privateEndpointsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022
   }
 }
 
+@description('The Build agents subnet NSG')
+resource buildAgentsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
+  name: 'nsg-buildAgentsSubnet'
+  location: resourceGroup().location
+  properties: {
+    securityRules: [
+      {
+        name: 'DenyAllOutBound'
+        properties: {
+          description: 'Deny outbound traffic from the build agents subnet. Note: adjust rules as needed based on the resources added to the subnet'
+          protocol: '*'
+          sourcePortRange: '*'
+          destinationPortRange: '*'
+          sourceAddressPrefix: buildAgentsSubnetAddressPrefix
+          destinationAddressPrefix: '*'
+          access: 'Deny'
+          priority: 1000
+          direction: 'Outbound'
+        }
+      }
+    ]
+  }
+}
+
 // Build agents subnet NSG
 resource agentsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
   name: 'nsg-agentsSubnet'
@@ -295,6 +352,74 @@ resource agentsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = 
           sourcePortRange: '*'
           destinationPortRange: '*'
           sourceAddressPrefix: appGatewaySubnetAddressPrefix
+          destinationAddressPrefix: '*'
+          access: 'Deny'
+          priority: 1000
+          direction: 'Outbound'
+        }
+      }
+    ]
+  }
+}
+
+@description('The Jump box subnet NSG')
+resource jumpBoxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
+  name: 'nsg-jumpBoxesSubnet'
+  location: resourceGroup().location
+  properties: {
+    securityRules: [
+      {
+        name: 'JumpBox.In.Allow.SshRdp'
+        properties: {
+          description: 'Allow inbound RDP and SSH from the Bastion Host subnet'
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          sourceAddressPrefix: bastionSubnetAddressPrefix
+          destinationPortRanges: [
+            '22'
+            '3389'
+          ]
+          destinationAddressPrefix: jumpBoxSubnetAddressPrefix
+          access: 'Allow'
+          priority: 100
+          direction: 'Inbound'
+        }
+      }
+      {
+        name: 'JumpBox.Out.Allow.PrivateEndpoints'
+        properties: {
+          description: 'Allow outbound traffic from the jump box subnet to the Private Endpoints subnet.'
+          protocol: '*'
+          sourcePortRange: '*'
+          destinationPortRange: '*'
+          sourceAddressPrefix: jumpBoxSubnetAddressPrefix
+          destinationAddressPrefix: privateEndpointsSubnetAddressPrefix
+          access: 'Allow'
+          priority: 100
+          direction: 'Outbound'
+        }
+      }
+      {
+        name: 'JumpBox.Out.Allow.Internet'
+        properties: {
+          description: 'Allow outbound traffic from all VMs to Internet'
+          protocol: '*'
+          sourcePortRange: '*'
+          destinationPortRange: '*'
+          sourceAddressPrefix: jumpBoxSubnetAddressPrefix
+          destinationAddressPrefix: 'Internet'
+          access: 'Allow'
+          priority: 130
+          direction: 'Outbound'
+        }
+      }
+      {
+        name: 'DenyAllOutBound'
+        properties: {
+          protocol: '*'
+          sourcePortRange: '*'
+          destinationPortRange: '*'
+          sourceAddressPrefix: jumpBoxSubnetAddressPrefix
           destinationAddressPrefix: '*'
           access: 'Deny'
           priority: 1000
