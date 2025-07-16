@@ -144,22 +144,6 @@ module deployBingAccount 'bing-grounding.bicep' = {
   }
 }
 
-@description('Deploy the Azure AI Foundry project into the AI Foundry account. This is the project is the home of the Azure AI Agent service.')
-module deployAzureAiFoundryProject 'ai-foundry-project.bicep' = {
-  scope: rgWorkload
-  params: {
-    existingAiFoundryName: deployAzureAIFoundry.outputs.aiFoundryName
-    existingAISearchAccountName: deployAIAgentServiceDependencies.outputs.aiSearchName
-    existingCosmosDbAccountName: deployAIAgentServiceDependencies.outputs.cosmosDbAccountName
-    existingStorageAccountName: deployAIAgentServiceDependencies.outputs.storageAccountName
-    existingBingAccountName: deployBingAccount.outputs.bingAccountName
-    existingWebApplicationInsightsResourceName: deployApplicationInsights.outputs.applicationInsightsName
-  }
-  dependsOn: [
-    //deploymentScriptRoleAssignment // Ensure the managed identity has proper permissions before using it
-  ]
-}
-
 // Deploy the Azure Web App resources for the chat UI.
 
 @description('Deploy an Azure Storage account that is used by the Azure Web App for the deployed application code.')
@@ -214,7 +198,6 @@ module deployWebApp 'web-app.bicep' = {
     existingWebAppDeploymentStorageAccountName: deployWebAppStorage.outputs.appDeployStorageName
     existingWebApplicationInsightsResourceName: deployApplicationInsights.outputs.applicationInsightsName
     existingAzureAiFoundryResourceName: deployAzureAIFoundry.outputs.aiFoundryName
-    existingAzureAiFoundryProjectName: deployAzureAiFoundryProject.outputs.aiAgentProjectName
   }
 }
 
@@ -241,3 +224,18 @@ module customerUsageAttributionModule 'customerUsageAttribution/cuaIdResourceGro
   scope: rgWorkload
   params: {}
 }
+
+// ---- Outputs ----
+
+@description('The name of the Azure AI Foundry account.')
+output aiFoundryName string = deployAzureAIFoundry.outputs.aiFoundryName
+@description('The name of the Cosmos DB account.')
+output cosmosDbAccountName string = deployAIAgentServiceDependencies.outputs.cosmosDbAccountName
+@description('The name of the Storage Account.')
+output storageAccountName string = deployAIAgentServiceDependencies.outputs.storageAccountName
+@description('The name of the AI Search account.')
+output aiSearchAccountName string = deployAIAgentServiceDependencies.outputs.aiSearchName
+@description('The name of the Bing account.')
+output bingAccountName string = deployBingAccount.outputs.bingAccountName
+@description('The name of the Application Insights resource.')
+output webApplicationInsightsResourceName string = deployApplicationInsights.outputs.applicationInsightsName

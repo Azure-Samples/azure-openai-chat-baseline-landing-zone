@@ -218,7 +218,7 @@ The following steps are required to deploy the infrastructure from the command l
    BASE_NAME=<base resource name, between 6 and 8 lowercase characters, all DNS names will include this text, so it must be unique.>
    ```
 
-1. Create a resource group and deploy the workload infrastructure.
+1. Create a resource group and deploy the workload infrastructure prequisites.
 
    *There is an optional tracking ID on this deployment. To opt out of its use, add the following parameter to the deployment code below: `-p telemetryOptOut true`.*
 
@@ -231,7 +231,7 @@ The following steps are required to deploy the infrastructure from the command l
    PRINCIPAL_ID=$(az ad signed-in-user show --query id -o tsv)
 
    az deployment sub create -f ./infra-as-code/bicep/main.bicep \
-     -n ai-foundry-chat-lz-baseline-${BASE_NAME} \
+     -n ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} \
      -l $LOCATION \
      -p workloadResourceGroupName=${RESOURCE_GROUP} \
      -p baseName=${BASE_NAME} \
@@ -241,6 +241,34 @@ The following steps are required to deploy the infrastructure from the command l
      -p existingResourceIdForUdrForInternetTraffic=${UDR_SPOKE_RESOURCE_ID} \
      -p yourPrincipalId=${PRINCIPAL_ID} \
      -p @./infra-as-code/bicep/parameters.alz.json
+   ```
+
+   > [!IMPORTANT]
+   > Before you deploy Azure AI Foundry and its agent capability, you must wait until the Foundry Agent Service dependencies are fully resolvable to their private endpoints from within the spoke network. This requirement is especially important if DINE policies handle updates to DNS private zones. If you attempt to deploy the Foundry Agent Service capability before the private DNS records are resolvable from within your subnet, the deployment fails.
+
+1. Get workload prequisites outputs
+
+   ```bash
+   AIFOUNDRY_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.aiFoundryName.value" -o tsv)
+   COSMOSDB_ACCOUNT_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.cosmosDbAccountName.value" -o tsv)
+   STORAGE_ACCOUNT_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.storageAccountName.value" -o tsv)
+   AISEARCH_ACCOUNT_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.aiSearchAccountName.value" -o tsv)
+   BING_ACCOUNT_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.bingAccountName.value" -o tsv)
+   WEBAPP_APPINSIGHTS_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.webApplicationInsightsResourceName.value" -o tsv)
+   ```
+
+1. Deploy Azure AI Foundry Project and Capability Host
+
+   ```bash
+   az deployment group create -f ./infra-as-code/bicep/ai-foundry-project.bicep \
+     -n ai-foundry-chat-lz-baseline-${BASE_NAME} \
+     -g ${RESOURCE_GROUP} \
+     -p existingAiFoundryName=${AIFOUNDRY_NAME} \
+     -p existingCosmosDbAccountName=${BASECOSMOSDB_ACCOUNT_NAME_NAME} \
+     -p existingStorageAccountName=${STORAGE_ACCOUNT_NAME} \
+     -p existingAISearchAccountName=${AISEARCH_ACCOUNT_NAME} \
+     -p existingBingAccountName=${BING_ACCOUNT_NAME} \
+     -p existingWebApplicationInsightsResourceName=${WEBAPP_APPINSIGHTS_NAME}
    ```
 
 ### 2. Deploy an agent in the Azure AI Foundry Agent Service
@@ -375,6 +403,16 @@ For this deployment guide, you'll continue using your jump box to simulate part 
 
    ```powershell
    az storage blob upload -f chatui.zip --account-name "stwebapp${BASE_NAME}" --auth-mode login -c deploy -n chatui.zip
+   ```
+
+1. Update the app configuration to use the Azure AI Foundry project endpoint you deployed.
+
+   ```powershell
+   # Obtain the Azure AI Foundry project endpoint you deployed
+   $AIFOUNDRY_RPOJECT_ENDPOINT=$(az deployment group show -g $RESOURCE_GROUP -n "ai-foundry-chat-lz-baseline-${BASE_NAME}" --query "properties.outputs.aiAgentProjectEndpoint.value" -o tsv)
+
+   # Update the app configuration
+   az webapp config appsettings set -n "app-${BASE_NAME}" -g $RESOURCE_GROUP --settings AIProjectEndpoint="${AIFOUNDRY_RPOJECT_ENDPOINT}"
    ```
 
 1. Update the app configuration to use the agent you deployed.

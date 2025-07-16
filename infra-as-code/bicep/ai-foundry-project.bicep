@@ -303,4 +303,4 @@ resource bingGroundingConnection 'Microsoft.CognitiveServices/accounts/projects/
 
 // ---- Outputs ----
 
-output aiAgentProjectName string = aiFoundryProject.name
+output aiAgentProjectEndpoint string = aiFoundryProject.properties.endpoints['AI Foundry API']

@@ -48,10 +48,6 @@ param existingWebApplicationInsightsResourceName string
 @minLength(2)
 param existingAzureAiFoundryResourceName string
 
-@description('The name of the existing Azure AI Foundry project name.')
-@minLength(2)
-param existingAzureAiFoundryProjectName string
-
 // variables
 var appName = 'app-${baseName}'
 
@@ -106,10 +102,6 @@ resource azureAiProjectManagerRole 'Microsoft.Authorization/roleDefinitions@2022
 @description('Existing Azure AI Foundry account. This account is where the agents hosted in Azure AI Agent service will be deployed. The web app code calls to these agents.')
 resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = {
   name: existingAzureAiFoundryResourceName
-
-  resource project 'projects' existing = {
-    name: existingAzureAiFoundryProjectName
-  }
 }
 
 // ---- New resources ----
@@ -141,17 +133,6 @@ resource azureAiUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022
     principalId: appServiceManagedIdentity.properties.principalId
   }
 }
-
-/*@description('Grant the App Service managed identity Azure AI manager role permission so it create the Azure AI Foundry-hosted agent. Only needed if your code creates agents directly.')
-resource azureAiManagerRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  scope: aiFoundry
-  name: guid(aiFoundry.id, appServiceManagedIdentity.id, azureAiProjectManagerRole.id)
-  properties: {
-    roleDefinitionId: azureAiProjectManagerRole.id
-    principalType: 'ServicePrincipal'
-    principalId: appServiceManagedIdentity.properties.principalId
-  }
-}*/
 
 @description('Linux, PremiumV3 App Service Plan to host the chat web application.')
 resource appServicePlan 'Microsoft.Web/serverfarms@2024-04-01' = {
@@ -220,7 +201,7 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
       APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString
       AZURE_CLIENT_ID: appServiceManagedIdentity.properties.clientId
       ApplicationInsightsAgent_EXTENSION_VERSION: '~3'
-      AIProjectEndpoint:  aiFoundry::project.properties.endpoints['AI Foundry API']
+      AIProjectEndpoint:  'Not yet set' // Will be set once the agent is created
       AIAgentId: 'Not yet set' // Will be set once the agent is created
       XDT_MicrosoftApplicationInsights_Mode: 'Recommended'
     }
