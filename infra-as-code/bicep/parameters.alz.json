@@ -12,7 +12,7 @@
       "value": "192.168.1.0/24"
     },
     "privateEndpointsSubnetAddressPrefix": {
-      "value": "192.168.2.0/25"
+      "value": "192.168.2.0/27"
     },
     "buildAgentsSubnetAddressPrefix": {
       "value": "192.168.2.32/27"
