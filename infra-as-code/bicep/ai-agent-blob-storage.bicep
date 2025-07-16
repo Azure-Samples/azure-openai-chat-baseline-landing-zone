@@ -18,9 +18,6 @@ param debugUserPrincipalId string
 @minLength(4)
 param logAnalyticsWorkspaceName string
 
-@description('The resource group name of the spoke virtual network')
-param spokeResourceGroupName string
-
 @description('The resource ID for the subnet that private endpoints in the workload should surface in.')
 @minLength(1)
 param privateEndpointSubnetResourceId string

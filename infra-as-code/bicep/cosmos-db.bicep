@@ -13,9 +13,6 @@ param baseName string
 @minLength(4)
 param logAnalyticsWorkspaceName string
 
-@description('The resource group name of the spoke where the VNet exists')
-param spokeResourceGroupName string
-
 @description('Assign your user some roles to support access to the Azure AI Agent dependencies for troubleshooting post deployment')
 @maxLength(36)
 @minLength(36)

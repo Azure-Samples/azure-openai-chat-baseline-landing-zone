@@ -13,9 +13,6 @@ param baseName string
 @minLength(4)
 param logAnalyticsWorkspaceName string
 
-@description('The resource group name of the spoke virtual network')
-param spokeResourceGroupName string
-
 @description('The resource ID for the subnet that the Azure AI Agents will egress through.')
 @minLength(1)
 param agentSubnetResourceId string

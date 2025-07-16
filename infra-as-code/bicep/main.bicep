@@ -119,7 +119,6 @@ module deployAIAgentServiceDependencies 'ai-agent-service-dependencies.bicep' = 
   scope: rgWorkload
   params: {
     baseName: baseName
-    spokeResourceGroupName: rgSpoke.name
     debugUserPrincipalId: yourPrincipalId
     privateEndpointSubnetResourceId: networkModule.outputs.privateEndpointSubnetResourceId
   }
@@ -131,7 +130,6 @@ module deployAzureAIFoundry 'ai-foundry.bicep' = {
   params: {
     baseName: baseName
     logAnalyticsWorkspaceName: deployAIAgentServiceDependencies.outputs.logAnalyticsWorkspaceName
-    spokeResourceGroupName: rgSpoke.name
     agentSubnetResourceId: networkModule.outputs.agentSubnetResourceId
     privateEndpointSubnetResourceId: networkModule.outputs.privateEndpointSubnetResourceId
     aiFoundryPortalUserPrincipalId: yourPrincipalId
@@ -199,7 +197,6 @@ module deployApplicationInsights 'application-insights.bicep' = {
   params: {
     baseName: baseName
     logAnalyticsWorkspaceName: deployAIAgentServiceDependencies.outputs.logAnalyticsWorkspaceName
-    spokeResourceGroupName: rgSpoke.name
   }
 }
 

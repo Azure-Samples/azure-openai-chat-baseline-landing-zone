@@ -14,9 +14,6 @@ param baseName string
 @minLength(36)
 param debugUserPrincipalId string
 
-@description('The resource group name of the spoke virtual network')
-param spokeResourceGroupName string
-
 @description('The resource ID for the subnet that private endpoints in the workload should surface in.')
 @minLength(1)
 param privateEndpointSubnetResourceId string
@@ -48,7 +45,6 @@ module deployAgentStorageAccount 'ai-agent-blob-storage.bicep' = {
     location: location
     baseName: baseName
     logAnalyticsWorkspaceName: logAnalyticsWorkspace.name
-    spokeResourceGroupName: spokeResourceGroupName
     debugUserPrincipalId: debugUserPrincipalId
     privateEndpointSubnetResourceId: privateEndpointSubnetResourceId
   }
@@ -61,7 +57,6 @@ module deployCosmosDbThreadStorageAccount 'cosmos-db.bicep' = {
     location: location
     baseName: baseName
     logAnalyticsWorkspaceName: logAnalyticsWorkspace.name
-    spokeResourceGroupName: spokeResourceGroupName
     debugUserPrincipalId: debugUserPrincipalId
     privateEndpointSubnetResourceId: privateEndpointSubnetResourceId
   }
@@ -74,7 +69,6 @@ module deployAzureAISearchService 'ai-search.bicep' = {
     location: location
     baseName: baseName
     logAnalyticsWorkspaceName: logAnalyticsWorkspace.name
-    spokeResourceGroupName: spokeResourceGroupName
     debugUserPrincipalId: debugUserPrincipalId
     privateEndpointSubnetResourceId: privateEndpointSubnetResourceId
   }

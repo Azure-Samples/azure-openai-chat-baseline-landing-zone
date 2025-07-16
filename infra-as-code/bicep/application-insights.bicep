@@ -13,9 +13,6 @@ param baseName string
 @minLength(4)
 param logAnalyticsWorkspaceName string
 
-@description('The resource group name of the spoke where the VNet exists')
-param spokeResourceGroupName string
-
 // ---- Existing resources ----
 
 @description('Existing: Log sink for Azure Diagnostics.')
