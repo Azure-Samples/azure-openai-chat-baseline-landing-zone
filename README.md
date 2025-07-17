@@ -249,12 +249,12 @@ The following steps are required to deploy the infrastructure from the command l
 1. Get workload prequisites outputs
 
    ```bash
-   AIFOUNDRY_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.aiFoundryName.value" -o tsv)
-   COSMOSDB_ACCOUNT_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.cosmosDbAccountName.value" -o tsv)
-   STORAGE_ACCOUNT_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.storageAccountName.value" -o tsv)
-   AISEARCH_ACCOUNT_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.aiSearchAccountName.value" -o tsv)
-   BING_ACCOUNT_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.bingAccountName.value" -o tsv)
-   WEBAPP_APPINSIGHTS_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.webApplicationInsightsResourceName.value" -o tsv)
+   AIFOUNDRY_NAME=$(az deployment sub show --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.aiFoundryName.value" -o tsv)
+   COSMOSDB_ACCOUNT_NAME=$(az deployment sub show --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.cosmosDbAccountName.value" -o tsv)
+   STORAGE_ACCOUNT_NAME=$(az deployment sub show --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.storageAccountName.value" -o tsv)
+   AISEARCH_ACCOUNT_NAME=$(az deployment sub show --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.aiSearchAccountName.value" -o tsv)
+   BING_ACCOUNT_NAME=$(az deployment sub show --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.bingAccountName.value" -o tsv)
+   WEBAPP_APPINSIGHTS_NAME=$(az deployment sub show --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.webApplicationInsightsResourceName.value" -o tsv)
    ```
 
 1. Deploy Azure AI Foundry Project and Capability Host
@@ -264,7 +264,7 @@ The following steps are required to deploy the infrastructure from the command l
      -n ai-foundry-chat-lz-baseline-${BASE_NAME} \
      -g ${RESOURCE_GROUP} \
      -p existingAiFoundryName=${AIFOUNDRY_NAME} \
-     -p existingCosmosDbAccountName=${BASECOSMOSDB_ACCOUNT_NAME_NAME} \
+     -p existingCosmosDbAccountName=${COSMOSDB_ACCOUNT_NAME} \
      -p existingStorageAccountName=${STORAGE_ACCOUNT_NAME} \
      -p existingAISearchAccountName=${AISEARCH_ACCOUNT_NAME} \
      -p existingBingAccountName=${BING_ACCOUNT_NAME} \
@@ -324,7 +324,7 @@ The AI agent definition would likely be deployed from your application's pipelin
    *The following variables align with the defaults in this deployment. Update them if you customized anything.*
 
    ```powershell
-   $RESOURCE_GROUP="rg-chat-baseline-${BASE_NAME}"
+   $RESOURCE_GROUP="rg-chat-alz-baseline-${BASE_NAME}"
    $AI_FOUNDRY_NAME="aif${BASE_NAME}"
    $BING_CONNECTION_NAME="bingaiagent${BASE_NAME}"
    $AI_FOUNDRY_PROJECT_NAME="projchat"
@@ -409,7 +409,7 @@ For this deployment guide, you'll continue using your jump box to simulate part 
 
    ```powershell
    # Obtain the Azure AI Foundry project endpoint you deployed
-   $AIFOUNDRY_RPOJECT_ENDPOINT=$(az deployment group show -g $RESOURCE_GROUP -n "ai-foundry-chat-lz-baseline-${BASE_NAME}" --query "properties.outputs.aiAgentProjectEndpoint.value" -o tsv)
+   $AIFOUNDRY_PROJECT_ENDPOINT=$(az deployment group show -g "${RESOURCE_GROUP}" -n "ai-foundry-chat-lz-baseline-${BASE_NAME}" --query "properties.outputs.aiAgentProjectEndpoint.value" -o tsv)
 
    # Update the app configuration
    az webapp config appsettings set -n "app-${BASE_NAME}" -g $RESOURCE_GROUP --settings AIProjectEndpoint="${AIFOUNDRY_RPOJECT_ENDPOINT}"
