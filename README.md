@@ -85,14 +85,6 @@ Follow these instructions to deploy this example to your application landing zon
 
 - You have an application landing zone subscription ready for this deployment that contains the following platform-provided resources:
 
-  - One virtual network (hub)
-    - Azure Bastion
-    - Azure Jumbox VM with connectivity to your Azure application landing zone subscription
-    - DNS Forwarding ruleset configuration targeting the Azure Private DNS resolver inbound endpoint ip address for the specific Azure AI Foundry capability host domain depdencies as listed below:
-      - `documents.azure.com`
-      - `search.windows.net`
-      - `blob.core.windows.net`
-
   - One virtual network (spoke)
     - Must be at least a `/22`
     - DNS configuration set for hub-based resolution
@@ -102,7 +94,7 @@ Follow these instructions to deploy this example to your application landing zon
   - One unassociated route table to force Internet-bound traffic through a platform-provided NVA *(if not using Azure VWAN)*
     - In the same region as your spoke virtual network
 
-  - A mechanism to get private endpoint DNS registered with the DNS services set in the virtual network configuration
+    - A mechanism to get private endpoint DNS registered with the DNS services configured in the virtual network. It also supports injecting specific domains and enables both centralized and distributed DNS registration as a fallback strategy. This ensures that, even when certain services such as Azure AI Foundry cannot rely on centralized DNS resolution, the mechanism can still inject domains like `documents.azure.com`, `search.windows.net`, and `blob.core.windows.net` as needed.
 
 - The application landing zone subscription must have the following quota available in the location you'll select to deploy this implementation.
 
