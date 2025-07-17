@@ -4,6 +4,9 @@ targetScope = 'resourceGroup'
   Deploy subnets and NSGs
 */
 
+@description('The region in which this architecture is deployed. Should match the region of the resource group.')
+@minLength(1)
+param location string = resourceGroup().location
 
 @description('The resource group name of the spoke where the VNet exists')
 param spokeResourceGroupName string
@@ -182,7 +185,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
 // App Gateway subnet NSG
 resource appGatewaySubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
   name: 'nsg-appGatewaySubnet'
-  location: resourceGroup().location
+  location: location
   properties: {
     securityRules: [
       {
@@ -275,7 +278,7 @@ resource appGatewaySubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01
 // App Service subnet NSG
 resource appServiceSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
   name: 'nsg-appServicesSubnet'
-  location: resourceGroup().location
+  location: location
   properties: {
     securityRules: [
       {
@@ -313,7 +316,7 @@ resource appServiceSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01
 // Private endpoints subnet NSG
 resource privateEndpointsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
   name: 'nsg-privateEndpointsSubnet'
-  location: resourceGroup().location
+  location: location
   properties: {
     securityRules: [
       {
@@ -337,7 +340,7 @@ resource privateEndpointsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022
 @description('The build agents subnet NSG')
 resource buildAgentsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
   name: 'nsg-buildAgentsSubnet'
-  location: resourceGroup().location
+  location: location
   properties: {
     securityRules: [
       {
@@ -361,7 +364,7 @@ resource buildAgentsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2024-05-0
 // Build agents subnet NSG
 resource agentsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
   name: 'nsg-agentsSubnet'
-  location: resourceGroup().location
+  location: location
   properties: {
     securityRules: [
       {
@@ -385,7 +388,7 @@ resource agentsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = 
 @description('The Jump box subnet NSG')
 resource jumpBoxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
   name: 'nsg-jumpBoxesSubnet'
-  location: resourceGroup().location
+  location: location
   properties: {
     securityRules: [
       {
