@@ -182,19 +182,11 @@ The following steps are required to deploy the infrastructure from the command l
      echo APP_GATEWAY_LISTENER_CERTIFICATE: $APP_GATEWAY_LISTENER_CERTIFICATE
      ```
 
-1. Update the **infra-as-code/bicep/parameters.alz.json** file if needed.
-
-   - This parameters file contains the four `...AddressPrefix` values for the subnets in this architecture. The values must be within the platform-allocated address space for spoke and must be large enough for their respective services. Tip: Update the example ranges, not the subnet mask.
-
-1.  You must obtain from your platform team the following values:
+1. Update the **infra-as-code/bicep/parameters.alz.json** file.
 
    - `existingResourceIdForSpokeVirtualNetwork`: The resource ID of the spoke virtual network the platform team deployed into your application landing zone subscription.
    - `existingResourceIdForUdrForInternetTraffic`: The resource ID of the UDR the platform team deployed into your application landing zone subscription. Leave blank if your platform team is using VWAN-provided route tables instead.
-
-   ```bash
-   SPOKE_RESOURCE_ID=<existing-platform-given-spoke-resource-id>
-   UDR_SPOKE_RESOURCE_ID=<existing-platform-given-udr-spoke-resource-id>
-   ```
+   - This parameters file contains the four `...AddressPrefix` values for the subnets in this architecture. The values must be within the platform-allocated address space for spoke and must be large enough for their respective services. Tip: Update the example ranges, not the subnet mask.
 
 1. Set the resource deployment location to the location of where the virtual network was provisioned for you.
 
@@ -229,8 +221,6 @@ The following steps are required to deploy the infrastructure from the command l
      -p baseName=${BASE_NAME} \
      -p customDomainName=${DOMAIN_NAME_APPSERV} \
      -p appGatewayListenerCertificate=${APP_GATEWAY_LISTENER_CERTIFICATE} \
-     -p existingResourceIdForSpokeVirtualNetwork=${SPOKE_RESOURCE_ID} \
-     -p existingResourceIdForUdrForInternetTraffic=${UDR_SPOKE_RESOURCE_ID} \
      -p yourPrincipalId=${PRINCIPAL_ID} \
      -p @./infra-as-code/bicep/parameters.alz.json
    ```
