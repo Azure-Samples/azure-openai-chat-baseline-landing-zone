@@ -37,9 +37,9 @@ Partial configuration for this scenario is in the **parameters.alz.json** file, 
 - `snet-appGateway`: The subnet for the Azure Application Gateway.
 - `snet-appServicePlan`: The subnet for the Azure App Service.
 - `snet-privateEndpoints`: The subnet for the Azure Private Endpoint.
-- `snet-agents`: The subnet for the Azure AI Foundry Agent Service.
-- `snet-jumpbox`: The subnet for the jumboxes.
-- `snet-buildagents`: The subnet for the build agents.
+- `snet-agentsEgress`: The subnet for the Azure AI Foundry Agent Service.
+- `snet-jumpBoxes`: The subnet for the jumboxes.
+- `snet-buildAgents`: The subnet for the build agents.
 
 ## Architecture
 

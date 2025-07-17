@@ -139,7 +139,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
   }
 
   resource agentsSubnet 'subnets' = {
-    name: 'snet-agents'
+    name: 'snet-agentsEgress'
     properties: {
       addressPrefix: agentsSubnetAddressPrefix
       networkSecurityGroup: {
@@ -168,7 +168,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
   }
 
   resource jumpBoxSubnet 'subnets' = {
-    name: 'snet-jumpbox'
+    name: 'snet-jumpBoxes'
     properties: {
       addressPrefix: jumpBoxSubnetAddressPrefix
       networkSecurityGroup: {
