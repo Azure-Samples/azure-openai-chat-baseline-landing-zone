@@ -26,7 +26,7 @@ The key differences when integrating the Azure AI Foundry Agent Service chat bas
 
 - **Private DNS Zones**: Private endpoints within the application need to be integrated with centralized private DNS zones that are managed at the platform landing zone level. Such DNS zones might be shared across multiple applications or environments, simplifying the DNS management and providing an organized approach to name resolution.
 
-- **Network virtual appliance (NVA)**: Outbound connectivity is handled through a centralized NVA, routing traffic via user-defined routes (UDRs) to enforce consistent network security policies and traffic inspections. This approach channels all outbound traffic through a central point where security measures such as firewalls and intrusion detection systems can be applied.
+- **Network virtual appliance (NVA)**: the centralized NVA and user-defined routes (UDRs) configurations are now managed by the platform team and have been relocated at the hub-spoke level accordingly.
 
 - **Compliance with centralized governance**: An application landing zone comes with predefined governance policies regarding resource provisioning, network configurations, and security settings. Integrating with the Azure landing zone structure demands compliance with these policies, ensuring that all deployments meet the organization's regulatory, compliance, and governance standards.
 
