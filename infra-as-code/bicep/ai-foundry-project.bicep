@@ -245,8 +245,6 @@ resource applicationInsightsConnection 'Microsoft.CognitiveServices/accounts/pro
   ]
 }
 
-// Removed wait-for-capability-hosts deployment script as it's not needed
-
 // CosmosDB role assignments for the project - FIXED: Use account-level scope instead of container-level
 resource projectCosmosDbDataContributor 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-12-01-preview' = {
   parent: cosmosDbAccount
@@ -261,7 +259,6 @@ resource projectCosmosDbDataContributor 'Microsoft.DocumentDB/databaseAccounts/s
   ]
 }
 
-// FIXED: Create the Azure AI Agent service AFTER capability hosts are ready
 @description('Create the Azure AI Agent service.')
 resource aiAgentService 'Microsoft.CognitiveServices/accounts/projects/capabilityHosts@2025-04-01-preview' = {
   parent: aiFoundryProject

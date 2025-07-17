@@ -158,9 +158,7 @@ module deployWebAppStorage 'web-app-storage.bicep' = {
     privateEndpointsSubnetName: networkModule.outputs.privateEndpointSubnetName
     debugUserPrincipalId: yourPrincipalId
   }
-  dependsOn: [
-    //deployAIAgentServiceDependencies // There is a Storage account in the AI Agent dependencies module, both will be updating the same private DNS zone, want to run them in series to avoid conflict errors.
-  ]
+  dependsOn: []
 }
 
 @description('Deploy Azure Key Vault. In this architecture, it\'s used to store the certificate for the Application Gateway.')
