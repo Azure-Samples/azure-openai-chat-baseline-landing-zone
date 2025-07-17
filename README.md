@@ -19,8 +19,9 @@ The key differences when integrating the Azure AI Foundry Agent Service chat bas
 
 - **DNS forwarding**: Rather than using local DNS settings, the application's virtual network likely will be configured to use central DNS servers, such as Azure Firewall DNS Proxy or Azure Private DNS Resolver, for DNS forwarding. This centralizes DNS management and ensures consistency across the landscape.
 
-  > [!IMPORTANT]
-  > Azure AI Foundry will require Azure Private DNS resolver to inject specific rules to resolve its dependencies.
+  | :warning: | Azure AI Foundry will require Azure Private DNS resolver to inject specific rules to resolve its dependencies. |
+  | :-------: | :------------------------- |
+
 
 - **Bastion host**: Instead of deploying an Azure Bastion host within the application's landing zone, a centralized bastion service already provisioned within the platform landing zone subscriptions is used. This means all remote administrative traffic is routed through a common, secure access point, adhering to the principle of least privilege and centralized auditing.
 
@@ -244,8 +245,8 @@ The following steps are required to deploy the infrastructure from the command l
      -p @./infra-as-code/bicep/parameters.alz.json
    ```
 
-   > [!IMPORTANT]
-   > Before you deploy Azure AI Foundry and its agent capability, you must wait until the Foundry Agent Service dependencies are fully resolvable to their private endpoints from within the spoke network. This requirement is especially important if DINE policies handle updates to DNS private zones. If you attempt to deploy the Foundry Agent Service capability before the private DNS records are resolvable from within your subnet, the deployment fails.
+   | :warning: | Before you deploy Azure AI Foundry and its agent capability, you must wait until the Foundry Agent Service dependencies are fully resolvable to their private endpoints from within the spoke network. This requirement is especially important if DINE policies handle updates to DNS private zones. If you attempt to deploy the Foundry Agent Service capability before the private DNS records are resolvable from within your subnet, the deployment fails. |
+   | :-------: | :------------------------- |
 
 1. Get workload prequisites outputs
 
