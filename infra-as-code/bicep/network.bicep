@@ -73,11 +73,9 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
           }
         }
       ]
-      routeTable: hubFirewallUdr != null
-        ? {
-            id: hubFirewallUdr.id
-          }
-        : null
+      routeTable: {
+        id: hubFirewallUdr.id
+      }
     }
   }
 
@@ -106,11 +104,9 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
       privateEndpointNetworkPolicies: 'Enabled' // Route Table and NSGs
       privateLinkServiceNetworkPolicies: 'Enabled'
       defaultOutboundAccess: false // This subnet should never be the source of egress traffic.
-      routeTable: hubFirewallUdr != null
-        ? {
-            id: hubFirewallUdr.id
-          }
-        : null
+      routeTable: {
+        id: hubFirewallUdr.id
+      }
     }
     dependsOn: [
       appGatewaySubnet // Single thread these
@@ -127,11 +123,9 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
       privateEndpointNetworkPolicies: 'Disabled'
       privateLinkServiceNetworkPolicies: 'Enabled'
       defaultOutboundAccess: false // Force your build agent traffic through your firewall.
-      routeTable: hubFirewallUdr != null
-        ? {
-            id: hubFirewallUdr.id
-          }
-        : null
+      routeTable: {
+        id: hubFirewallUdr.id
+      }
     }
     dependsOn: [
       privateEnpointsSubnet // Single thread these
@@ -156,11 +150,9 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
       privateEndpointNetworkPolicies: 'Disabled'
       privateLinkServiceNetworkPolicies: 'Enabled'
       defaultOutboundAccess: false // Force agent traffic through your firewall.
-      routeTable: hubFirewallUdr != null
-        ? {
-            id: hubFirewallUdr.id
-          }
-        : null
+      routeTable: {
+        id: hubFirewallUdr.id
+      }
     }
     dependsOn: [
       buildAgentsSubnet // Single thread these
@@ -177,11 +169,9 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
       privateEndpointNetworkPolicies: 'Disabled'
       privateLinkServiceNetworkPolicies: 'Enabled'
       defaultOutboundAccess: false // Force agent traffic through your firewall.
-      routeTable: hubFirewallUdr != null
-        ? {
-            id: hubFirewallUdr.id
-          }
-        : null
+      routeTable: {
+        id: hubFirewallUdr.id
+      }
     }
     dependsOn: [
       agentsSubnet // Single thread these

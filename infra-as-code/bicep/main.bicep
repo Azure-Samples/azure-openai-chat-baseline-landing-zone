@@ -29,7 +29,8 @@ param publishFileName string = 'chatui.zip'
 param existingResourceIdForSpokeVirtualNetwork string
 
 @description('The resource ID of the subscription vending provided Internet UDR in your application landging zone subscription. Leave blank if platform team performs Internet routing another way. For example, /subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg-app-networking/providers/Microsoft.Network/routeTables/udr-to-hub')
-param existingResourceIdForUdrForInternetTraffic string = ''
+@minLength(110)
+param existingResourceIdForUdrForInternetTraffic string
 
 @description('Address space within the existing hub\'s available address space to be used for Jumboxes NSG ALLOW rules.')
 @minLength(9)
