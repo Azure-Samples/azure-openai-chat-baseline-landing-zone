@@ -1,6 +1,6 @@
-# Azure AI Foundry Agent service chat baseline reference implementation in an application landing zone
+# Azure AI Foundry Agent Service chat baseline reference implementation in an application landing zone
 
-This reference implementation extends the foundation set in the [Azure AI Foundry Agent service chat baseline](https://github.com/Azure-Samples/openai-end-to-end-baseline/) reference implementation. Specifically, this repository takes that reference implementation and deploys it within an application landing zone.
+This reference implementation extends the foundation set in the [Azure AI Foundry Agent Service chat baseline](https://github.com/Azure-Samples/openai-end-to-end-baseline/) reference implementation. Specifically, this repository takes that reference implementation and deploys it within an application landing zone.
 
 If you haven't yet, you should start by reviewing the [Baseline Azure AI Foundry chat reference architecture in an Azure landing zone](https://learn.microsoft.com/azure/architecture/ai-ml/architecture/azure-openai-baseline-landing-zone) article on Microsoft Learn. It sets important context for this implementation that is not covered in this deployment guide.
 
@@ -13,14 +13,14 @@ This application landing zone deployment guide assuming you are using a typical 
 
 ### Differences from the Azure OpenAI end-to-end chat baseline reference implementation
 
-The key differences when integrating the Azure AI Foundry Agent service chat baseline into a application landing zone as opposed to a fully standalone deployment are as follows:
+The key differences when integrating the Azure AI Foundry Agent Service chat baseline into an application landing zone as opposed to a fully standalone deployment are as follows:
 
 - **Virtual network**: The virtual network will be deployed and configured by the platform team. This involves them providing a UDR and DNS configuration on the virtual network. The subnets are still under the control of the workload team.
 
 - **DNS forwarding**: Rather than using local DNS settings, the application's virtual network likely will be configured to use central DNS servers, such as Azure Firewall DNS Proxy or Azure Private DNS Resolver, for DNS forwarding. This centralizes DNS management and ensures consistency across the landscape.
 
   > [!IMPORTANT]
-  > While a centralized DNS architecture is the recommended approach, Azure AI Foundry will require to inject specific rules for its dependencies to be resolved by the Azure Private DNS resolver. This result into a configuration that is not fully centralized, but rather a hybrid approach that resolves some dns queries using a cenralized dhcp configuration at the vnet level, and other queries using a distributed DNS resolver architecture.
+  > Azure AI Foundry will require Azure Private DNS resolver to inject specific rules to resolve its dependencies.
 
 - **Bastion host**: Instead of deploying an Azure Bastion host within the application's landing zone, a centralized bastion service already provisioned within the platform landing zone subscriptions is used. This means all remote administrative traffic is routed through a common, secure access point, adhering to the principle of least privilege and centralized auditing.
 
@@ -57,7 +57,8 @@ Just like the baseline reference implementation, this implementation covers the 
 
 Azure AI Foundry hosts Azure AI Foundry Agent Service as a capability. Foundry Agent service's REST APIs are exposed as an AI Foundry private endpoint within the network, and the agents' all egress through a delegated subnet which is routed through Azure Firewall for any internet traffic. This architecture deploys the Foundry Agent Service with its dependencies hosted within your own Azure Application landing zone subscription. As such, this architecture includes an Azure Storage account, Azure AI Search instance, and an Azure Cosmos DB account specifically for the Foundry Agent Service to manage.
 
-### Deploying an agent into Azure AI Foundry Agent service
+### Deploying an agent into Azure AI Foundry Agent Service
+
 
 Agents can be created via the Azure AI Foundry portal, Azure AI Persistent Agents client library, or the REST API. The creation and invocation of agents are a data plane operation. Since the data plane to Azure AI Foundry is private, all three of those are restricted to being executed from within a private network connected to the private endpoint of Azure AI Foundry.
 
@@ -74,7 +75,7 @@ A chat UI application is deployed into a private Azure App Service. The UI is ac
 Follow these instructions to deploy this example to your application landing zone subscription, try out what you've deployed, and learn how to clean up those resources.
 
 > [!WARNING]
-> The deployment steps assume you have an application landing zone already provisioned through your subscription vending process. This deployment will not work unless you have permission to manage subnets on an existing virtual network and means to ensure private endpoint DNS configuration (such as platform provided DINE Azure Policy). It also requires your platform team to have required NVA allowances on the hub's egress firewall and configured Azure DNS Forwarding rulesets targeting the Azure Private DNS resolver input IP address for the following Azure AI Foundry capability host domain dependencies.
+> The deployment steps assume you have an application landing zone already provisioned through your subscription vending process. This deployment will not work unless you have permission to manage subnets on an existing virtual network and means to ensure private endpoint DNS configuration (such as platform provided DINE Azure Policy). It also requires your platform team to have required NVA allowances on the hub's egress firewall and configured Azure DNS Forwarding rulesets targeting the Azure DNS Private Resolver input IP address for the following Azure AI Foundry capability host domain dependencies.
 
 ![Architecture diagram that focuses mostly on network ingress flows.](docs/media/baseline-landing-zone-networking.svg)
 
@@ -109,7 +110,7 @@ Follow these instructions to deploy this example to your application landing zon
   - App Service Plans: P1v3 (AZ), 3 instances
   - Azure AI Search (S - Standard): 1
   - Azure Cosmos DB: 1 account
-  - OpenAI model: GPT-4 model deployment with 50k TPM capacity
+  - Azure OpenAI in Foundry Model: GPT-4 model deployment with 50k TPM capacity
   - DDoS Protection Plans: 1
   - Public IPv4 Addresses - Standard: 4
   - Storage Accounts: 2
@@ -257,7 +258,8 @@ The following steps are required to deploy the infrastructure from the command l
    WEBAPP_APPINSIGHTS_NAME=$(az deployment sub show --name ai-foundry-chat-prereq-lz-baseline-${BASE_NAME} --query "properties.outputs.webApplicationInsightsResourceName.value" -o tsv)
    ```
 
-1. Deploy Azure AI Foundry Project and Capability Host
+1. Deploy Azure AI Foundry project and agent capability host
+
 
    ```bash
    az deployment group create -f ./infra-as-code/bicep/ai-foundry-project.bicep \
@@ -277,7 +279,7 @@ To test this scenario, you'll be deploying an AI agent included in this reposito
 
 The AI agent definition would likely be deployed from your application's pipeline running from a build agent in your workload's network or it could be deployed via singleton code in your web application. In this deployment, you'll create the agent from the jump box, which most closely simulates pipeline-based creation.
 
-1. Deploy jump box, if necessary. Skip this if your platform team has provided workstation based access or another method.
+1. Deploy a jump box, **if necessary**. *Skip this if your platform team has provided workstation-based access or another method.*
 
    If you need to deploy a jump box into your application landing zone, this deployment guide has a simple one that you can use. You will be prompted for an admin password for the jump box; it must satisfy the [complexity requirements for Windows VM in Azure](https://learn.microsoft.com/azure/virtual-machines/windows/faq#what-are-the-password-requirements-when-creating-a-vm-). You'll need to identify your landing zone virtual network as well in **infra-as-code/bicep/jumpbox/parameters.json**. This is the same value you used in **infra-as-code/bicep/parameters.alz.json**.
 
@@ -303,7 +305,7 @@ The AI agent definition would likely be deployed from your application's pipelin
 
    The username for the Windows jump box deployed in this solution is `vmadmin`. You provided the password during the deployment.
 
-   | :computer: | Unless otherwise noted, the following steps are performed from the jump box or from your VPN-connected workstation. The instructions are written as if you are using the provided Windows jump box.|
+   | :computer: | Unless otherwise noted, the following steps are performed from the jump box or from your VPN-connected workstation. The instructions are written as if you are a Windows jump box. Adjust accordingly if using a Linux virtual machine. |
    | :--------: | :------------------------- |
 
 1. Open PowerShell from the Terminal app. Log in and select your target subscription.
@@ -456,7 +458,7 @@ This section will help you to validate that the workload is exposed correctly an
 
 ## :broom: Clean up resources
 
-Most Azure resources deployed in the prior steps will incur ongoing charges unless removed. This deployment is typically over $90 a day, and more if you enabled Azure DDoS Protection. Promptly delete resources when you are done using them.
+Most Azure resources deployed in the prior steps will incur ongoing charges unless removed. This deployment is typically over $88 a day, and more if you enabled Azure DDoS Protection. Promptly delete resources when you are done using them.
 
 Additionally, a few of the resources deployed enter soft delete status which will restrict the ability to redeploy another resource with the same name or DNS entry; and might not release quota. It's best to purge any soft deleted resources once you are done exploring. Use the following commands to delete the deployed resources and resource group and to purge each of the resources with soft delete.
 
@@ -479,7 +481,7 @@ Additionally, a few of the resources deployed enter soft delete status which wil
    ```bash
    # Purge the soft delete resources.
    az keyvault purge -n kv-${BASE_NAME} -l $LOCATION
-   az cognitiveservices account purge -g $RESOURCE_GROUP -l $LOCATION -n aif${BASE_NAME}
+   az cognitiveservices account purge -g $RESOURCE_GROUP -l $LOCATION -n $AIFOUNDRY_NAME
    ```
 
 1. [Remove the Azure Policy assignments](https://portal.azure.com/#blade/Microsoft_Azure_Policy/PolicyMenuBlade/Compliance) scoped to the resource group. To identify those created by this implementation, look for ones that are prefixed with `[BASE_NAME] `.

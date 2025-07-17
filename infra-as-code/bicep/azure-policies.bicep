@@ -1,7 +1,9 @@
 targetScope = 'resourceGroup'
 
-// Make sure the resource group has a few key Azure Policies applied to it. These could also be applied at the subscription
-// or management group level.  Applying locally to the resource group is useful for testing and development purposes.
+// Make sure the resource group has a few key Azure Policies applied to it. Your platform team likely also has 
+// policies that will be applied through your management group.  Always apply policies that you want 
+// within your workload's control. Don't mistake policy application by the platform team as your only source
+// of governance.
 
 // This is just a sampling of the types of policy you could apply to your resource group.  Please make sure your production deployment
 // has all policies applied that are relevant to your workload.  Most of these policies can be applied in 'Deny' mode, but in case you

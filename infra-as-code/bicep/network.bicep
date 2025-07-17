@@ -4,7 +4,6 @@ targetScope = 'resourceGroup'
   Deploy subnets and NSGs
 */
 
-//todo - add training and scoring subnets
 
 @description('The resource group name of the spoke where the VNet exists')
 param spokeResourceGroupName string
@@ -40,7 +39,7 @@ param buildAgentsSubnetAddressPrefix string
 @minLength(9)
 param agentsSubnetAddressPrefix string
 
-@description('Address space within the existing spoke\'s available address space to be used for jumb boxes.')
+@description('Address space within the existing spoke\'s available address space to be used for jump boxes.')
 @minLength(9)
 param jumpBoxSubnetAddressPrefix string
 
@@ -345,7 +344,7 @@ resource privateEndpointsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022
   }
 }
 
-@description('The Build agents subnet NSG')
+@description('The build agents subnet NSG')
 resource buildAgentsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
   name: 'nsg-buildAgentsSubnet'
   location: resourceGroup().location
