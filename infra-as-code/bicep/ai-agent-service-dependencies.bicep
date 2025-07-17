@@ -74,22 +74,6 @@ module deployAzureAISearchService 'ai-search.bicep' = {
   }
 }
 
-// @description('Create a managed identity for deployment scripts to wait for capability hosts.')
-// resource deploymentScriptManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' = {
-//   name: 'id-${baseName}-deployment-script'
-//   location: location
-// }
-
-// @description('Assign the managed identity Contributor role for deployment script operations.')
-// resource deploymentScriptRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-//   name: guid(deploymentScriptManagedIdentity.id, resourceGroup().id, 'Contributor')
-//   properties: {
-//     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c') // Contributor
-//     principalId: deploymentScriptManagedIdentity.properties.principalId
-//     principalType: 'ServicePrincipal'
-//   }
-// }
-
 // ---- Outputs ----
 
 output cosmosDbAccountName string = deployCosmosDbThreadStorageAccount.outputs.cosmosDbAccountName
