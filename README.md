@@ -241,6 +241,7 @@ The following steps are required to deploy the infrastructure from the command l
 
 1. Deploy Azure AI Foundry project and agent capability host
 
+   :clock8: *This might take about 5 minutes.*
 
    ```bash
    az deployment group create -f ./infra-as-code/bicep/ai-foundry-project.bicep \
