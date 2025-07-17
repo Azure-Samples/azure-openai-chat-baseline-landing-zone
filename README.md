@@ -102,7 +102,7 @@ Follow these instructions to deploy this example to your application landing zon
   - App Service Plans: P1v3 (AZ), 3 instances
   - Azure AI Search (S - Standard): 1
   - Azure Cosmos DB: 1 account
-  - Azure OpenAI in Foundry Model: GPT-4 model deployment with 50k TPM capacity
+  - Azure OpenAI in Foundry Model: GPT-4o model deployment with 50k TPM capacity
   - DDoS Protection Plans: 1
   - Public IPv4 Addresses - Standard: 4
   - Storage Accounts: 2
