@@ -285,8 +285,6 @@ The AI agent definition would likely be deployed from your application's pipelin
 
 1. Connect to the virtual network via the deployed [Azure Bastion and the jump box](https://learn.microsoft.com/azure/bastion/bastion-connect-vm-rdp-windows#rdp). Alternatively, you can connect through a force-tunneled VPN or virtual network peering that you manually configure apart from these instructions.
 
-   The username for the Windows jump box deployed in this solution is `vmadmin`. You provided the password during the deployment.
-
    | :computer: | Unless otherwise noted, the following steps are performed from the jump box or from your VPN-connected workstation. The instructions are written as if you are a Windows jump box. Adjust accordingly if using a Linux virtual machine. |
    | :--------: | :------------------------- |
 
