@@ -47,7 +47,7 @@ Partial configuration for this scenario is in the **parameters.alz.json** file, 
 Just like the baseline reference implementation, this implementation covers the same following three scenarios:
 
 - [Setting up Azure AI Foundry to host agents](#setting-up-azure-ai-foundry-to-host-agents)
-- [Deploying an agent into Azure AI Foundry Agent Service](#deploying-an-agent-into-azure-ai-agent-service)
+- [Deploying an agent into Azure AI Foundry Agent Service](#deploying-an-agent-into-azure-ai-foundry-agent-service)
 - [Invoking the agent from .NET code hosted in an Azure Web App](#invoking-the-agent-from-net-code-hosted-in-an-azure-web-app)
 
 ![Diagram of the Architecture diagram of the workload, including select platform subscription resources.](docs/media/baseline-azure-ai-foundry-landing-zone.svg)
@@ -59,7 +59,6 @@ Just like the baseline reference implementation, this implementation covers the 
 Azure AI Foundry hosts Azure AI Foundry Agent Service as a capability. Foundry Agent service's REST APIs are exposed as an AI Foundry private endpoint within the network, and the agents' all egress through a delegated subnet which is routed through Azure Firewall for any internet traffic. This architecture deploys the Foundry Agent Service with its dependencies hosted within your own Azure Application landing zone subscription. As such, this architecture includes an Azure Storage account, Azure AI Search instance, and an Azure Cosmos DB account specifically for the Foundry Agent Service to manage.
 
 ### Deploying an agent into Azure AI Foundry Agent Service
-
 
 Agents can be created via the Azure AI Foundry portal, Azure AI Persistent Agents client library, or the REST API. The creation and invocation of agents are a data plane operation. Since the data plane to Azure AI Foundry is private, all three of those are restricted to being executed from within a private network connected to the private endpoint of Azure AI Foundry.
 
