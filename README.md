@@ -325,7 +325,7 @@ The AI agent definition would likely be deployed from your application's pipelin
 
    ```powershell
    # Use the agent definition on disk
-   Invoke-WebRequest -Uri "https://github.com/Azure-Samples/openai-end-to-end-baseline/raw/refs/heads/main/agents/chat-with-bing.json" -OutFile "chat-with-bing.json"
+   Invoke-WebRequest -Uri "https://github.com/Azure-Samples/azure-openai-chat-baseline-landing-zone/raw/refs/heads/main/agents/chat-with-bing.json" -OutFile "chat-with-bing.json"
 
    # Update to match your environment
    ${c:chat-with-bing-output.json} = ${c:chat-with-bing.json} -replace 'MODEL_CONNECTION_NAME', $MODEL_CONNECTION_NAME -replace 'BING_CONNECTION_ID', $BING_CONNECTION_ID
@@ -378,7 +378,7 @@ For this deployment guide, you'll continue using your jump box to simulate part 
 1. Using the same PowerShell terminal session from previous steps, download the web UI.
 
    ```powershell
-   Invoke-WebRequest -Uri https://github.com/Azure-Samples/openai-end-to-end-baseline/raw/refs/heads/main/website/chatui.zip -OutFile chatui.zip
+   Invoke-WebRequest -Uri https://github.com/Azure-Samples/azure-openai-chat-baseline-landing-zone/raw/refs/heads/main/website/chatui.zip -OutFile chatui.zip
    ```
 
 1. Upload the web application to Azure Storage, where the web app will load the code from.
