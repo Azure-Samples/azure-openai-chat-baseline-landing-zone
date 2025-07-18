@@ -217,10 +217,9 @@ module deployApplicationGateway 'application-gateway.bicep' = {
 }
 
 // Optional Deployment for Customer Usage Attribution
-module customerUsageAttributionModule 'customerUsageAttribution/cuaIdResourceGroup.bicep' = if (!telemetryOptOut) {
+module customerUsageAttributionModule 'customerUsageAttribution/cuaIdSubscription.bicep' = if (!telemetryOptOut) {
   #disable-next-line no-loc-expr-outside-params // Only to ensure telemetry data is stored in same location as deployment. See https://github.com/Azure/ALZ-Bicep/wiki/FAQ#why-are-some-linter-rules-disabled-via-the-disable-next-line-bicep-function for more information
   name: 'pid-${varCuaid}-${uniqueString(deployment().location)}'
-  scope: rgWorkload
   params: {}
 }
 
