@@ -115,6 +115,26 @@ resource azureDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-prev
   }
 }
 
+// The private DNS zone and groups for Azure Key Vault are provisioned by the workload team to ensure that the Key Vault private endpoint is resolvable at the time of Application Gateway deployment. This avoids dependency on DINE and/or the platform team simplifying the deployment process. Without this, the gateway may deploy successfully, but its nodes would be unable to retrieve SSL certificates stored in the Key Vault requiring further steps and/or operation efforts.
+
+@description('Azure Key Vault private DNS zone')
+resource keyVaultPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = {
+  name: 'privatelink.vaultcore.azure.net' //Cannot use 'privatelink.${environment().suffixes.keyvaultDns}', per https://github.com/Azure/bicep/issues/9708
+  location: 'global'
+  properties: {}
+
+  resource link 'virtualNetworkLinks' = {
+    name: 'keyvault'
+    location: 'global'
+    properties: {
+      virtualNetwork: {
+        id: virtualNetwork.id
+      }
+      registrationEnabled: false
+    }
+  }
+}
+
 // Private endpoints
 
 resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
@@ -136,6 +156,20 @@ resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01'
         }
       }
     ]
+  }
+
+  resource keyVaultDnsZoneGroup 'privateDnsZoneGroups' = {
+    name: 'key-vault'
+    properties: {
+      privateDnsZoneConfigs: [
+        {
+          name: 'key-vault'
+          properties: {
+            privateDnsZoneId: keyVaultPrivateDnsZone.id
+          }
+        }
+      ]
+    }
   }
 }
 
