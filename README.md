@@ -27,7 +27,7 @@ The key differences when integrating the Azure AI Foundry Agent Service chat bas
 
 - **Private DNS Zones**: Private endpoints within the application need to be integrated with centralized private DNS zones that are managed at the platform landing zone level. Such DNS zones might be shared across multiple applications or environments, simplifying the DNS management and providing an organized approach to name resolution.
 
-- **Network virtual appliance (NVA)**: the centralized NVA and user-defined routes (UDRs) configurations are now managed by the platform team and have been relocated at the hub-spoke level accordingly.
+- **Network virtual appliance (NVA)**: the centralized NVA and user-defined routes (UDRs) configurations are now managed by the platform team and has been relocated to the hub.
 
 - **Compliance with centralized governance**: An application landing zone comes with predefined governance policies regarding resource provisioning, network configurations, and security settings. Integrating with the Azure landing zone structure demands compliance with these policies, ensuring that all deployments meet the organization's regulatory, compliance, and governance standards.
 
@@ -94,7 +94,7 @@ Follow these instructions to deploy this example to your application landing zon
   - One unassociated route table to force Internet-bound traffic through a platform-provided NVA *(if not using Azure VWAN)*
     - In the same region as your spoke virtual network
 
-    - A mechanism to get private endpoint DNS registered with the DNS services configured in the virtual network. It also supports injecting specific domains and enables both centralized and distributed DNS registration as a fallback strategy. This ensures that, even when certain services such as Azure AI Foundry cannot rely on centralized DNS resolution, the mechanism can still inject domains like `documents.azure.com`, `search.windows.net`, and `blob.core.windows.net` as needed.
+  - A mechanism to get private endpoint DNS registered with the DNS services configured in the virtual network. It also supports injecting specific domains and enables both centralized and distributed DNS registration as a fallback strategy. This ensures that, even when certain services such as Azure AI Foundry cannot rely on centralized DNS resolution, the mechanism can still inject domains like `documents.azure.com`, `search.windows.net`, and `blob.core.windows.net` as needed.
 
 - The application landing zone subscription must have the following quota available in the location you'll select to deploy this implementation.
 
@@ -182,7 +182,9 @@ The following steps are required to deploy the infrastructure from the command l
      echo APP_GATEWAY_LISTENER_CERTIFICATE: $APP_GATEWAY_LISTENER_CERTIFICATE
      ```
 
-1. Update the **infra-as-code/bicep/parameters.alz.json** file.
+1. Update the **infra-as-code/bicep/parameters.alz.json** file with all references to your platform team's provided resources.
+
+   You must set the following json values:
 
    - `existingResourceIdForSpokeVirtualNetwork`: The resource ID of the spoke virtual network the platform team deployed into your application landing zone subscription.
    - `existingResourceIdForUdrForInternetTraffic`: The resource ID of the UDR the platform team deployed into your application landing zone subscription. Leave blank if your platform team is using VWAN-provided route tables instead.
@@ -241,7 +243,7 @@ The following steps are required to deploy the infrastructure from the command l
 
 1. Deploy Azure AI Foundry project and agent capability host
 
-   :clock8: *This might take about 5 minutes.*
+   :clock9: *This might take about 5 minutes.*
 
    ```bash
    az deployment group create -f ./infra-as-code/bicep/ai-foundry-project.bicep \
