@@ -90,7 +90,6 @@ module networkModule 'network.bicep' = {
   name: 'networkDeploy'
   scope: rgSpoke
   params: {
-    spokeResourceGroupName: rgSpoke.name
     existingSpokeVirtualNetworkName: existingSpokeVirtualNetworkName
     existingUdrForInternetTrafficName: existingUdrForInternetTrafficName
     bastionSubnetAddressPrefix: bastionSubnetAddressPrefix

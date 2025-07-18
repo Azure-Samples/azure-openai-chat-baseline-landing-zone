@@ -8,9 +8,6 @@ targetScope = 'resourceGroup'
 @minLength(1)
 param location string = resourceGroup().location
 
-@description('The resource group name of the spoke where the VNet exists')
-param spokeResourceGroupName string
-
 @description('Name of the existing virtual network (spoke) in this resource group.')
 @minLength(1)
 param existingSpokeVirtualNetworkName string
@@ -52,7 +49,6 @@ param jumpBoxSubnetAddressPrefix string
 // Hub firewall UDR
 resource hubFirewallUdr 'Microsoft.Network/routeTables@2022-11-01' existing = if(existingUdrForInternetTrafficName != '') {
   name: existingUdrForInternetTrafficName
-  scope: resourceGroup(spokeResourceGroupName)
 }
 
 // ---- Networking resources ----
