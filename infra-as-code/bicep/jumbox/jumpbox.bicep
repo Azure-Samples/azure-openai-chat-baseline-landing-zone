@@ -42,7 +42,7 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2023-05-01' existing 
   scope: resourceGroup(existingResourceGroupNameForSpokeVirtualNetwork)
 
   resource jumpBoxSubnet 'subnets' existing = {
-    name: 'snet-jumpbox'
+    name: 'snet-jumpBoxes'
   }
 }
 

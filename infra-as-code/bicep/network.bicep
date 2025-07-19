@@ -4,9 +4,8 @@ targetScope = 'resourceGroup'
   Deploy subnets and NSGs
 */
 
-//todo - add training and scoring subnets
-
-@description('The resource group location')
+@description('The region in which this architecture is deployed. Should match the region of the resource group.')
+@minLength(1)
 param location string = resourceGroup().location
 
 @description('Name of the existing virtual network (spoke) in this resource group.')
@@ -18,7 +17,7 @@ param existingUdrForInternetTrafficName string = ''
 
 @description('The IP range of the hub-provided Azure Bastion subnet range. Needed for workload to limit access in NSGs. For example, 10.0.1.0/26')
 @minLength(9)
-param bastionSubnetAddresses string
+param bastionSubnetAddressPrefix string
 
 @description('Address space within the existing spoke\'s available address space to be used for Azure App Services.')
 @minLength(9)
@@ -34,27 +33,29 @@ param privateEndpointsSubnetAddressPrefix string
 
 @description('Address space within the existing spoke\'s available address space to be used for build agents.')
 @minLength(9)
+param buildAgentsSubnetAddressPrefix string
+
+@description('Address space within the existing spoke\'s available address space to be used for agents.')
+@minLength(9)
 param agentsSubnetAddressPrefix string
 
 @description('Address space within the existing spoke\'s available address space to be used for jump boxes.')
 @minLength(9)
 param jumpBoxSubnetAddressPrefix string
 
+
 //--- Routing ----
 
 // Hub firewall UDR
 resource hubFirewallUdr 'Microsoft.Network/routeTables@2022-11-01' existing = if(existingUdrForInternetTrafficName != '') {
   name: existingUdrForInternetTrafficName
-  scope: resourceGroup()
 }
 
 // ---- Networking resources ----
 
-
 // Virtual network and subnets
 resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
   name: existingSpokeVirtualNetworkName
-  scope: resourceGroup()
 
   resource appServiceSubnet 'subnets' = {
     name: 'snet-appServicePlan'
@@ -71,11 +72,9 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
           }
         }
       ]
-      routeTable: hubFirewallUdr != null
-        ? {
-            id: hubFirewallUdr.id
-          }
-        : null
+      routeTable: {
+        id: hubFirewallUdr.id
+      }
     }
   }
 
@@ -88,8 +87,6 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
       }
       privateEndpointNetworkPolicies: 'Disabled'
       privateLinkServiceNetworkPolicies: 'Enabled'
-
-      //routeTable: TODO for FW ingress
     }
     dependsOn: [
       appServiceSubnet // Single thread these
@@ -103,42 +100,66 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
       networkSecurityGroup: {
         id: privateEndpointsSubnetNsg.id
       }
-      privateEndpointNetworkPolicies: 'Enabled'
+      privateEndpointNetworkPolicies: 'Enabled' // Route Table and NSGs
       privateLinkServiceNetworkPolicies: 'Enabled'
-      defaultOutboundAccess: false
-      routeTable: hubFirewallUdr != null
-        ? {
-            id: hubFirewallUdr.id
-          }
-        : null
+      defaultOutboundAccess: false // This subnet should never be the source of egress traffic.
+      routeTable: {
+        id: hubFirewallUdr.id
+      }
     }
     dependsOn: [
       appGatewaySubnet // Single thread these
     ]
   }
 
-  resource agentsSubnet 'subnets' = {
-    name: 'snet-agents'
+  resource buildAgentsSubnet 'subnets' = {
+    name: 'snet-buildAgents'
     properties: {
-      addressPrefix: agentsSubnetAddressPrefix
+      addressPrefix: buildAgentsSubnetAddressPrefix
       networkSecurityGroup: {
-        id: agentsSubnetNsg.id
+        id: buildAgentsSubnetNsg.id
       }
       privateEndpointNetworkPolicies: 'Disabled'
       privateLinkServiceNetworkPolicies: 'Enabled'
-      routeTable: hubFirewallUdr != null
-        ? {
-            id: hubFirewallUdr.id
-          }
-        : null
+      defaultOutboundAccess: false // Force your build agent traffic through your firewall.
+      routeTable: {
+        id: hubFirewallUdr.id
+      }
     }
     dependsOn: [
       privateEnpointsSubnet // Single thread these
     ]
   }
 
+  resource agentsSubnet 'subnets' = {
+    name: 'snet-agentsEgress'
+    properties: {
+      addressPrefix: agentsSubnetAddressPrefix
+      networkSecurityGroup: {
+        id: agentsSubnetNsg.id
+      }
+      delegations: [
+        {
+          name: 'Microsoft.App/environments'
+          properties: {
+            serviceName: 'Microsoft.App/environments'
+          }
+        }
+      ]
+      privateEndpointNetworkPolicies: 'Disabled'
+      privateLinkServiceNetworkPolicies: 'Enabled'
+      defaultOutboundAccess: false // Force agent traffic through your firewall.
+      routeTable: {
+        id: hubFirewallUdr.id
+      }
+    }
+    dependsOn: [
+      buildAgentsSubnet // Single thread these
+    ]
+  }
+
   resource jumpBoxSubnet 'subnets' = {
-    name: 'snet-jumpbox'
+    name: 'snet-jumpBoxes'
     properties: {
       addressPrefix: jumpBoxSubnetAddressPrefix
       networkSecurityGroup: {
@@ -146,11 +167,10 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
       }
       privateEndpointNetworkPolicies: 'Disabled'
       privateLinkServiceNetworkPolicies: 'Enabled'
-      routeTable: hubFirewallUdr != null
-        ? {
-            id: hubFirewallUdr.id
-          }
-        : null
+      defaultOutboundAccess: false // Force agent traffic through your firewall.
+      routeTable: {
+        id: hubFirewallUdr.id
+      }
     }
     dependsOn: [
       agentsSubnet // Single thread these
@@ -313,6 +333,30 @@ resource privateEndpointsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022
   }
 }
 
+@description('The build agents subnet NSG')
+resource buildAgentsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
+  name: 'nsg-buildAgentsSubnet'
+  location: location
+  properties: {
+    securityRules: [
+      {
+        name: 'DenyAllOutBound'
+        properties: {
+          description: 'Deny outbound traffic from the build agents subnet. Note: adjust rules as needed based on the resources added to the subnet'
+          protocol: '*'
+          sourcePortRange: '*'
+          destinationPortRange: '*'
+          sourceAddressPrefix: buildAgentsSubnetAddressPrefix
+          destinationAddressPrefix: '*'
+          access: 'Deny'
+          priority: 1000
+          direction: 'Outbound'
+        }
+      }
+    ]
+  }
+}
+
 // Build agents subnet NSG
 resource agentsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
   name: 'nsg-agentsSubnet'
@@ -337,19 +381,19 @@ resource agentsSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = 
   }
 }
 
-// Jump box subnet NSG
-resource jumpBoxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
-  name: 'nsg-jumpboxSubnet'
+@description('The Jump box subnet NSG')
+resource jumpBoxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
+  name: 'nsg-jumpBoxesSubnet'
   location: location
   properties: {
     securityRules: [
       {
-        name: 'Jumpbox.In.Allow.SshRdp'
+        name: 'JumpBox.In.Allow.SshRdp'
         properties: {
           description: 'Allow inbound RDP and SSH from the Bastion Host subnet'
           protocol: 'Tcp'
           sourcePortRange: '*'
-          sourceAddressPrefix: bastionSubnetAddresses
+          sourceAddressPrefix: bastionSubnetAddressPrefix
           destinationPortRanges: [
             '22'
             '3389'
@@ -361,9 +405,9 @@ resource jumpBoxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' =
         }
       }
       {
-        name: 'Jumpbox.Out.Allow.PrivateEndpoints'
+        name: 'JumpBox.Out.Allow.PrivateEndpoints'
         properties: {
-          description: 'Allow outbound traffic from the jumpbox subnet to the Private Endpoints subnet.'
+          description: 'Allow outbound traffic from the jump box subnet to the Private Endpoints subnet.'
           protocol: '*'
           sourcePortRange: '*'
           destinationPortRange: '*'
@@ -375,7 +419,7 @@ resource jumpBoxSubnetNsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' =
         }
       }
       {
-        name: 'Jumpbox.Out.Allow.Internet'
+        name: 'JumpBox.Out.Allow.Internet'
         properties: {
           description: 'Allow outbound traffic from all VMs to Internet'
           protocol: '*'
@@ -410,15 +454,23 @@ output vnetName string = vnet.name
 
 @description('The name of the app service plan subnet.')
 output appServicesSubnetName string = vnet::appServiceSubnet.name
+@description('The id of the app service plan subnet.')
+output appServicesSubnetResourceId string = vnet::appServiceSubnet.id
 
 @description('The name of the app gatewaysubnet.')
 output appGatewaySubnetName string = vnet::appGatewaySubnet.name
+@description('The id of the app gatewaysubnet.')
+output appGatewaySubnetResourceId string = vnet::appGatewaySubnet.id
 
 @description('The name of the private endpoints subnet.')
-output privateEndpointsSubnetName string = vnet::privateEnpointsSubnet.name
+output privateEndpointSubnetName string = vnet::privateEnpointsSubnet.name
+@description('The id of the private endpoint subnet.')
+output privateEndpointSubnetResourceId string = vnet::privateEnpointsSubnet.id
+
+@description('The name of the agent subnet.')
+output agentSubnetName string = vnet::agentsSubnet.name
+@description('The id of the agent subnet.')
+output agentSubnetResourceId string = vnet::agentsSubnet.id
 
 @description('The DNS servers that were configured on the virtual network.')
 output vnetDNSServers array = vnet.properties.dhcpOptions.dnsServers
-
-@description('The name of the build agent subnet.')
-output agentSubnetName string = vnet::agentsSubnet.name
