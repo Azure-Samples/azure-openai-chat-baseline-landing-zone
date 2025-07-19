@@ -396,7 +396,7 @@ For this deployment guide, you'll continue using your jump box to simulate part 
    $AIFOUNDRY_PROJECT_ENDPOINT=$(az deployment group show -g "${RESOURCE_GROUP}" -n "ai-foundry-chat-lz-baseline-${BASE_NAME}" --query "properties.outputs.aiAgentProjectEndpoint.value" -o tsv)
 
    # Update the app configuration
-   az webapp config appsettings set -n "app-${BASE_NAME}" -g $RESOURCE_GROUP --settings AIProjectEndpoint="${AIFOUNDRY_RPOJECT_ENDPOINT}"
+   az webapp config appsettings set -n "app-${BASE_NAME}" -g $RESOURCE_GROUP --settings AIProjectEndpoint="${AIFOUNDRY_PROJECT_ENDPOINT}"
    ```
 
 1. Update the app configuration to use the agent you deployed.
