@@ -87,12 +87,11 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' existing
 // ---- New resources ----
 
 @description('Existing Azure AI Foundry account. The project will be created as a child resource of this account.')
-resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing  = {
+resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-06-01' existing  = {
   name: existingAiFoundryName
 }
 
-// FIXED: Use explicit parent syntax instead of nested child resources
-resource aiFoundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview' = {
+resource aiFoundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
   parent: aiFoundry
   name: 'projchat'
   location: location
@@ -132,7 +131,7 @@ resource projectBlobDataContributorAssignment 'Microsoft.Authorization/roleAssig
 
 resource projectBlobDataOwnerConditionalAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(aiFoundryProject.id, storageBlobDataOwnerRole.id, agentStorageAccount.id)
-  scope: agentStorageAccount  
+  scope: agentStorageAccount
   properties: {
     principalId: aiFoundryProject.identity.principalId
     roleDefinitionId: storageBlobDataOwnerRole.id
@@ -162,10 +161,8 @@ resource projectAISearchIndexDataContributorAssignment 'Microsoft.Authorization/
   }
 }
 
-// Project Connections - FIXED: Removed role assignment dependencies
-
 @description('Create project connection to CosmosDB (thread storage); dependency for Azure AI Agent service.')
-resource threadStorageConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview' = {
+resource threadStorageConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-06-01' = {
   parent: aiFoundryProject
   name: cosmosDbAccount.name
   properties: {
@@ -181,7 +178,7 @@ resource threadStorageConnection 'Microsoft.CognitiveServices/accounts/projects/
 }
 
 @description('Create project connection to the Azure Storage account; dependency for Azure AI Agent service.')
-resource storageConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview' = {
+resource storageConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-06-01' = {
   parent: aiFoundryProject
   name: agentStorageAccount.name
   properties: {
@@ -200,7 +197,7 @@ resource storageConnection 'Microsoft.CognitiveServices/accounts/projects/connec
 }
 
 @description('Create project connection to Azure AI Search; dependency for Azure AI Agent service.')
-resource aiSearchConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview' = {
+resource aiSearchConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-06-01' = {
   parent: aiFoundryProject
   name: azureAISearchService.name
   properties: {
@@ -219,7 +216,7 @@ resource aiSearchConnection 'Microsoft.CognitiveServices/accounts/projects/conne
 }
 
 @description('Connect this project to application insights for visualization of token usage.')
-resource applicationInsightsConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview' = {
+resource applicationInsightsConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-06-01' = {
   parent: aiFoundryProject
   name:'appInsights-connection'
   properties: {
@@ -256,7 +253,7 @@ resource projectCosmosDbDataContributor 'Microsoft.DocumentDB/databaseAccounts/s
 }
 
 @description('Create the Azure AI Agent service.')
-resource aiAgentService 'Microsoft.CognitiveServices/accounts/projects/capabilityHosts@2025-04-01-preview' = {
+resource aiAgentService 'Microsoft.CognitiveServices/accounts/projects/capabilityHosts@2025-06-01' = {
   parent: aiFoundryProject
   name: 'projectagents'
   properties: {
@@ -271,7 +268,7 @@ resource aiAgentService 'Microsoft.CognitiveServices/accounts/projects/capabilit
 }
 
 @description('Create project connection to Bing grounding data. Useful for future agents that get created.')
-resource bingGroundingConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview' = {
+resource bingGroundingConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-06-01' = {
   parent: aiFoundryProject
   name: replace(existingBingAccountName, '-', '')
   properties: {
