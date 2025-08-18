@@ -45,7 +45,7 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2025-02
 // ---- New resources ----
 
 @description('Deploy Azure AI Foundry (account) with Azure AI Agent service capability.')
-resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
+resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   name: aiFoundryName
   location: location
   kind: 'AIServices'
