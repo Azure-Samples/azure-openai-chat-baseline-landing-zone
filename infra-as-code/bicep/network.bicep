@@ -60,6 +60,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
   resource appServiceSubnet 'subnets' = {
     name: 'snet-appServicePlan'
     properties: {
+      defaultOutboundAccess: false
       addressPrefix: appServicesSubnetAddressPrefix
       networkSecurityGroup: {
         id: appServiceSubnetNsg.id
@@ -81,6 +82,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
   resource appGatewaySubnet 'subnets' = {
     name: 'snet-appGateway'
     properties: {
+      defaultOutboundAccess: false
       addressPrefix: appGatewaySubnetAddressPrefix
       networkSecurityGroup: {
         id: appGatewaySubnetNsg.id
