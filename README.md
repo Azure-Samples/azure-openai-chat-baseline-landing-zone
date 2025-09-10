@@ -444,6 +444,14 @@ Most Azure resources deployed in the prior steps will incur ongoing charges unle
 
 Additionally, a few of the resources deployed enter soft delete status which will restrict the ability to redeploy another resource with the same name or DNS entry; and might not release quota. It's best to purge any soft deleted resources once you are done exploring. Use the following commands to delete the deployed resources and resource group and to purge each of the resources with soft delete.
 
+1. Delete the resource level locks for AI Foundry Project Capability Host dependencies
+
+   ```bash
+   az lock delete -g $RESOURCE_GROUP --resource-type 'Microsoft.Storage/storageAccounts' --resource stagent${BASE_NAME} -n stagent${BASE_NAME}-lock
+   az lock delete -g $RESOURCE_GROUP --resource-type 'Microsoft.DocumentDB/databaseAccounts' --resource cdb-ai-agent-threads-${BASE_NAME} -n cdb-ai-agent-threads-${BASE_NAME}-lock
+   az lock delete -g $RESOURCE_GROUP --resource-type 'Microsoft.Search/searchServices' --resource ais-ai-agent-vector-store-${BASE_NAME} -n ais-ai-agent-vector-store-${BASE_NAME}-lock
+   ```
+
 1. Delete the resource group as a way to delete all contained Azure resources.
 
    | :warning: | This will completely delete any data you may have included in this example. That data and this deployment will be unrecoverable. |
