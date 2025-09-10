@@ -119,6 +119,18 @@ resource aiSearchPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01'
   }
 }
 
+// Prevent Accidental Changes
+
+resource azureAiSearchServiceLocks 'Microsoft.Authorization/locks@2020-05-01' = {
+  scope: azureAiSearchService
+  name: '${azureAiSearchService.name}-lock'
+  properties: {
+    level: 'CanNotDelete'
+    notes: 'Prevent deleting; recovery not practical. Hard dependency for your AI Foundry Agent Service.'
+    owners: []
+  }
+}
+
 // ---- Outputs ----
 
 output aiSearchName string = azureAiSearchService.name
